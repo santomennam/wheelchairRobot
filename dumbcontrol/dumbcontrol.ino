@@ -16,6 +16,10 @@ bool debug = true;
 // TFmini by Peter Jansen (Time-of-flight distance sensor)
 // L298N by Andrea Lombardo (not currently in use 2/1/22)
 
+// soft e-stop switch
+const int estop1 = 6;  // OUTPUT LOW
+const int estop2 = 7;  // pulled up to High.  These pins are connected together with a NC switch    HIGH means STOP
+
 void wakeWheelchair()
 {
   foreBrainComm.write('w');
@@ -26,13 +30,13 @@ void wakeWheelchair()
 }
 double inputL = 0;
 double inputR = 0;
-double targetL = 0;
-double targetR = 0;
+double targetL = 4000;
+double targetR = 4000;
 double outputR = 0;
 double outputL = 0;
 
-double p = 1;
-double i = 0;
+double p = 0.001;
+double i = 0.001;
 double d = 0;
 
 void enableDebug()
@@ -47,12 +51,12 @@ void setMotorSpeeds(int left, int right)
 {
   char m1 = (char)left;
   char m2 = (char)right;
-  if (debug) {
-    Serial.print("left ");
-    Serial.print(left);
-    Serial.print(" right ");
-    Serial.println(right);
-  }
+//  if (debug) {
+//    Serial.print("left ");
+//    Serial.print(left);
+//    Serial.print(" right ");
+//    Serial.println(right);
+//  }
   foreBrainComm.write('m');
   foreBrainComm.write(m1);
   foreBrainComm.write(m2);
@@ -62,15 +66,15 @@ void setMotorSpeeds(int left, int right)
 unsigned long lastTime;
 void wheelChairSetup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   foreBrainComm.begin(9600);
   delay(1000);
   wakeWheelchair();
   lastTime = millis();
   PIDControllerL.begin(&inputL, &outputL, &targetL, p, i, d);
   PIDControllerR.begin(&inputR, &outputR, &targetR, p, i, d);
-  PIDControllerL.setOutputLimits(-40, 40);
-  PIDControllerR.setOutputLimits(-40, 40);
+  PIDControllerL.setOutputLimits(-35, 35);
+  PIDControllerR.setOutputLimits(-35, 35);
 }
 
 void softwareSetup() {
@@ -79,7 +83,10 @@ void softwareSetup() {
 void setup()
 {
   wheelChairSetup();
-
+  softwareSetup();
+  pinMode(estop1, OUTPUT);
+  digitalWrite(estop1, LOW);
+  pinMode(estop2, INPUT_PULLUP);
 }
 
 //create variables for wheelchair control
@@ -106,12 +113,29 @@ long oldPositionBlack  = -999;
 long oldPositionRed  = -999;
 unsigned long oldTime = 0;
 
-
-
+void checkEstop() 
+{
+    if (digitalRead(estop2) == HIGH) {
+        setMotorSpeeds(0,0);
+        Serial.println("E-STOP Detected!!!");
+        while (true) {
+           // spin!
+        }
+    }
+}
 void loop()
 {
-  //SENSORS
+//  while (true) {
+//    setMotorSpeeds(-39, -39);
+//    Serial.println("Boop");
+//    delay(300);
+//    checkEstop();
+//  }  
 
+//  seems like the motors only work between -39, -20 and 20, 40
+  //SENSORS
+   checkEstop();
+  
 //you'll never guess what these do
   long newPositionBlack = black.read();
   if (newPositionBlack != oldPositionBlack) {
@@ -127,6 +151,8 @@ void loop()
   Serial1a.listen();  //set bit rate of serial port connecting LiDAR with Arduino
   bool gotDataRight = false;
   while (!gotDataRight) {
+    checkEstop();
+    
     if (Serial1a.available()) {  //check if serial port has data input
       if (Serial1a.read() == HEADER) { //assess data package frame header 0x59
         uart[0] = HEADER;
@@ -142,14 +168,15 @@ void loop()
             unsigned long currentTime = millis();
 
 //do the sending
-            if (currentTime > oldTime + 100) {
-              Serial.print("#");
-              Serial.print(dist); //output measure distance value of LiDAR
-              Serial.print(" ");
-              Serial.print(oldPositionBlack);
-              Serial.print(" ");
-              Serial.println(oldPositionRed);
-            }
+//            if (currentTime > oldTime + 100) {
+//              oldTime = millis();
+//              Serial.print("#");
+//              Serial.print(dist); //output measure distance value of LiDAR
+//              Serial.print(" ");
+//              Serial.print(oldPositionBlack);
+//              Serial.print(" ");
+//              Serial.println(oldPositionRed);
+//            }
             Serial1a.end();
 
             gotDataRight = true;
@@ -210,7 +237,9 @@ void loop()
     }
 
 //use the encoder values we sent as PID inputs
+    oldPositionRed = -oldPositionRed;
     inputL = oldPositionRed;
+    oldPositionBlack = -oldPositionBlack;
     inputR = oldPositionBlack;
 
 //compute PID and set motors
@@ -239,8 +268,11 @@ void loop()
 
 //  check for disconnect
   if (millis() - lastTime >= timeout) {
-    Serial.println("ERROR Disconnect");
-    setMotorSpeeds(0, 0);
-    delay(500);
+    while (true) {
+      Serial.println("ERROR Disconnect");
+      setMotorSpeeds(0, 0);
+      delay(200);
+      checkEstop();
+    }
   }
 }
