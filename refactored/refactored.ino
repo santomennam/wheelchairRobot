@@ -36,13 +36,13 @@ void wakeWheelchair()
 
 double inputL = 0;
 double inputR = 0;
-double targetL = 4000;
-double targetR = 4000;
+double targetL = -8000;
+double targetR = -8000;
 double outputR = 0;
 double outputL = 0;
 
-double p = 0.001;
-double i = 0.001;
+double p = 0.037; //0.05 is pretty close but overshoots a little bit
+double i = 0.0001;
 double d = 0.001;
 
 void enableDebug()
