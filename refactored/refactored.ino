@@ -43,7 +43,7 @@ double outputL = 0;
 
 double p = 0.001;
 double i = 0.001;
-double d = 0;
+double d = 0.001;
 
 void enableDebug()
 {
