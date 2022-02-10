@@ -4,6 +4,7 @@ using namespace std;
 #include <string.h>
 #include <ArduPID.h>
 #include <Encoder.h>
+#include <Vec2d.h>
 
 ArduPID PIDControllerL;
 ArduPID PIDControllerR;
@@ -34,25 +35,21 @@ void wakeWheelchair()
   //Serial.println("Woken");
 }
 
-class Vec2d{
-  public:
-   int x;
-   int y;
-  public:
-    Vec2d(int x, int y);  
-}
-Vec2d::Vec2d(int x, int y){
-  
-}
-double threshold = 200; //amount of acceptable eroor
 
-targetIndex = 0;
 
+int threshold = 200; //amount of acceptable error (encoder units: 600/rotation)
+
+int targetIndex = 0;
+vector<Vec2d> targets{}; //this will hold (targetL,targetR) 
+
+float wheelCircumference = 10.01383; //inches. circ of encoder dummy wheels
+int encUnitsRot = 600; //encoder units per rotation 
+float barDiameter = 21;//inches. this is the distance between the wheels
 
 double inputL = 0;
 double inputR = 0;
-double targetL = 8000;
-double targetR = 8000;
+double targetL = targets[0].x;
+double targetR = targets[0].y;
 double outputR = 0;
 double outputL = 0;
 
@@ -63,6 +60,50 @@ double dL = 0.001;
 double pR = 0.038;
 double iR = 0.00009;
 double dR = 0.0015;
+
+int inches(double distance) //takes encoder units and returns inches
+{
+  return int(distance*encUnitsRot/wheelCircumference);
+}
+
+float encoders(int encs) //takes inches and returns encoder units
+{
+  return(wheelCircumference*encs/encUnitsRot)
+}
+
+float degrees(double rads)
+{
+  return rads * 57.2958; //conversion factor
+}
+
+float rads(int degrees)
+{
+  return degrees / 57.2958;
+}
+
+float radToArc(float rads){ //returns arc in inches
+  return barDiameter/2 * rads;
+}
+
+Vec2d generateTurn(int degrees)
+{
+  int sign = degrees < 0 ? -1 : 1;
+  //positive turn is counterclockwise
+  degrees = sign * (abs(degrees)%360); // constrain to +/- 360
+  if (abs(degrees) > 180){
+    degrees = (360-abs(degrees)) * -sign; //find complement, flip sign
+  }
+  float angle = rads(degrees);
+  float arc = radToArc(angle);
+  double dist = encoders(arc);
+  motorVals = Vec2d(-dist,dist);
+  return motorVals;
+}
+
+void turn(int degrees){
+  targets.push_back(generateTurn(degrees));
+}
+
 
 void enableDebug()
 {
@@ -280,7 +321,6 @@ void loop()
   inputL = -oldPositionRed;
   inputR = -oldPositionBlack;
 
-  activeTarget
   if(!closeEnough(threshold))
   {
   //compute PID and set motors
@@ -295,6 +335,13 @@ void loop()
       delay(200)
     }
     targetIndex++;
+    if(targetIndex-1 <= targets.size()){
+      Vec2d newTargets = targets[targetIndex];
+      targetL += newTargets.x;
+      targetR += newTargets.y; 
+    }
+    PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
+    PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);  
   }
   
   delay(100);
