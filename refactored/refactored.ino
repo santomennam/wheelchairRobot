@@ -34,7 +34,20 @@ void wakeWheelchair()
   //Serial.println("Woken");
 }
 
+class Vec2d{
+  public:
+   int x;
+   int y;
+  public:
+    Vec2d(int x, int y);  
+}
+Vec2d::Vec2d(int x, int y){
+  
+}
 double threshold = 200; //amount of acceptable eroor
+
+targetIndex = 0;
+
 
 double inputL = 0;
 double inputR = 0;
@@ -44,11 +57,11 @@ double outputR = 0;
 double outputL = 0;
 
 double pL = 0.037; //0.05 is pretty close but overshoots a little bit
-double iL = 0.0001;
+double iL = 0.0005;
 double dL = 0.001;
 
 double pR = 0.038;
-double iR = 0.00008;
+double iR = 0.00009;
 double dR = 0.0015;
 
 void enableDebug()
@@ -267,7 +280,7 @@ void loop()
   inputL = -oldPositionRed;
   inputR = -oldPositionBlack;
 
-  
+  activeTarget
   if(!closeEnough(threshold))
   {
   //compute PID and set motors
@@ -277,7 +290,11 @@ void loop()
   setMotorSpeeds(outputL, outputR);
   }
   else{
-    setMotorSpeeds(0,0);
+    for(int i = 0; i < 5; i++){
+      setMotorSpeeds(0,0);
+      delay(200)
+    }
+    targetIndex++;
   }
   
   delay(100);
