@@ -34,16 +34,22 @@ void wakeWheelchair()
   //Serial.println("Woken");
 }
 
+double threshold = 200; //amount of acceptable eroor
+
 double inputL = 0;
 double inputR = 0;
-double targetL = -8000;
-double targetR = -8000;
+double targetL = 8000;
+double targetR = 8000;
 double outputR = 0;
 double outputL = 0;
 
-double p = 0.037; //0.05 is pretty close but overshoots a little bit
-double i = 0.0001;
-double d = 0.001;
+double pL = 0.037; //0.05 is pretty close but overshoots a little bit
+double iL = 0.0001;
+double dL = 0.001;
+
+double pR = 0.038;
+double iR = 0.00008;
+double dR = 0.0015;
 
 void enableDebug()
 {
@@ -73,8 +79,8 @@ void wheelChairSetup()
   delay(1000);
   wakeWheelchair();
   lastTime = millis();
-  PIDControllerL.begin(&inputL, &outputL, &targetL, p, i, d);
-  PIDControllerR.begin(&inputR, &outputR, &targetR, p, i, d);
+  PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
+  PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
   PIDControllerL.setOutputLimits(-35, 35);
   PIDControllerR.setOutputLimits(-35, 35);
 }
@@ -232,7 +238,14 @@ void thisCouldBeImproved()
     Serial.println("Recieved Target");
   }
 }
-
+bool closeEnough(int threshold)
+{
+  if(abs(inputL-targetL) < threshold && abs(inputR-targetR) < threshold)
+  {
+     return true;
+  }
+  return false;
+}
 void loop()
 {
   checkEstop();
@@ -254,11 +267,18 @@ void loop()
   inputL = -oldPositionRed;
   inputR = -oldPositionBlack;
 
+  
+  if(!closeEnough(threshold))
+  {
   //compute PID and set motors
   PIDControllerL.compute(); //these will change outputL and outputR by reference, not by return value
   PIDControllerR.compute();
 
   setMotorSpeeds(outputL, outputR);
+  }
+  else{
+    setMotorSpeeds(0,0);
+  }
   
   delay(100);
   
