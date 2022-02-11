@@ -1,4 +1,5 @@
 {
     "board": "arduino:avr:uno",
-    "sketch": "refactored\\refactored.ino"
+    "sketch": "refactored\\refactored.ino",
+    "output": "../ArduinoOutput"
 }

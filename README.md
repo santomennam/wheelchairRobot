@@ -12,4 +12,4 @@ TFmini by Peter Jansen (Time-of-flight distance sensor)
 
 L298N by Andrea Lombardo (not currently in use 2/3/22)
 
-roboTry4 is a C++ program run on a central computer connected to an arduino running dumbcontrol. dumbcontrol is connected to one ToF sensor, two rotary encoders by wire and to the wheelchair by CAT-5.
+roboTry4 is a C++ program run on a central computer connected to an arduino running 'refactored'. refactored is connected to one ToF sensor, two rotary encoders by wire and to the wheelchair robot by CAT-5.

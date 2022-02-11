@@ -1,3 +1,7 @@
+#include <ArduinoSTL.h>
+#include <system_configuration.h>
+#include <unwind-cxx.h>
+#include <vector>
 using namespace std;
 
 #include <SoftwareSerial.h>
@@ -5,7 +9,6 @@ using namespace std;
 #include <ArduPID.h>
 #include <Encoder.h>
 #include <Vec2d.h>
-
 ArduPID PIDControllerL;
 ArduPID PIDControllerR;
 
@@ -16,7 +19,9 @@ bool debug = true;
 
 //Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 //using libraries:
-// ArduPID by PowerBroker2 (for PID)
+//Vec2d by Sage Santomenna (for convenient data storage)
+//ArduinoSTL by Mike Matera (c++ standard features)
+//ArduPID by PowerBroker2 (for PID)
 //    FireTimer by PowerBroker2 (dependency)
 // Encoder by Paul Stoffregen (guess what this is for)
 // TFmini by Peter Jansen (Time-of-flight distance sensor)
@@ -36,11 +41,16 @@ void wakeWheelchair()
 }
 
 
-
 int threshold = 200; //amount of acceptable error (encoder units: 600/rotation)
 
 int targetIndex = 0;
-vector<Vec2d> targets{}; //this will hold (targetL,targetR) 
+
+//this is just how u initialize a vector
+// std::vector<Vec2d> targets; //this will hold (targetL,targetR) 
+
+Vec2d arr [10] = {Vec2d(8000,8000)};
+arr[0] = Vec2d(8000,8000);
+
 
 float wheelCircumference = 10.01383; //inches. circ of encoder dummy wheels
 int encUnitsRot = 600; //encoder units per rotation 
@@ -61,20 +71,22 @@ double pR = 0.038;
 double iR = 0.00009;
 double dR = 0.0015;
 
-int inches(double distance) //takes encoder units and returns inches
+//takes encoder units and returns inches
+int inches(double distance) 
 {
   return int(distance*encUnitsRot/wheelCircumference);
 }
 
-float encoders(int encs) //takes inches and returns encoder units
+//takes inches and returns encoder units
+float encoders(int encs) 
 {
-  return(wheelCircumference*encs/encUnitsRot)
+  return(wheelCircumference*encs/encUnitsRot);
 }
 
-float degrees(double rads)
-{
-  return rads * 57.2958; //conversion factor
-}
+// float degrees(double rads)
+// {
+//   return rads * 57.2958; //conversion factor
+// }
 
 float rads(int degrees)
 {
@@ -96,12 +108,8 @@ Vec2d generateTurn(int degrees)
   float angle = rads(degrees);
   float arc = radToArc(angle);
   double dist = encoders(arc);
-  motorVals = Vec2d(-dist,dist);
+  Vec2d motorVals(-dist,dist);
   return motorVals;
-}
-
-void turn(int degrees){
-  targets.push_back(generateTurn(degrees));
 }
 
 
@@ -171,6 +179,7 @@ long oldPositionBlack = -999;
 long oldPositionRed   = -999;
 
 unsigned long oldTime = 0;
+
 
 void checkEstop()
 {
@@ -332,7 +341,7 @@ void loop()
   else{
     for(int i = 0; i < 5; i++){
       setMotorSpeeds(0,0);
-      delay(200)
+      delay(200);
     }
     targetIndex++;
     if(targetIndex-1 <= targets.size()){
@@ -344,9 +353,9 @@ void loop()
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);  
   }
   
-  delay(100);
+  // delay(100);
   
-  if (debug)
+  if(debug)
   {
     Serial.print("Left: ");
     Serial.print(outputL);
