@@ -6,6 +6,7 @@ class Vec2d{
    double x;
    double y;
   public:
+    Vec2d();
     Vec2d(double x, double y);
 };
 #endif

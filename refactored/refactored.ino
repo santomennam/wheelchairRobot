@@ -1,7 +1,7 @@
-#include <ArduinoSTL.h>
+//#include <ArduinoSTL.h>
 #include <system_configuration.h>
-#include <unwind-cxx.h>
-#include <vector>
+//#include <unwind-cxx.h>
+#include <array>
 using namespace std;
 
 #include <SoftwareSerial.h>
@@ -48,8 +48,9 @@ int targetIndex = 0;
 //this is just how u initialize a vector
 // std::vector<Vec2d> targets; //this will hold (targetL,targetR) 
 
-Vec2d arr [10] = {Vec2d(8000,8000)};
-arr[0] = Vec2d(8000,8000);
+array<Vec2d, 2> targets = { Vec2d(8000,8000), Vec2d(6000, 10000) };
+
+//= {Vec2d(8000,8000)};
 
 
 float wheelCircumference = 10.01383; //inches. circ of encoder dummy wheels
@@ -154,6 +155,8 @@ void softwareSetup()
 
 void setup()
 {
+  targets[0] = Vec2d(8000,8000);
+
   wheelChairSetup();
   softwareSetup();
   pinMode(estop1, OUTPUT);
