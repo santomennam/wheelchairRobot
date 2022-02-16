@@ -1,5 +1,6 @@
 {
-    "board": "arduino:avr:uno",
+    "board": "arduino:avr:mega",
     "sketch": "refactored\\refactored.ino",
-    "output": "../ArduinoOutput"
+    "output": "../ArduinoOutput",
+    "configuration": "cpu=atmega2560"
 }

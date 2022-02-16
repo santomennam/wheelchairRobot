@@ -1,7 +1,7 @@
-//#include <ArduinoSTL.h>
-#include <system_configuration.h>
-//#include <unwind-cxx.h>
-#include <array>
+#include "ArduinoSTL.h"
+#include "system_configuration.h"
+#include "unwind-cxx.h"
+#include "array"
 using namespace std;
 
 #include <SoftwareSerial.h>
@@ -155,8 +155,6 @@ void softwareSetup()
 
 void setup()
 {
-  targets[0] = Vec2d(8000,8000);
-
   wheelChairSetup();
   softwareSetup();
   pinMode(estop1, OUTPUT);
