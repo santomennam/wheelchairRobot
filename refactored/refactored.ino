@@ -48,7 +48,7 @@ int targetIndex = 0;
 //this is just how u initialize a vector
 // std::vector<Vec2d> targets; //this will hold (targetL,targetR) 
 
-array<Vec2d, 2> targets = { Vec2d(8000,8000), Vec2d(6000, 10000) };
+array<Vec2d, 3> targets = { Vec2d(8000,8000), generateTurn(90), generateTurn(-90) };
 
 //= {Vec2d(8000,8000)};
 
@@ -72,14 +72,14 @@ double pR = 0.038;
 double iR = 0.00009;
 double dR = 0.0015;
 
-//takes encoder units and returns inches
-int inches(double distance) 
+//takes inches and returns encoder units
+int encoders(double distance) 
 {
   return int(distance*encUnitsRot/wheelCircumference);
 }
 
-//takes inches and returns encoder units
-float encoders(int encs) 
+//takes encoder units and returns inches
+float inches(int encs) 
 {
   return(wheelCircumference*encs/encUnitsRot);
 }
@@ -345,7 +345,7 @@ void loop()
       delay(200);
     }
     targetIndex++;
-    if(targetIndex-1 <= targets.size()){
+    if(targetIndex < targets.size()){
       Vec2d newTargets = targets[targetIndex];
       targetL += newTargets.x;
       targetR += newTargets.y; 
@@ -354,7 +354,7 @@ void loop()
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);  
   }
   
-  // delay(100);
+  delay(100);
   
   if(debug)
   {
