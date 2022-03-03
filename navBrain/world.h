@@ -10,6 +10,7 @@
 #include <ostream>
 #include <fstream>
 #include "physics.h"
+#include "absolutepostracker.h"
 class World
 {
 public:
@@ -27,16 +28,17 @@ public:
     std::vector<Vec2d> newlyDetected;
     std::vector<Vec2d> alreadyDetected;
     std::string incomingData;
-    double olda = 0;
-    double oldb = 0;
-    double leftEnc;
-    double rightEnc;
+//    double olda = 0;
+//    double oldb = 0;
+//    double leftEnc;
+//    double rightEnc;
     bool gotFirstReading = false;
     bool drawBoundaries = true;
     physics phys;
     std::vector<Vec2d> path;
     bool navigated = false;
     Vec2d destination{0,0}; //will fuck up if first move is to 0,0
+    AbsolutePosTracker posTracker;
 public:
     void save(std::ostream& strm);
     void save(std::string filename);

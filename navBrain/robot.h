@@ -11,8 +11,6 @@ public:
     Vec2d velocity;
     double speed;//t to turn, move to 0,0, rotate, and then move back out. in draw, connect with lines. use desmoms to find it, start in the center when drawing
     std::vector<Vec2d> measuredPoints;
-public:
-    Robot(Vec2d startPosition);
     double length;
     bool moved = false;
     double distanceRead = 0;
@@ -20,6 +18,8 @@ public:
     Vec2d position; // pissy pants
     double angularVelocity = 0;
     std::vector<Vec2d> pointsToDraw{{-40,20},{-40,-20},{40,-20},{40,20}}; // put a vector of points here. when wan
+public:
+    Robot(Vec2d startPosition);
     void navigation();
     void measureStepOne();
     void turnLeft(double degrees);

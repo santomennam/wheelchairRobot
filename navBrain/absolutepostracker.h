@@ -29,6 +29,8 @@ class AbsolutePosTracker
 public:
     AbsolutePosTracker();
     bool update(int leftEnc, int rightEnc);
+    double getAngle() {return angle;};
+    Vec2d getPos() {return position;};
 };
 
 #endif // ABSOLUTEPOSTRACKER_H

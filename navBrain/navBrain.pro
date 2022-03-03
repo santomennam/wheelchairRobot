@@ -4,6 +4,7 @@ QT += multimedia
 CONFIG += gui
 CONFIG += c++14
 HEADERS    = \
+    absolutepostracker.h \
     networkclient.h \
     networkplugin.h \
     networkserver.h \
@@ -28,6 +29,7 @@ HEADERS    = \
     physics.h
 
 SOURCES     = \
+    absolutepostracker.cpp \
     main.cpp \
     graphics.cpp \
     networkclient.cpp \

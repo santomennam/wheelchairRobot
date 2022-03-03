@@ -98,10 +98,6 @@ void World::draw(Graphics &g)
 void World::dataInterp(string data)
 {
     std::replace(data.begin(),data.end(),'\r','\n');
-    double r = 10.5; //half of the length of the bar
-    double distance = 0;
-    double wheelR =  1.603; //inches
-
     incomingData += data;
     while(true){
         auto i = find(incomingData.begin(),incomingData.end(),'#');
@@ -118,60 +114,14 @@ void World::dataInterp(string data)
         string useful = incomingData.substr(1,(j-incomingData.begin()));
         incomingData.erase(incomingData.begin(),j);
         stringstream dataStream(useful);
-        if(gotFirstReading)
-        {
-            //double dangle = 0;
-            // cout<<useful<<endl;
-
-            double b = 0;
-            double a = 0;
-            dataStream>>robot.distanceRead>>a>>b; // uwu
-            robot.distanceRead /= 2.54;
-            robot.distanceRead += 8; //this will need to be removed
-//            a=a/4;
-//            b=b/4; THIS MIGHT NEED CHANGING
-            double  db = b-oldb;
-            double da = a-olda;
-
-            leftEnc = a;
-            rightEnc = b;
-
-//            if(a!= olda || b != oldb)
-//            {
-//                // cout<<" a: "<<a<<" b "<<b<<endl;
-//            }
-
-            olda = a;
-            oldb = b;
-
-            double aDist = da*((2*M_PI)*(wheelR)/600); //gonna cry? //for small encoder wheels //arc lengths in inches
-            double bDist = db*((2*M_PI)*(wheelR)/600); //arc length in inches
-   //         double dx =0; // r*(cos((bDist/r))-cos((aDist/r)));
-            double angle = (bDist-aDist)/(2*r);
-            double dy = -(aDist/2+bDist/2);
-            Vec2d Dy{dy,0};
-            Dy.rotate(robot.angle+(angle)/2); //taking out dividing by 2 at the end
-            if(da !=0 ||db != 0)
-            {
-                robot.moved = true;
-                //cout<<"aDist: "<<aDist<<" da: "<<da<<" db: "<<db<<" bDist: "<<bDist<<" dy: "<<dy<<" d angle: "<<((angle)/M_PI)*180<<" robot angle: "<<((robot.angle)/M_PI)*180<<endl;
-                //cout<<robot.position.x<<", "<<robot.position.y<<endl;
-            }
-            else{
-                //            robot.moved = false;
-            }
-
-            robot.angle += angle;
-            robot.position = robot.position + (Dy*4);
-        }
-        else{
-            //dataStream>>distance>>olda>>oldb;
-            //switching
-            dataStream>>distance>>oldb>>olda;
-            gotFirstReading = true;
-
-        }
-        //        return;
+        double a;
+        double b;
+        dataStream>>robot.distanceRead>>a>>b; // uwu
+        robot.distanceRead /= 2.54;
+        robot.distanceRead += 8; //this will need to be removed
+        posTracker.update(a,b);
+        robot.angle = posTracker.getAngle();
+        robot.position = posTracker.getPos();
     }
 }
 
@@ -288,24 +238,8 @@ bool World::masterNav(Vec2d dest,mssm::Graphics&g)
 
 double Robot::measureStep2(vector<Obstacle>obstacles) // do it here
 {
-
-    //    for(auto mp:measuredPoints)
-    //    {
-    //        for(auto ob : obstacles)
-    //        {
-    //            for(auto p : ob.pts)
-    //            {
-    //                if((mp-p).magnitude()<10)
-    //                {
-    //                    return((position-p).magnitude());
-    //                }
-    //            }
-    //        }
-    //    }
     if(distanceRead < 200/2.54)
     {
-       // cout<<"distance is: ";
-       // cout<<distanceRead<<endl;
         return distanceRead;
     }
     return(-1.0);
