@@ -41,15 +41,15 @@ int targetIndex = 0;
 // this is just how u initialize a vector
 //  std::vector<Vec2d> targets; //this will hold (targetL,targetR)
 
-const int numTargs = 3;
+const int numTargs = 4;
 
-Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90)};
+Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000,-8000)};
 
 //= {Vec2d(8000,8000)};
 
 float wheelCircumference = 10.01383; // inches. circ of encoder dummy wheels
-int encUnitsRot = 600;               // encoder units per rotation
-float barDiameter = 21;              // inches. this is the distance between the wheels
+int encUnitsRot = 2400;               // encoder units per rotation
+float barDiameter = 17;              // inches. this is the distance between the wheels
 
 double inputL = 0;
 double inputR = 0;
@@ -182,7 +182,29 @@ void checkEstop()
     Serial.println("E-STOP Detected!!!");
     while (true)
     {
-      // spin!
+      //in an e-stop holding pattern
+
+      
+      //measure
+       long newPositionBlack = black.read();
+        if (newPositionBlack != oldPositionBlack)
+        {
+          oldPositionBlack = newPositionBlack;
+        }
+      
+        long newPositionRed = red.read();
+        if (newPositionRed != oldPositionRed)
+        {
+          oldPositionRed = newPositionRed;
+        }
+
+      // send
+      Serial.print("#");
+      Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
+      Serial.print(" ");
+      Serial.print(oldPositionBlack);
+      Serial.print(" ");
+      Serial.println(oldPositionRed);
     }
   }
 }
@@ -349,17 +371,6 @@ void loop()
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
   }
 
-  delay(100);
-
-  // send
-
-  oldTime = millis();
-  Serial.print("#");
-  Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
-  Serial.print(" ");
-  Serial.print(oldPositionBlack);
-  Serial.print(" ");
-  Serial.println(oldPositionRed);
 
   // if(debug)
   // {
