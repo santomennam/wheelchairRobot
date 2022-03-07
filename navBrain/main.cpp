@@ -73,8 +73,8 @@ void graphicsMain(Graphics& g)
 
     Vec2d previous;
     bool recording = false;
-    int motorPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM4",QSerialPort::Baud9600); });
-    int dataPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
+    int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM4",QSerialPort::Baud9600); });
+//    int dataPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
 
     NetworkClientPlugin simWorldConnection{g, 1237, "localhost"};
 
@@ -114,9 +114,7 @@ void graphicsMain(Graphics& g)
     stringstream ss;
 
     ss<<"debug"<<'\n';
-    g.callPlugin(motorPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
-
-
+    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
 
     Vec2d destination{world.robot.position.x+10,world.robot.position.y+10};
     while (g.draw()) {
@@ -179,7 +177,7 @@ void graphicsMain(Graphics& g)
 //                cout<<"motor power too large"<<endl;
 //            }
 //            //string dataSend = "power " + to_string(static_cast<int>(world.phys.leftPower)) + " " + to_string(static_cast<int>(world.phys.rightPower))+"\n";
-//            g.callPlugin(motorPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+//            g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
 //        }
         g.text(10,130,20,"power "+to_string(world.phys.leftPower)+", "+to_string(world.phys.rightPower),WHITE);
         g.polyline(copynav,GREEN);
@@ -195,38 +193,42 @@ void graphicsMain(Graphics& g)
         world.phys.processMovement(20);
         for (const Event& e : g.events())
         {
-            NetworkSocketEvent socketEvent;
-            string socketData;
 
-            if (simWorldConnection.handleEvent(e, socketEvent, socketData)) {
-                // got a network event of some sort
-                switch (socketEvent)
-                {
-                case NetworkSocketEvent::connected:
-                    cout  << "Socket Connected to: " << socketData.c_str() << endl;
-                    simWorldConnection.send("Boop\n");
-                    break;
-                case NetworkSocketEvent::disconnected:
-                    cout  << "Socket Disconnected " << socketData.c_str() << endl;
-                    //connection.reConnect(1234, "localhost");
-                    //gameServer.closePlugin();
-                    break;
-                case NetworkSocketEvent::error:
-                    cout  << "Socket Network Error " << socketData.c_str() << endl;
-                    break;
-                case NetworkSocketEvent::other:
-                    cout  << "Socket Network Other " << socketData.c_str() << endl;
-                    break;
-                case NetworkSocketEvent::data:
-                    cout  << "Socket Data Packet1: " << socketData.c_str() << endl;
-                    world.dataInterp(socketData.c_str()); //is this where we get encoder and distance values?
-                    // bot has gotten some data from the server... handle it
-                    //bot.handleReceivedData(g, socketData);
-                    break;
-                }
+         //SIMWORLD STUFF
 
-                continue;
-            }
+//            NetworkSocketEvent socketEvent;
+//            string socketData;
+
+//            if (simWorldConnection.handleEvent(e, socketEvent, socketData)) {
+//                // got a network event of some sort
+//                switch (socketEvent)
+//                {
+//                case NetworkSocketEvent::connected:
+//                    cout  << "Socket Connected to: " << socketData.c_str() << endl;
+//                    simWorldConnection.send("Boop\n");
+//                    break;
+//                case NetworkSocketEvent::disconnected:
+//                    cout  << "Socket Disconnected " << socketData.c_str() << endl;
+//                    //connection.reConnect(1234, "localhost");
+//                    //gameServer.closePlugin();
+//                    break;
+//                case NetworkSocketEvent::error:
+//                    cout  << "Socket Network Error " << socketData.c_str() << endl;
+//                    break;
+//                case NetworkSocketEvent::other:
+//                    cout  << "Socket Network Other " << socketData.c_str() << endl;
+//                    break;
+//                case NetworkSocketEvent::data:
+//                    cout  << "Socket Data Packet1: " << socketData.c_str() << endl;
+//                    world.dataInterp(socketData.c_str()); // this is where we handle data from the sim world
+
+//                    // bot has gotten some data from the server... handle it
+//                    //bot.handleReceivedData(g, socketData);
+//                    break;
+//                }
+
+//                continue;
+//            }
 
             switch (e.evtType)
             {
@@ -266,16 +268,15 @@ void graphicsMain(Graphics& g)
                 }
                 break;
             case EvtType::PluginMessage:
-                if(e.pluginId == motorPluginID)
+                if(e.pluginId == boardPluginID)
                 {
 
                     int find = e.data.find("\r\n");
                     if(find != -1 && e.data != "ok\r\n"){
                     cout<<e.data<<endl;
                     }
-
                 }
-                if(e.pluginId == dataPluginID)
+                if(e.pluginId == boardPluginID)
                 {
                     if(recording)
                     {
@@ -312,9 +313,9 @@ void graphicsMain(Graphics& g)
                 case 'T':
                     cout<<"sending target"<<endl;
                     ss<<"target R 4000"<<'\n';
-                    g.callPlugin(motorPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
+                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
                     ss<<"target L 4000"<<'\n';
-                    g.callPlugin(motorPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
                     //                    if (!midpoints.empty()) {
                     //                        world.tree.placer(midpoints.back());
                     //                        midpoints.pop_back();
@@ -323,7 +324,7 @@ void graphicsMain(Graphics& g)
 
                     break;
                 case 'D':
-                   g.callPlugin(motorPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug");
+                   g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug");
                     break;
                 case 'X':
                 {
