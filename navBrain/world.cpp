@@ -57,6 +57,20 @@ void World::draw(Graphics &g)
         temp.x += robot.position.x;
         temp.y += robot.position.y;
     }
+
+    for(navPoint nav : posTracker.navPoints)
+    {
+        auto pos = nav.pos;
+        Vec2d head = nav.pos + Vec2d{15,0}.rotated(nav.angle);//second point in arrow
+        Vec2d t1 = head+ Vec2d{0,5}.rotated(nav.angle+2.87979); //165 deg
+        Vec2d t2 = head+ Vec2d{0,5}.rotated(nav.angle-2.87979);
+        vector<Vec2d> arrowPoints = {nav.pos,head,t1,t2};
+        for(auto i : arrowPoints)
+        {
+            i = view.worldToScreen(i);
+        }
+        g.polyline(arrowPoints,{50,50,150});
+    }
     if(showBeam){
         //for(int i = 0; i<world.robot.measuredPoints.size(); i++)
         //{
