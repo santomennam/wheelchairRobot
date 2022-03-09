@@ -2,6 +2,19 @@
 #define ABSOLUTEPOSTRACKER_H
 
 #include "vec2d.h"
+#include <chrono>
+
+using tp = std::chrono::time_point<std::chrono::steady_clock>;
+
+class navPoint
+{
+public:
+    Vec2d pos;
+    double angle; //rads
+    tp time; //see using tp =
+public:
+    navPoint(Vec2d pos, double angle);
+};
 
 class RobotParams
 {
@@ -21,11 +34,14 @@ public:
 
 class AbsolutePosTracker
 {
+public:
     Vec2d  position;
+    std::vector<navPoint> navPoints;
     double angle{0};
     int    oldLeftEnc;
     int    oldRightEnc;
     bool   gotFirstReading{false};
+    tp start;
 public:
     AbsolutePosTracker();
     bool update(int leftEnc, int rightEnc);
