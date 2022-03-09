@@ -14,7 +14,6 @@ bool debug = true;
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
 // Vec2d by Sage Santomenna (for convenient data storage)
-// ArduinoSTL by Mike Matera (c++ standard features)
 // ArduPID by PowerBroker2 (for PID)
 //     FireTimer by PowerBroker2 (dependency)
 //  Encoder by Paul Stoffregen (guess what this is for)
@@ -49,7 +48,7 @@ Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90
 
 float wheelCircumference = 10.01383; // inches. circ of encoder dummy wheels
 int encUnitsRot = 2400;               // encoder units per rotation
-float barDiameter = 17;              // inches. this is the distance between the wheels
+float barDiameter = 17;              // inches. this is the distance between the dummy wheels
 
 double inputL = 0;
 double inputR = 0;
@@ -183,7 +182,7 @@ void checkEstop()
     while (true)
     {
       //in an e-stop holding pattern
-
+      delay(100);
       
       //measure
        long newPositionBlack = black.read();
@@ -246,17 +245,6 @@ int readLidarDist()
             dist = uart[2] + uart[3] * 256; // calculate distance value
             temprature = temprature / 8 - 256;
             unsigned long currentTime = millis();
-
-            // do the sending
-            //             if (currentTime > oldTime + 100) {
-            //               oldTime = millis();
-            //               Serial.print("#");
-            //               Serial.print(dist); //output measure distance value of LiDAR
-            //               Serial.print(" ");
-            //               Serial.print(oldPositionBlack);
-            //               Serial.print(" ");
-            //               Serial.println(oldPositionRed);
-            //             }
             Serial1a.end();
 
             gotDataRight = true;
@@ -371,6 +359,14 @@ void loop()
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
   }
 
+
+  delay(100);
+  Serial.print("#");
+  Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
+  Serial.print(" ");
+  Serial.print(oldPositionBlack);
+  Serial.print(" ");
+  Serial.println(oldPositionRed);
 
   // if(debug)
   // {

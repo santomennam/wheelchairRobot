@@ -12,6 +12,11 @@ bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
         double db = rightEnc-oldRightEnc;
         double da = leftEnc-oldLeftEnc;
 
+
+        if(da != 0 && db != 0){
+
+        }
+
         oldRightEnc = rightEnc;
         oldLeftEnc = leftEnc;
 
