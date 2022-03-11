@@ -92,7 +92,6 @@ void graphicsMain(Graphics& g)
     World world({g.width()/2, g.height()/2},{{100,100}},width,height);
     phys.botWidth = world.tree.botWidth;
     string incomingData;
-    long long lastSendTime = g.time();
     //world.createObstacles(g);
     //  Node* closestNode = nullptr;
 
@@ -118,6 +117,13 @@ void graphicsMain(Graphics& g)
 
     Vec2d destination{world.robot.position.x+10,world.robot.position.y+10};
     while (g.draw()) {
+
+         std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
+         if(diff.count() >= 1)
+         {
+            g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,RED,RED);
+            g.text(g.width()/2-g.width()*0.04,g.height()*0.05,10,"TIMED OUT",WHITE);
+         }
 
         //know circumferences, each wheel travels half of the section of the circumference
 

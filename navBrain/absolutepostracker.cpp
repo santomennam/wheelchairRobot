@@ -7,7 +7,6 @@ AbsolutePosTracker::AbsolutePosTracker()
 
 
 
-
 bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
 {
     bool moved{false};

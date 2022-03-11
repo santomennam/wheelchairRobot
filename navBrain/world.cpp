@@ -5,6 +5,71 @@
 using namespace std;
 using namespace mssm;
 
+using tp = std::chrono::time_point<std::chrono::steady_clock>;
+
+int World::encoders(double distance)
+{
+  return int(distance * RobotParams::countsPerRev / RobotParams::encWheelCirc());
+}
+
+// takes encoder units and returns inches
+float World::inches(int encs)
+{
+    return (RobotParams::encWheelCirc() * encs / RobotParams::countsPerRev);
+}
+
+// float degrees(double rads)
+// {
+//   return rads * 57.2958; //conversion factor
+// }
+
+float World::rads(int degrees)
+{
+  return degrees / 57.2958;
+}
+
+float World::radToArc(float rads)
+{ // returns arc in inches
+  return RobotParams::encSeparation/ 2 * rads;
+}
+
+Vec2d World::generateTurn(int degrees)
+{
+  int sign = degrees < 0 ? -1 : 1;
+  // positive turn is counterclockwise
+  degrees = sign * (abs(degrees) % 360); // constrain to +/- 360
+  if (abs(degrees) > 180)
+  {
+    degrees = (360 - abs(degrees)) * -sign; // find complement, flip sign
+  }
+  float angle = rads(degrees);
+  float arc = radToArc(angle);
+  double dist = encoders(arc);
+  Vec2d motorVals(-dist, dist);
+  return motorVals;
+}
+
+double angle(Vec2d p1, Vec2d p2) //angle between these two rays
+{
+    return atan2(crossProduct(p1,p2),p1*p2);
+}
+
+double World::distanceToPoint(Vec2d p, Vec2d src)
+{
+    return Vec2d{p-src}.magnitude();
+}
+
+Vec2d World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) //returns encoder offset when turning between two points that are in inches units
+{
+    //calculate how our encoders will change
+    Vec2d dir1 = Vec2d{1,0}.rotated(currentAngle);
+    Vec2d dir2 = (inchDest-inchPos).unit();
+    double dangle = angle(dir1,dir2);
+    anglesAfterWaypoints.push_back(robot.angle+dangle);
+    Vec2d angularOffset = generateTurn(dangle);
+    return angularOffset;
+}
+
 void World::save(ostream& strm)
 {
     tree.save(strm);
@@ -28,7 +93,7 @@ void World::load(string filename)
 }
 
 World::World(Vec2d botStart, vector<Vec2d> obstaclePoints, double width, double height)
-    :robot(botStart), tree(width,height,robot.width)
+    :robot(botStart), tree(width,height,robot.width), lastTime(std::chrono::steady_clock::now())
 {
     strm = ofstream("writeNode.txt");
     // obstacles.emplace_back(obstaclePoints);
@@ -110,6 +175,7 @@ void World::draw(Graphics &g)
 
 void World::dataInterp(string data)
 {
+    lastTime = std::chrono::steady_clock::now();
     std::replace(data.begin(),data.end(),'\r','\n');
     incomingData += data;
     while(true){

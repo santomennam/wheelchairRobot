@@ -11,6 +11,9 @@
 #include <fstream>
 #include "physics.h"
 #include "absolutepostracker.h"
+
+using tp = std::chrono::time_point<std::chrono::steady_clock>;
+
 class World
 {
 public:
@@ -20,6 +23,7 @@ public:
     double worldScale = 0.5;
     Robot robot;
     AreaTree tree;
+    tp lastTime;
     std::vector<Obstacle> obstacles;    
     bool paused = false;
     bool showObstacle = false;
@@ -28,6 +32,7 @@ public:
     std::vector<Vec2d> newlyDetected;
     std::vector<Vec2d> alreadyDetected;
     std::string incomingData;
+    bool timedOut = false;
 //    double olda = 0;
 //    double oldb = 0;
 //    double leftEnc;
@@ -39,7 +44,15 @@ public:
     bool navigated = false;
     Vec2d destination{0,0}; //will fuck up if first move is to 0,0
     AbsolutePosTracker posTracker;
+    std::vector<double> anglesAfterWaypoints;
 public:
+    float inches(int encs);
+    int encoders(double distance);
+    float rads(int degrees);
+    float radToArc(float rads);
+    Vec2d generateTurn(int degrees);
+    double distanceToPoint(Vec2d point, Vec2d closest);
+    Vec2d encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest); //returns encoder offset when turning between two points that are in inches units
     void save(std::ostream& strm);
     void save(std::string filename);
     void load(std::istream& strm);
