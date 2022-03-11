@@ -60,12 +60,11 @@ void World::draw(Graphics &g)
 
     for(navPoint nav : posTracker.navPoints)
     {
-        auto pos = nav.pos;
         Vec2d head = nav.pos + Vec2d{15,0}.rotated(nav.angle);//second point in arrow
         Vec2d t1 = head+ Vec2d{0,5}.rotated(nav.angle+2.87979); //165 deg
         Vec2d t2 = head+ Vec2d{0,5}.rotated(nav.angle-2.87979);
         vector<Vec2d> arrowPoints = {nav.pos,head,t1,t2};
-        for(auto i : arrowPoints)
+        for(auto& i : arrowPoints)
         {
             i = view.worldToScreen(i);
         }
@@ -97,7 +96,7 @@ void World::draw(Graphics &g)
     {
         n = view.worldToScreen(n);
     }
-    g.polygon(copyRobot,WHITE,WHITE);
+    g.polygon(copyRobot,WHITE);
     //g.polyline(obstacle.pts,RED);
     for(int i = 0; i<newlyDetected.size();i++)
     {
