@@ -6,7 +6,7 @@
 #include <vector>
 #include <string>
 #include <complex>
-
+#include <ostream>
 class Vec2d
 {
 public:
@@ -32,9 +32,14 @@ public:
     bool equals(const Vec2d& other, double threshold) const;
 
     Vec2d unit() const { auto m = magnitude(); return { x/m, y/m }; }
+
 };
 
 // some handy operators
+
+std::ostream& operator<<(std::ostream& os, const Vec2d& vec);
+
+
 Vec2d operator+(Vec2d p1, Vec2d p2);
 Vec2d operator-(Vec2d p1, Vec2d p2);
 Vec2d operator*(Vec2d p1, double s);

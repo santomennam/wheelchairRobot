@@ -33,6 +33,12 @@ void Vec2d::translate(Vec2d offset)
     y += offset.y;
 }
 
+std::ostream& operator<<(std::ostream& os, const Vec2d& vec)
+{
+    os << "("<<vec.x<<", "<<vec.y<<")";
+    return os;
+}
+
 bool Vec2d::equals(const Vec2d& other, double threshold) const
 {
     return fabs(x - other.x) <= threshold && fabs(y - other.y) <= threshold;

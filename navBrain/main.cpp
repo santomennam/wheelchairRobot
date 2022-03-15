@@ -23,43 +23,6 @@
 using namespace std;
 using namespace mssm;
 
-//void draw(Graphics&g, World& world)//(trueCoords coordinatePlane,Robot robot,Graphics&g)
-//{
-//    world.robot.update();
-//    world.sensorCoords();
-
-//    vector<Vec2d> tempPoints = world.robot.pointsToDraw;
-//    for (Vec2d& temp:tempPoints)
-//    {
-//        temp.rotate(world.robot.angle);
-//        temp.x += world.robot.position.x;
-//        temp.y += world.robot.position.y;
-//    }
-//    cout<<"draw"<<endl;
-//    if(world.showBeam){
-//        //for(int i = 0; i<world.robot.measuredPoints.size(); i++)
-//        //{
-//        g.polyline(world.robot.measuredPoints,WHITE);
-//        //}
-//    }
-
-//    if(world.showObstacle)
-//    {
-//        for(int i = 0; i<world.obstacles.size();i++){
-//            for(int j =0; j<world.obstacles[i].pts.size();j++)
-//            {
-//                g.point(world.obstacles[i].pts[j], RED);
-//            }
-//        }
-//    }
-//    g.polygon(tempPoints,WHITE,WHITE);
-//    //g.polyline(obstacle.pts,RED);
-//    for(int i = 0; i<world.sensedCoords.size();i++)
-//    {
-//        g.point(world.sensedCoords[i],BLUE);
-//    }
-//}
-
 void graphicsMain(Graphics& g)
 {
 
@@ -74,7 +37,6 @@ void graphicsMain(Graphics& g)
     Vec2d previous;
     bool recording = false;
     int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM3",QSerialPort::Baud115200); });
-//    int dataPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
 
     NetworkClientPlugin simWorldConnection{g, 1237, "localhost"};
 
@@ -118,6 +80,7 @@ void graphicsMain(Graphics& g)
     Vec2d destination{world.robot.position.x+10,world.robot.position.y+10};
     while (g.draw()) {
 
+         world.updateTargets();
          std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
          if(diff.count() >= 1)
          {
@@ -170,21 +133,25 @@ void graphicsMain(Graphics& g)
             n=world.view.worldToScreen(n);
         }
 
-        //cout<<"bruh"<<endl;
 
-//        if(g.time()-lastSendTime>100) //milliseconds
-//        {
-//            lastSendTime = g.time();
-//            stringstream ss;
-//            ss<<"power "<<setw(4)<<static_cast<int>(world.phys.leftPower)<<" "<<setw(4)<<static_cast<int>(world.phys.rightPower)<<'\n';
-//            cout<<ss.str()<<endl;
-//            if(abs(world.phys.leftPower) > 127 || abs(world.phys.rightPower) > 127)
-//            {
-//                cout<<"motor power too large"<<endl;
-//            }
-//            //string dataSend = "power " + to_string(static_cast<int>(world.phys.leftPower)) + " " + to_string(static_cast<int>(world.phys.rightPower))+"\n";
-//            g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
-//        }
+        //TESTING THE PATH NAV SYSTEM
+        vector<Vec2d> path = {{300,200},{600,800}};
+        world.followPath(path);
+        for(int i = 0; i < world.targets.size(); i++)
+        {
+            cout<<"Dest "<<world.targets[i]<<" with angle "<<world.anglesAfterWaypoints[i]<<endl;
+        }
+
+        if(world.targetsChanged && world.targets.size())
+        {
+            world.targetsChanged = false;
+            Vec2d target = world.targets.back();
+            cout<<"sending target "<<target<<endl;
+            ss<<"target R "<<target.x<<'\n';
+            g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
+            ss<<"target L "<<target.y<<'\n';
+            g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+        }
         g.text(10,130,20,"power "+to_string(world.phys.leftPower)+", "+to_string(world.phys.rightPower),WHITE);
         g.polyline(copynav,GREEN);
 

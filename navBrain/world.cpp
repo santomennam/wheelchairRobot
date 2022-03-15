@@ -65,10 +65,50 @@ Vec2d World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) //r
     Vec2d dir1 = Vec2d{1,0}.rotated(currentAngle);
     Vec2d dir2 = (inchDest-inchPos).unit();
     double dangle = angle(dir1,dir2);
-    anglesAfterWaypoints.push_back(robot.angle+dangle);
-    Vec2d angularOffset = generateTurn(dangle);
-    return angularOffset;
+    anglesAfterWaypoints.push_back(currentAngle+dangle);
+    Vec2d angularEncTarget = generateTurn(dangle);
+    return angularEncTarget;
 }
+
+
+
+void World::updateTargets()
+{
+    if(targets.size())
+    {
+        if(posTracker.position.equals(targets.back(),acceptableError))
+        {
+            cout<<"Reached ("<<targets.back().x<<", "<<targets.back().y<<")"<<endl;
+            targets.pop_back();
+            targetsChanged = true;
+        }
+    }
+}
+
+void World::navToPoint(Vec2d start, Vec2d dest, double currentAngle)
+{
+    Vec2d turnPos = encsForTurn(currentAngle,start,dest);
+    targets.push_back(turnPos);
+    Vec2d finalPos = turnPos + Vec2d{encoders(distanceToPoint(turnPos,dest)),encoders(distanceToPoint(turnPos,dest))};
+    targets.push_back(finalPos);
+    anglesAfterWaypoints.push_back(anglesAfterWaypoints.back());
+}
+
+void World::followPath(std::vector<Vec2d> path)
+{
+    targets = {};
+    anglesAfterWaypoints = {};
+    if(path.size())
+    {
+        navToPoint(posTracker.position,path[0],posTracker.angle);
+        path.erase(path.begin());
+    }
+    for(int i = 0; !path.empty() && i < path.size()-1; i++)
+    {
+        navToPoint(path[i],path[i+1],anglesAfterWaypoints[i]);
+    }
+}
+
 
 void World::save(ostream& strm)
 {

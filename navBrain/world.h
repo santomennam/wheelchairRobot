@@ -45,8 +45,14 @@ public:
     Vec2d destination{0,0}; //will fuck up if first move is to 0,0
     AbsolutePosTracker posTracker;
     std::vector<double> anglesAfterWaypoints;
+    std::vector<Vec2d> targets;
+    int acceptableError;
+    bool targetsChanged = true;
 public:
     float inches(int encs);
+    void updateTargets();
+    void navToPoint(Vec2d start, Vec2d dest, double currentAngle);
+    void followPath(std::vector<Vec2d> path);
     int encoders(double distance);
     float rads(int degrees);
     float radToArc(float rads);
