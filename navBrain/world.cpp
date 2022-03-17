@@ -13,9 +13,14 @@ int World::encoders(double distance)
 }
 
 // takes encoder units and returns inches
-float World::inches(int encs)
+double World::inches(int encs)
 {
     return (RobotParams::encWheelCirc() * encs / RobotParams::countsPerRev);
+}
+
+Vec2d World::inchesPair(Vec2d encs)
+{
+    return(Vec2d{inches(encs.x),inches(encs.y)});
 }
 
 // float degrees(double rads)
@@ -59,15 +64,16 @@ double World::distanceToPoint(Vec2d p, Vec2d src)
     return Vec2d{p-src}.magnitude();
 }
 
-Vec2d World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) //returns encoder offset when turning between two points that are in inches units
+navPoint World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) //returns encoder offset when turning between two points that are in inches units
 {
     //calculate how our encoders will change
     Vec2d dir1 = Vec2d{1,0}.rotated(currentAngle);
     Vec2d dir2 = (inchDest-inchPos).unit();
     double dangle = angle(dir1,dir2);
-    anglesAfterWaypoints.push_back(currentAngle+dangle);
     Vec2d angularEncTarget = generateTurn(dangle);
-    return angularEncTarget;
+    navPoint destPoint{angularEncTarget,currentAngle+dangle,true};
+    cout<<"Destpoint for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.pos<<endl;
+    return destPoint;
 }
 
 
@@ -76,36 +82,37 @@ void World::updateTargets()
 {
     if(targets.size())
     {
-        if(posTracker.position.equals(targets.back(),acceptableError))
+        if(posTracker.position.equals(targets.back().pos,acceptableError))
         {
-            cout<<"Reached ("<<targets.back().x<<", "<<targets.back().y<<")"<<endl;
+            cout<<"Reached" <<targets.back().pos<<endl;
             targets.pop_back();
             targetsChanged = true;
         }
     }
 }
-
 void World::navToPoint(Vec2d start, Vec2d dest, double currentAngle)
 {
-    Vec2d turnPos = encsForTurn(currentAngle,start,dest);
+    navPoint turnPos = encsForTurn(currentAngle,start,dest);
+    cout<<"turn pos: " <<turnPos.pos<<endl;
+    turnPos.pos = turnPos.pos;
+//    cout<<"turn pos: " <<turnPos.pos<<" after adding " <<encoderPair(start)<<endl;
     targets.push_back(turnPos);
-    Vec2d finalPos = turnPos + Vec2d{encoders(distanceToPoint(turnPos,dest)),encoders(distanceToPoint(turnPos,dest))};
-    targets.push_back(finalPos);
-    anglesAfterWaypoints.push_back(anglesAfterWaypoints.back());
+    Vec2d finalPos = turnPos.pos + Vec2d{encoders(distanceToPoint(turnPos.pos,dest)),encoders(distanceToPoint(turnPos.pos,dest))};
+    navPoint final{finalPos,turnPos.angle};
+    targets.push_back(final);
 }
 
-void World::followPath(std::vector<Vec2d> path)
+void World::findEncPath(std::vector<Vec2d> path)
 {
     targets = {};
     anglesAfterWaypoints = {};
     if(path.size())
     {
         navToPoint(posTracker.position,path[0],posTracker.angle);
-        path.erase(path.begin());
     }
     for(int i = 0; !path.empty() && i < path.size()-1; i++)
     {
-        navToPoint(path[i],path[i+1],anglesAfterWaypoints[i]);
+        navToPoint(path[i],path[i+1],targets[i].angle);
     }
 }
 

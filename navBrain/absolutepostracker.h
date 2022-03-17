@@ -10,10 +10,12 @@ class navPoint
 {
 public:
     Vec2d pos;
+    Vec2d encoderReadings;
     double angle; //rads
     tp time; //see using tp =
+    bool turn; // is this point representing a turn
 public:
-    navPoint(Vec2d pos, double angle);
+    navPoint(Vec2d pos, double angle,bool turn=false);
 };
 
 class RobotParams

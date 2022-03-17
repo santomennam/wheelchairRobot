@@ -45,20 +45,20 @@ public:
     Vec2d destination{0,0}; //will fuck up if first move is to 0,0
     AbsolutePosTracker posTracker;
     std::vector<double> anglesAfterWaypoints;
-    std::vector<Vec2d> targets;
+    std::vector<navPoint> targets;
     int acceptableError;
     bool targetsChanged = true;
 public:
-    float inches(int encs);
+    int encoders(double distance);
+    double inches(int encs);
     void updateTargets();
     void navToPoint(Vec2d start, Vec2d dest, double currentAngle);
-    void followPath(std::vector<Vec2d> path);
-    int encoders(double distance);
+    void findEncPath(std::vector<Vec2d> path);
     float rads(int degrees);
     float radToArc(float rads);
     Vec2d generateTurn(int degrees);
     double distanceToPoint(Vec2d point, Vec2d closest);
-    Vec2d encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest); //returns encoder offset when turning between two points that are in inches units
+    navPoint encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest); //returns encoder offset when turning between two points that are in inches units
     void save(std::ostream& strm);
     void save(std::string filename);
     void load(std::istream& strm);

@@ -47,8 +47,9 @@ bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
     return moved;
 }
 
-navPoint::navPoint(Vec2d pos, double angle)
+navPoint::navPoint(Vec2d pos, double angle, bool turn)
 {
+    this->turn = turn;
     time = std::chrono::steady_clock::now();
     this->pos = pos;
     this->angle = angle;

@@ -77,6 +77,16 @@ void graphicsMain(Graphics& g)
     ss<<"debug"<<'\n';
     g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
 
+
+    //TESTING THE PATH NAV SYSTEM
+    world.masterNav({600,800},g);
+//    vector<Vec2d> path = {{300,200},{600,800}};
+    world.findEncPath(world.path);
+    for(int i = 0; i < world.targets.size(); i++)
+    {
+        cout<<"Dest "<<world.targets[i].pos<<" with angle "<<world.targets[i].angle << " and with inches pos "<<world.inchesPair(world.targets[i].pos) << ". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
+    }
+
     Vec2d destination{world.robot.position.x+10,world.robot.position.y+10};
     while (g.draw()) {
 
@@ -104,10 +114,10 @@ void graphicsMain(Graphics& g)
         world.phys.draw(g,world.view);
         //        g.ellipseC({g.height(),g.width()},50,50,RED);
         world.draw(g);
-        //        while (midpoints.size()>0) {
-        //            world.tree.placer(midpoints.back());
-        //            midpoints.pop_back();
-        //        }
+//                while (midpoints.size()>0) {
+//                    world.tree.placer(midpoints.back());
+//                    midpoints.pop_back();
+//                }
         if(recording)
         {
             g.rect(g.width()-20,g.height()-20,10,10,RED,RED);
@@ -134,18 +144,10 @@ void graphicsMain(Graphics& g)
         }
 
 
-        //TESTING THE PATH NAV SYSTEM
-        vector<Vec2d> path = {{300,200},{600,800}};
-        world.followPath(path);
-        for(int i = 0; i < world.targets.size(); i++)
-        {
-            cout<<"Dest "<<world.targets[i]<<" with angle "<<world.anglesAfterWaypoints[i]<<endl;
-        }
-
         if(world.targetsChanged && world.targets.size())
         {
             world.targetsChanged = false;
-            Vec2d target = world.targets.back();
+            Vec2d target = world.targets[0].pos;
             cout<<"sending target "<<target<<endl;
             ss<<"target R "<<target.x<<'\n';
             g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
