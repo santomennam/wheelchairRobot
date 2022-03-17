@@ -94,7 +94,7 @@ void World::navToPoint(Vec2d start, Vec2d dest, double currentAngle)
 {
     navPoint turnPos = encsForTurn(currentAngle,start,dest);
     cout<<"turn pos: " <<turnPos.pos<<endl;
-    turnPos.pos = turnPos.pos;
+    turnPos.pos = turnPos.pos; // NEED TO ADD CURRENT ENCODER COUNTS FROM NAV POINT
 //    cout<<"turn pos: " <<turnPos.pos<<" after adding " <<encoderPair(start)<<endl;
     targets.push_back(turnPos);
     Vec2d finalPos = turnPos.pos + Vec2d{encoders(distanceToPoint(turnPos.pos,dest)),encoders(distanceToPoint(turnPos.pos,dest))};
