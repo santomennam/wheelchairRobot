@@ -15,7 +15,7 @@ public:
     tp time; //see using tp =
     bool turn; // is this point representing a turn
 public:
-    navPoint(Vec2d pos, double angle,bool turn=false);
+    navPoint(Vec2d pos, double angle, Vec2d encoderReadings, bool turn=false);
 };
 
 class RobotParams
@@ -43,6 +43,7 @@ public:
     int    oldLeftEnc;
     int    oldRightEnc;
     bool   gotFirstReading{false};
+    Vec2d  encoderReadings;
     tp start;
 public:
     AbsolutePosTracker();

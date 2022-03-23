@@ -84,7 +84,10 @@ void graphicsMain(Graphics& g)
     world.findEncPath(world.path);
     for(int i = 0; i < world.targets.size(); i++)
     {
-        cout<<"Dest "<<world.targets[i].pos<<" with angle "<<world.targets[i].angle << " and with inches pos "<<world.inchesPair(world.targets[i].pos) << ". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
+        if(i > 1){
+            cout<<"Pos "<<world.targets[i-1].pos<<" and ";
+        }
+        cout<<"dest "<<world.targets[i].pos<<" with angle "<<world.targets[i].angle <<" and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
     }
 
     Vec2d destination{world.robot.position.x+10,world.robot.position.y+10};

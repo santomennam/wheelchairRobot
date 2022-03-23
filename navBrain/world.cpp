@@ -18,10 +18,6 @@ double World::inches(int encs)
     return (RobotParams::encWheelCirc() * encs / RobotParams::countsPerRev);
 }
 
-Vec2d World::inchesPair(Vec2d encs)
-{
-    return(Vec2d{inches(encs.x),inches(encs.y)});
-}
 
 // float degrees(double rads)
 // {
@@ -71,11 +67,10 @@ navPoint World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) 
     Vec2d dir2 = (inchDest-inchPos).unit();
     double dangle = angle(dir1,dir2);
     Vec2d angularEncTarget = generateTurn(dangle);
-    navPoint destPoint{angularEncTarget,currentAngle+dangle,true};
-    cout<<"Destpoint for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.pos<<endl;
+    navPoint destPoint{posTracker.position,currentAngle+dangle,angularEncTarget,true};
+    cout<<"Encs for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.encoderReadings<<endl;
     return destPoint;
 }
-
 
 
 void World::updateTargets()
@@ -92,23 +87,25 @@ void World::updateTargets()
 }
 void World::navToPoint(Vec2d start, Vec2d dest, double currentAngle)
 {
-    navPoint turnPos = encsForTurn(currentAngle,start,dest);
-    cout<<"turn pos: " <<turnPos.pos<<endl;
-    turnPos.pos = turnPos.pos; // NEED TO ADD CURRENT ENCODER COUNTS FROM NAV POINT
-//    cout<<"turn pos: " <<turnPos.pos<<" after adding " <<encoderPair(start)<<endl;
-    targets.push_back(turnPos);
-    Vec2d finalPos = turnPos.pos + Vec2d{encoders(distanceToPoint(turnPos.pos,dest)),encoders(distanceToPoint(turnPos.pos,dest))};
-    navPoint final{finalPos,turnPos.angle};
+    navPoint turnPoint = encsForTurn(currentAngle,start,dest);
+    cout<<"turn pos: " <<turnPoint.pos<<endl;
+    turnPoint.encoderReadings = turnPoint.encoderReadings + (targets.empty() ? posTracker.encoderReadings : targets.back().encoderReadings); // NEED TO ADD CURRENT ENCODER COUNTS FROM NAV POINT
+    targets.push_back(turnPoint);
+    Vec2d finalEncs = turnPoint.encoderReadings + Vec2d{encoders(distanceToPoint(turnPoint.pos,dest)),encoders(distanceToPoint(turnPoint.pos,dest))};
+    navPoint final{dest,turnPoint.angle,finalEncs};
     targets.push_back(final);
 }
 
-void World::findEncPath(std::vector<Vec2d> path)
+void World::findEncPath(std::vector<Vec2d> path) //pass a path of inches coordinates to navigate
 {
     targets = {};
     anglesAfterWaypoints = {};
     if(path.size())
     {
         navToPoint(posTracker.position,path[0],posTracker.angle);
+    }
+    else{
+        cout<<"findEncPath was passed an empty path!"<<endl;
     }
     for(int i = 0; !path.empty() && i < path.size()-1; i++)
     {

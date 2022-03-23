@@ -10,6 +10,7 @@ AbsolutePosTracker::AbsolutePosTracker()
 bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
 {
     bool moved{false};
+    double left = leftEnc; double right = rightEnc;
 
     if(gotFirstReading) {
         double db = rightEnc-oldRightEnc;
@@ -34,7 +35,7 @@ bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
         position = position + Dy;  // Dy was multiplied by 4 before???
 
         if(moved){
-            navPoints.push_back(navPoint(position,angle));
+            navPoints.push_back(navPoint(position,angle,encoderReadings));
         }
 
     }
@@ -47,8 +48,9 @@ bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
     return moved;
 }
 
-navPoint::navPoint(Vec2d pos, double angle, bool turn)
+navPoint::navPoint(Vec2d pos, double angle, Vec2d encoderCounts, bool turn)
 {
+    encoderReadings = encoderCounts;
     this->turn = turn;
     time = std::chrono::steady_clock::now();
     this->pos = pos;
