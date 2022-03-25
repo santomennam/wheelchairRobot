@@ -276,7 +276,7 @@ int readLidarDist()
   bool gotNewLeft = false;
   bool gotNewRight = false;
   
-void thisCouldBeImproved()
+void getCommands()
 {
   // read data from computer
   while (Serial.available() > 0)
@@ -303,10 +303,11 @@ void thisCouldBeImproved()
   {
     gotFirstTargets = true;
     data = data.substring(data.indexOf(" ") + 1, -1);
-    targetL = double(getValue(data, ' ', 0));
-    targetR = double(getValue(data, ' ', 1));   
+    targetL = (getValue(data, ' ', 0)).toDouble();
+    targetR = (getValue(data, ' ', 1)).toDouble();   
     PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
+    wakeWheelchair();
   }
  }
 }
@@ -322,6 +323,8 @@ bool closeEnough(int threshold)
 void loop()
 {
   checkEstop();
+
+  getCommands();
 
   // you'll never guess what these do
   long newPositionBlack = black.read();

@@ -36,7 +36,7 @@ void graphicsMain(Graphics& g)
 
     Vec2d previous;
     bool recording = false;
-    int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM3",QSerialPort::Baud115200); });
+    int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
 
     NetworkClientPlugin simWorldConnection{g, 1237, "localhost"};
 
