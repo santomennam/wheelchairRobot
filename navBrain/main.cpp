@@ -51,7 +51,7 @@ void graphicsMain(Graphics& g)
     vector<Vec2d> points;
     double width = 10000;
     double height = 10000;
-    World world({g.width()/2, g.height()/2},{{100,100}},width,height);
+    World world({0,0},{{100,100}},width,height);
     phys.botWidth = world.tree.botWidth;
     string incomingData;
     //world.createObstacles(g);
@@ -87,13 +87,12 @@ void graphicsMain(Graphics& g)
         if(i > 1){
             cout<<"Pos "<<world.targets[i-1].pos<<" and ";
         }
-        cout<<"dest "<<world.targets[i].pos<<" with angle "<<world.targets[i].angle <<" and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
+        cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
     }
-
-    Vec2d destination{world.robot.position.x+10,world.robot.position.y+10};
+    cout<<"Initial target size: "<<to_string(world.targets.size())<<endl;
+    Vec2d destination{600,800};
     while (g.draw()) {
-
-         world.updateTargets();
+//        cout<<"Target size: "<<to_string(world.targets.size())<<endl;
          std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
          if(diff.count() >= 1)
          {
@@ -105,22 +104,16 @@ void graphicsMain(Graphics& g)
 
 //        world.masterNav(destination,g); // COMMENTED OUT ON 1/26/22
 
+
+
         g.clear();
         if(drawAdj)
         {
             world.tree.showAdjacents(g,world.view);
         }
-        Vec2d front = {world.phys.position.x+20,world.phys.position.y};
-        front.rotate(world.phys.angle);
-        g.line(world.view.worldToScreen(world.phys.position),world.view.worldToScreen(front));
+
         g.ellipseC(world.view.worldToScreen(destination),10,10,RED,RED);
-        world.phys.draw(g,world.view);
-        //        g.ellipseC({g.height(),g.width()},50,50,RED);
         world.draw(g);
-//                while (midpoints.size()>0) {
-//                    world.tree.placer(midpoints.back());
-//                    midpoints.pop_back();
-//                }
         if(recording)
         {
             g.rect(g.width()-20,g.height()-20,10,10,RED,RED);
@@ -130,13 +123,6 @@ void graphicsMain(Graphics& g)
         {
             g.rect(g.width()-20,g.height()-20,10,10,GREEN,GREEN);
         }
-        //  world.tree.resetColor(g);
-        //        packet pack = world.tree.findClosestNode((g.mousePos()));
-        //        closestNode = pack.node;
-        //        //    closestNode->color = YELLOW;
-        //        g.point(pack.closestOnNode,RED);
-
-        //  draw(g,world);
 
         g.text(10,10,20, "Scale: "+to_string(world.view.scale));
 
@@ -146,19 +132,25 @@ void graphicsMain(Graphics& g)
             n=world.view.worldToScreen(n);
         }
 
+        world.updateTargets();
 
         if(world.targetsChanged && world.targets.size())
         {
             world.targetsChanged = false;
             Vec2d target = world.targets[0].pos;
             cout<<"sending target "<<target<<endl;
-            ss<<"target R "<<target.x<<'\n';
-            g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
-            ss<<"target L "<<target.y<<'\n';
+            ss<<"target "<<target.x<<" "<<target.y<<'\n';
             g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
         }
-        g.text(10,130,20,"power "+to_string(world.phys.leftPower)+", "+to_string(world.phys.rightPower),WHITE);
+
+        g.text(10,130,20,"Current encoder counts: "+to_string(world.posTracker.encoderReadings.x)+", "+to_string(world.posTracker.encoderReadings.y),WHITE);
         g.polyline(copynav,GREEN);
+
+        g.text(g.width()-200,g.height()-20,20,"Targets");
+        for(int i = 0; i < world.targets.size(); i++)
+        {
+            g.text(g.width()-200,g.height()-(40+20*i),20,world.targets[i].pos.toString());
+        }
 
         if(playback)
         {
@@ -168,46 +160,8 @@ void graphicsMain(Graphics& g)
                 cout<<line<<endl;
             }
         }
-        world.phys.processMovement(20);
         for (const Event& e : g.events())
         {
-
-         //SIMWORLD STUFF
-
-//            NetworkSocketEvent socketEvent;
-//            string socketData;
-
-//            if (simWorldConnection.handleEvent(e, socketEvent, socketData)) {
-//                // got a network event of some sort
-//                switch (socketEvent)
-//                {
-//                case NetworkSocketEvent::connected:
-//                    cout  << "Socket Connected to: " << socketData.c_str() << endl;
-//                    simWorldConnection.send("Boop\n");
-//                    break;
-//                case NetworkSocketEvent::disconnected:
-//                    cout  << "Socket Disconnected " << socketData.c_str() << endl;
-//                    //connection.reConnect(1234, "localhost");
-//                    //gameServer.closePlugin();
-//                    break;
-//                case NetworkSocketEvent::error:
-//                    cout  << "Socket Network Error " << socketData.c_str() << endl;
-//                    break;
-//                case NetworkSocketEvent::other:
-//                    cout  << "Socket Network Other " << socketData.c_str() << endl;
-//                    break;
-//                case NetworkSocketEvent::data:
-//                    cout  << "Socket Data Packet1: " << socketData.c_str() << endl;
-//                    world.dataInterp(socketData.c_str()); // this is where we handle data from the sim world
-
-//                    // bot has gotten some data from the server... handle it
-//                    //bot.handleReceivedData(g, socketData);
-//                    break;
-//                }
-
-//                continue;
-//            }
-
             switch (e.evtType)
             {
 
@@ -371,20 +325,20 @@ void graphicsMain(Graphics& g)
                     break;
                 }
                 break;
-            case EvtType::KeyRelease:
-                switch(e.arg)
-                {
-                case 'S':
-                case 'W':
-                    world.robot.speed = 0;
-                    break;
-                case 'D':
-                case 'A':
-                    world.robot.angularVelocity = 0;
-                    break;
-                default:
-                    break;
-                }
+//            case EvtType::KeyRelease:
+//                switch(e.arg)
+//                {
+//                case 'S':
+//                case 'W':
+//                    world.robot.speed = 0;
+//                    break;
+//                case 'D':
+//                case 'A':
+//                    world.robot.angularVelocity = 0;
+//                    break;
+//                default:
+//                    break;
+//                }
             }
         }
     }

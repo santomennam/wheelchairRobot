@@ -32,6 +32,7 @@ void wakeWheelchair()
   foreBrainComm.write('e');
   // Serial.println("Woken");
 }
+bool gotFirstTargets = false;
 
 int threshold = 200; // amount of acceptable error (encoder units: 600/rotation)
 
@@ -52,8 +53,8 @@ float barDiameter = 17;              // inches. this is the distance between the
 
 double inputL = 0;
 double inputR = 0;
-double targetL = targets[0].x;
-double targetR = targets[0].y;
+double targetL;
+double targetR;
 double outputR = 0;
 double outputL = 0;
 
@@ -173,6 +174,22 @@ long oldPositionRed = -999;
 
 unsigned long oldTime = 0;
 
+String getValue(String data, char separator, int index)
+{
+    int found = 0;
+    int strIndex[] = { 0, -1 };
+    int maxIndex = data.length() - 1;
+
+    for (int i = 0; i <= maxIndex && found <= index; i++) {
+        if (data.charAt(i) == separator || i == maxIndex) {
+            found++;
+            strIndex[0] = strIndex[1] + 1;
+            strIndex[1] = (i == maxIndex) ? i+1 : i;
+        }
+    }
+    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
+
 void checkEstop()
 {
   if (digitalRead(estop2) == HIGH)
@@ -256,6 +273,9 @@ int readLidarDist()
   return dist;
 }
 
+  bool gotNewLeft = false;
+  bool gotNewRight = false;
+  
 void thisCouldBeImproved()
 {
   // read data from computer
@@ -274,36 +294,23 @@ void thisCouldBeImproved()
     if (data.startsWith("debug"))
     {
       debug = !debug;
-      if (debug)
-      {
-        Serial.println("ok debug enabled");
-      }
-      else
-      {
-        Serial.println("ok debug off");
-      }
       lastTime = millis();
     }
-  }
+
 
   // get target encoder values for the PID
   else if (data.startsWith("target"))
   {
+    gotFirstTargets = true;
     data = data.substring(data.indexOf(" ") + 1, -1);
-
-    if (data[0] == 'R')
-    {
-      targetR = data.substring(data.indexOf(" ") + 1, -1).toDouble();
-      Serial.println("Recieved Target " + String(targetR));
-    }
-    else if (data[0] == 'L')
-    {
-      targetL = data.substring(data.indexOf(" ") + 1, -1).toDouble();
-      Serial.println("Recieved Target " + String(targetL));
-    }
-    Serial.println("Recieved Target");
+    targetL = double(getValue(data, ' ', 0));
+    targetR = double(getValue(data, ' ', 1));   
+    PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
+    PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
   }
+ }
 }
+
 bool closeEnough(int threshold)
 {
   if (abs(inputL - targetL) < threshold && abs(inputR - targetR) < threshold)
@@ -333,7 +340,7 @@ void loop()
   inputL = -oldPositionRed;
   inputR = -oldPositionBlack;
 
-  if (!closeEnough(threshold))
+  if (!closeEnough(threshold) && gotFirstTargets)
   {
     // compute PID and set motors
     PIDControllerL.compute(); // these will change outputL and outputR by reference, not by return value
@@ -341,23 +348,10 @@ void loop()
 
     setMotorSpeeds(outputL, outputR);
   }
-  else
-  {
-    for (int i = 0; i < 5; i++)
-    {
-      setMotorSpeeds(0, 0);
-      delay(200);
-    }
-    targetIndex++;
-    if (targetIndex < numTargs)
-    {
-      Vec2d newTargets = targets[targetIndex];
-      targetL += newTargets.x;
-      targetR += newTargets.y;
-    }
-    PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
-    PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
-  }
+//  else
+//  {
+////    Serial.println("target reached")
+//  }
 
 
   delay(100);

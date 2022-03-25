@@ -9,7 +9,7 @@ using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
 int World::encoders(double distance)
 {
-  return int(distance * RobotParams::countsPerRev / RobotParams::encWheelCirc());
+    return int(distance * RobotParams::countsPerRev / RobotParams::encWheelCirc());
 }
 
 // takes encoder units and returns inches
@@ -67,8 +67,8 @@ navPoint World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) 
     Vec2d dir2 = (inchDest-inchPos).unit();
     double dangle = angle(dir1,dir2);
     Vec2d angularEncTarget = generateTurn(dangle);
-    navPoint destPoint{posTracker.position,currentAngle+dangle,angularEncTarget,true};
-    cout<<"Encs for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.encoderReadings<<endl;
+    navPoint destPoint{targets.empty() ? posTracker.position : targets.back().pos,currentAngle+dangle,angularEncTarget,true};
+//    cout<<"Encs for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.encoderReadings<<endl;
     return destPoint;
 }
 
@@ -77,10 +77,17 @@ void World::updateTargets()
 {
     if(targets.size())
     {
-        if(posTracker.position.equals(targets.back().pos,acceptableError))
+        if(posTracker.position.equals(targets[0].pos,acceptableError))
         {
-            cout<<"Reached" <<targets.back().pos<<endl;
-            targets.pop_back();
+            cout<<"Pos "<<posTracker.position<<", I think I've reached "<<targets[0].pos<<endl;
+            cout<<"Targets: ";
+            for(auto targ : targets)
+            {
+                cout<<targ.pos;
+            }
+            cout<<endl;
+            cout<<"Reached" <<targets[0].pos<<endl;
+            targets.erase(targets.begin());
             targetsChanged = true;
         }
     }
@@ -89,7 +96,7 @@ void World::navToPoint(Vec2d start, Vec2d dest, double currentAngle)
 {
     navPoint turnPoint = encsForTurn(currentAngle,start,dest);
     cout<<"turn pos: " <<turnPoint.pos<<endl;
-    turnPoint.encoderReadings = turnPoint.encoderReadings + (targets.empty() ? posTracker.encoderReadings : targets.back().encoderReadings); // NEED TO ADD CURRENT ENCODER COUNTS FROM NAV POINT
+    turnPoint.encoderReadings = turnPoint.encoderReadings + (targets.empty() ? posTracker.encoderReadings : targets.back().encoderReadings);
     targets.push_back(turnPoint);
     Vec2d finalEncs = turnPoint.encoderReadings + Vec2d{encoders(distanceToPoint(turnPoint.pos,dest)),encoders(distanceToPoint(turnPoint.pos,dest))};
     navPoint final{dest,turnPoint.angle,finalEncs};

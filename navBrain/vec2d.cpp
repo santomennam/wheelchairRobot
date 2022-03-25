@@ -33,6 +33,11 @@ void Vec2d::translate(Vec2d offset)
     y += offset.y;
 }
 
+string Vec2d::toString()
+{
+    return "(" + to_string(x) + ", " + to_string(y) +")";
+}
+
 std::ostream& operator<<(std::ostream& os, const Vec2d& vec)
 {
     os << "("<<vec.x<<", "<<vec.y<<")";
