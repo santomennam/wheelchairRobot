@@ -297,7 +297,11 @@ void getCommands()
       lastTime = millis();
     }
 
-
+  else if(data.startsWith("ask")){
+    delay(100);
+    Serial.println(String("ans (" + String(targetL)+", "+String(targetR)+")"));
+    delay(100);
+  }
   // get target encoder values for the PID
   else if (data.startsWith("target"))
   {
@@ -348,7 +352,6 @@ void loop()
     // compute PID and set motors
     PIDControllerL.compute(); // these will change outputL and outputR by reference, not by return value
     PIDControllerR.compute();
-
     setMotorSpeeds(outputL, outputR);
   }
 //  else

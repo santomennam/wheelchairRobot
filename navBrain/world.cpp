@@ -226,6 +226,9 @@ void World::draw(Graphics &g)
 
 void World::dataInterp(string data)
 {
+    if(data[0] == 'a'){
+       cout<<data<<endl;
+    }
     lastTime = std::chrono::steady_clock::now();
     std::replace(data.begin(),data.end(),'\r','\n');
     incomingData += data;

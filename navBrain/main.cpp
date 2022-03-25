@@ -69,7 +69,7 @@ void graphicsMain(Graphics& g)
     }
 
     world.worldScale = 0.04;
-    world.panOffset = {500, 500};
+    world.view.pan(Vec2d{g.width()/2, g.height()/2});
 
     string lastLine;
     stringstream ss;
@@ -137,7 +137,7 @@ void graphicsMain(Graphics& g)
         if(world.targetsChanged && world.targets.size())
         {
             world.targetsChanged = false;
-            Vec2d target = world.targets[0].pos;
+            Vec2d target = world.targets[0].encoderReadings;
             cout<<"sending target "<<target<<endl;
             ss<<"target "<<target.x<<" "<<target.y<<'\n';
             g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
@@ -217,6 +217,7 @@ void graphicsMain(Graphics& g)
                         cout<<"recording"<<endl;
                     }
                     if(!playback&&!recording){
+                        cout<<e.data<<endl;
                         world.dataInterp(e.data);
                     }
                 }
@@ -243,17 +244,9 @@ void graphicsMain(Graphics& g)
                     }
                     break;
                 case 'T':
-                    cout<<"sending target"<<endl;
-                    ss<<"target R 4000"<<'\n';
-                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
-                    ss<<"target L 4000"<<'\n';
+                    cout<<"ask"<<endl;
+                    ss<<"ask"<<'\n';
                     g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
-                    //                    if (!midpoints.empty()) {
-                    //                        world.tree.placer(midpoints.back());
-                    //                        midpoints.pop_back();
-                    //                    }
-//                    destination = world.view.screenToWorld(g.mousePos());
-
                     break;
                 case 'D':
                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug");
