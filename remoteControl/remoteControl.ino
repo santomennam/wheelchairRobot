@@ -1,34 +1,21 @@
-#include <L298N.h>
-//left motor
-#define leftEN 11
-#define leftin1 7  
-#define leftin2 6
-//right motor
-#define rightEN 9
-#define rightin1 5
-#define rightin2 4
-
-double A;
-double B;
-double C;
-double D;
-//
-//L298N leftMotor (leftEN, leftin1, leftin2);
-//L298N rightMotor (rightEN, rightin1, rightin2);
+const int estop1 = 6; // OUTPUT LOW
+const int estop2 = 7; // pulled up to High.  These pins are connected together with a NC switch    HIGH means STOP
 
 
-//analogRead(A39)
-
-double equation(double A, double B, double C, double D, double x, double y)
-{
-   return x*(A+(B-A)*y)+(1-x)*(D+(C-D)*y);
-}
 
 void setup() {
- Serial.begin(9600);
+ Serial.begin(115200);
+ delay(100);
+ pinMode(estop1, OUTPUT);
+ digitalWrite(estop1, LOW);
+ pinMode(estop2, INPUT_PULLUP);
 }
 
 void loop() {
+      while(digitalRead(estop2) == HIGH)
+      {
+        Serial.println("estop");
+      }
   double left = analogRead(A5)/4.011; //left = 255 right = 0
   double right = analogRead(A4)/4.011; //up = 255 down = 0
   Serial.print("left = ");
