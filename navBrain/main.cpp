@@ -44,7 +44,10 @@ void graphicsMain(Graphics& g)
     ofstream file;
     ifstream input;
     bool playback = false;
+    Vec2d queriedLoc;
+    std::chrono::time_point<std::chrono::steady_clock> queriedTime;
     Vec2d merge2;
+    Vec2d trackingPair;
     bool merge = false;
     bool clicked = false;
     Vec2d point;
@@ -58,7 +61,6 @@ void graphicsMain(Graphics& g)
     //  Node* closestNode = nullptr;
 
     vector<Vec2d> midpoints;
-
     double stepx = width/5;
     double stepy = height/10;
 
@@ -79,8 +81,10 @@ void graphicsMain(Graphics& g)
 
 
     //TESTING THE PATH NAV SYSTEM
-    world.masterNav({600,800},g);
-//    vector<Vec2d> path = {{300,200},{600,800}};
+    Vec2d destination{100,0};
+    //    world.masterNav(destination,g);
+    world.path = vector<Vec2d>{{50,0}};
+    //    vector<Vec2d> path = {{300,200},{600,800}};
     world.findEncPath(world.path);
     for(int i = 0; i < world.targets.size(); i++)
     {
@@ -90,19 +94,19 @@ void graphicsMain(Graphics& g)
         cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
     }
     cout<<"Initial target size: "<<to_string(world.targets.size())<<endl;
-    Vec2d destination{600,800};
+
     while (g.draw()) {
-//        cout<<"Target size: "<<to_string(world.targets.size())<<endl;
-         std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
-         if(diff.count() >= 1)
-         {
+        //        cout<<"Target size: "<<to_string(world.targets.size())<<endl;
+        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
+        if(diff.count() >= 1)
+        {
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,RED,RED);
             g.text(g.width()/2-g.width()*0.04,g.height()*0.05,10,"TIMED OUT",WHITE);
-         }
+        }
 
         //know circumferences, each wheel travels half of the section of the circumference
 
-//        world.masterNav(destination,g); // COMMENTED OUT ON 1/26/22
+        //        world.masterNav(destination,g); // COMMENTED OUT ON 1/26/22
 
 
 
@@ -112,7 +116,7 @@ void graphicsMain(Graphics& g)
             world.tree.showAdjacents(g,world.view);
         }
 
-        g.ellipseC(world.view.worldToScreen(destination),10,10,RED,RED);
+        g.ellipseC(world.view.worldToScreen(destination),10,10,RED,WHITE);
         world.draw(g);
         if(recording)
         {
@@ -124,7 +128,7 @@ void graphicsMain(Graphics& g)
             g.rect(g.width()-20,g.height()-20,10,10,GREEN,GREEN);
         }
 
-        g.text(10,10,20, "Scale: "+to_string(world.view.scale));
+
 
         vector<Vec2d> copynav = world.path;
         for(auto& n : copynav)
@@ -138,19 +142,39 @@ void graphicsMain(Graphics& g)
         {
             world.targetsChanged = false;
             Vec2d target = world.targets[0].encoderReadings;
+            trackingPair = target;
             cout<<"sending target "<<target<<endl;
             ss<<"target "<<target.x<<" "<<target.y<<'\n';
             g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
         }
-
-        g.text(10,130,20,"Current encoder counts: "+to_string(world.posTracker.encoderReadings.x)+", "+to_string(world.posTracker.encoderReadings.y),WHITE);
-        g.polyline(copynav,GREEN);
-
-        g.text(g.width()-200,g.height()-20,20,"Targets");
-        for(int i = 0; i < world.targets.size(); i++)
-        {
-            g.text(g.width()-200,g.height()-(40+20*i),20,world.targets[i].pos.toString());
+        else if (world.targetsChanged) {
+            g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,GREEN,GREEN);
+            g.text(g.width()/2-g.width()*0.04,g.height()*0.1,10,"Reached Dest",WHITE);
         }
+
+        //draw info
+        if(world.diagnostics){
+            g.text(10,130,20,"Current encoder counts: " + world.posTracker.encoderReadings.toIntString(),WHITE);
+
+            g.polyline(copynav,GREEN);
+
+            g.text(g.width()-200,g.height()-20,20,"Targets");
+            for(int i = 0; i < world.targets.size(); i++)
+            {
+                g.text(g.width()-200,g.height()-(40+20*i),20,world.targets[i].pos.toIntString());
+            }
+
+            g.text(10,10,20, "Scale: "+to_string(world.view.scale));
+
+            g.text(10,155,20,"Target encoder counts: "+trackingPair.toIntString());
+            if(world.queried)
+            {
+                std::chrono::duration<double> diff = std::chrono::steady_clock::now() - queriedTime;
+                g.text(g.width() - 300, 155, 20, "Last queried target: "+ world.queriedTarget.toIntString());
+                g.text(g.width() - 300,125,10,to_string(diff.count()));
+            }
+        }
+
 
         if(playback)
         {
@@ -205,7 +229,7 @@ void graphicsMain(Graphics& g)
 
                     int find = e.data.find("\r\n");
                     if(find != -1 && e.data != "ok\r\n"){
-                    cout<<e.data<<endl;
+                        cout<<e.data<<endl;
                     }
                 }
                 if(e.pluginId == boardPluginID)
@@ -247,9 +271,11 @@ void graphicsMain(Graphics& g)
                     cout<<"ask"<<endl;
                     ss<<"ask"<<'\n';
                     g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+                    queriedTime = std::chrono::steady_clock::now();
                     break;
                 case 'D':
-                   g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug");
+                    world.diagnostics = !world.diagnostics;
+//                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug");
                     break;
                 case 'X':
                 {
@@ -318,20 +344,20 @@ void graphicsMain(Graphics& g)
                     break;
                 }
                 break;
-//            case EvtType::KeyRelease:
-//                switch(e.arg)
-//                {
-//                case 'S':
-//                case 'W':
-//                    world.robot.speed = 0;
-//                    break;
-//                case 'D':
-//                case 'A':
-//                    world.robot.angularVelocity = 0;
-//                    break;
-//                default:
-//                    break;
-//                }
+                //            case EvtType::KeyRelease:
+                //                switch(e.arg)
+                //                {
+                //                case 'S':
+                //                case 'W':
+                //                    world.robot.speed = 0;
+                //                    break;
+                //                case 'D':
+                //                case 'A':
+                //                    world.robot.angularVelocity = 0;
+                //                    break;
+                //                default:
+                //                    break;
+                //                }
             }
         }
     }

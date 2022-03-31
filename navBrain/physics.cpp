@@ -154,8 +154,8 @@ bool physics::goTo(Vec2d point, mssm::Graphics& g)
     else{
       //  cout<<"in the super special section"<<endl;
         double radius = max(min((((600/M_PI)*dangle)+600),600.0),1.0) * dangle/abs(dangle); //angle over abs dangle makes sure the sign is correct //inches
-        g.text(200,600,20,to_string(radius));
-        g.text(200,650,20,to_string(dangle));
+//        g.text(200,600,20,to_string(radius));
+//        g.text(200,650,20,to_string(dangle));
 
         leftPower = getPowerCurve(radius,20).x;
         rightPower = getPowerCurve(radius,20).y;

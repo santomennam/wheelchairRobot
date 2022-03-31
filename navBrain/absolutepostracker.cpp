@@ -5,12 +5,11 @@ AbsolutePosTracker::AbsolutePosTracker()
     start = std::chrono::steady_clock::now();
 }
 
-
-
 bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
 {
     bool moved{false};
     double left = leftEnc; double right = rightEnc;
+    encoderReadings = {left,right};
 
     if(gotFirstReading) {
         double db = rightEnc-oldRightEnc;
@@ -32,7 +31,7 @@ bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
 
 
         angle += dAngle;
-        position = position + Dy;  // Dy was multiplied by 4 before???
+        position = position - Dy; // changed from + to - 3/31/22
 
         if(moved){
             navPoints.push_back(navPoint(position,angle,encoderReadings));

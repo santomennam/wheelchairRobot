@@ -34,7 +34,7 @@ void wakeWheelchair()
 }
 bool gotFirstTargets = false;
 
-int threshold = 200; // amount of acceptable error (encoder units: 600/rotation)
+int threshold = 800; // amount of acceptable error (encoder units: 2400/rotation)
 
 int targetIndex = 0;
 
@@ -58,13 +58,13 @@ double targetR;
 double outputR = 0;
 double outputL = 0;
 
-double pL = 0.037; // 0.05 is pretty close but overshoots a little bit
+double pL = 0.03; // 0.05 is pretty close but overshoots a little bit
 double iL = 0.0005;
 double dL = 0.001;
 
-double pR = 0.038;
-double iR = 0.00009;
-double dR = 0.0015;
+double pR = 0.037;
+double iR = 0.0005;
+double dR = 0.001;
 
 // takes inches and returns encoder units
 int encoders(double distance)
@@ -218,9 +218,9 @@ void checkEstop()
       Serial.print("#");
       Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
       Serial.print(" ");
-      Serial.print(oldPositionBlack);
+      Serial.print(inputL);
       Serial.print(" ");
-      Serial.println(oldPositionRed);
+      Serial.println(inputR);
     }
   }
 }
@@ -299,8 +299,9 @@ void getCommands()
 
   else if(data.startsWith("ask")){
     delay(100);
-    Serial.println(String("ans (" + String(targetL)+", "+String(targetR)+")"));
+    Serial.println(String("ans # " + String(targetL)+" "+String(targetR)+"\n"));
     delay(100);
+    return;
   }
   // get target encoder values for the PID
   else if (data.startsWith("target"))
@@ -364,9 +365,9 @@ void loop()
   Serial.print("#");
   Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
   Serial.print(" ");
-  Serial.print(oldPositionBlack);
+  Serial.print(inputL);
   Serial.print(" ");
-  Serial.println(oldPositionRed);
+  Serial.println(inputR);
 
   // if(debug)
   // {

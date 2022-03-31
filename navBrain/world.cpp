@@ -154,9 +154,11 @@ void World::draw(Graphics &g)
 {if(drawBoundaries){
         tree.draw(g,view);
     }
-    g.text({50,50}, 20, to_string(robot.position.x));
-         g.text({50,70}, 20, to_string(robot.position.y));
-         g.text({50,90}, 20, to_string(robot.angle));
+    if(diagnostics){
+         g.text({50,70}, 20, "x pos " + to_string(robot.position.x));
+         g.text({50,50}, 20, "y pos " + to_string(robot.position.y));
+         g.text({50,90}, 20, "angle " + to_string(robot.angle));
+    }
 
     robot.update();
     if(robot.moved)
@@ -176,10 +178,10 @@ void World::draw(Graphics &g)
 
     for(navPoint nav : posTracker.navPoints)
     {
-        Vec2d head = nav.pos + Vec2d{15,0}.rotated(nav.angle);//second point in arrow
-        Vec2d t1 = head+ Vec2d{0,5}.rotated(nav.angle+2.87979); //165 deg
-        Vec2d t2 = head+ Vec2d{0,5}.rotated(nav.angle-2.87979);
-        vector<Vec2d> arrowPoints = {nav.pos,head,t1,t2};
+        Vec2d head = nav.pos + Vec2d{9,0}.rotated(nav.angle);//second point in arrow
+        Vec2d t1 = head+ Vec2d{3,0}.rotated(nav.angle+2.87979); //165 deg
+        Vec2d t2 = head+ Vec2d{3,0}.rotated(nav.angle-2.87979);
+        vector<Vec2d> arrowPoints = {nav.pos,head,t1,head,t2};
         for(auto& i : arrowPoints)
         {
             i = view.worldToScreen(i);
@@ -226,8 +228,10 @@ void World::draw(Graphics &g)
 
 void World::dataInterp(string data)
 {
+    bool query = false;
     if(data[0] == 'a'){
        cout<<data<<endl;
+       query = true;
     }
     lastTime = std::chrono::steady_clock::now();
     std::replace(data.begin(),data.end(),'\r','\n');
@@ -249,6 +253,13 @@ void World::dataInterp(string data)
         stringstream dataStream(useful);
         double a;
         double b;
+        if(query){
+            dataStream>>a>>b;
+            cout<<"useful: " + useful<<endl;
+            queriedTarget = {a,b};
+            queried = true;
+            return;
+        }
         dataStream>>robot.distanceRead>>a>>b; // uwu
         robot.distanceRead /= 2.54;
         robot.distanceRead += 8; //this will need to be removed

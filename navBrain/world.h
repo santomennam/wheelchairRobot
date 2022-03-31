@@ -19,10 +19,13 @@ class World
 public:
     Viewport view;
     Vec2d panOffset {0,0};
+    Vec2d queriedTarget;
+    bool queried = false;
     std::ofstream strm;
     double worldScale = 0.5;
     Robot robot;
     AreaTree tree;
+    bool diagnostics = true;
     tp lastTime;
     std::vector<Obstacle> obstacles;    
     bool paused = false;
@@ -46,7 +49,7 @@ public:
     AbsolutePosTracker posTracker;
     std::vector<double> anglesAfterWaypoints;
     std::vector<navPoint> targets;
-    double acceptableError = 0.5; //in inches
+    double acceptableError = 3.3300; //in inches //3.3300 is 800 encs in inches
     bool targetsChanged = true;
 public:
     int encoders(double distance);

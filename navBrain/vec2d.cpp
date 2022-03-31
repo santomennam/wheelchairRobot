@@ -33,6 +33,11 @@ void Vec2d::translate(Vec2d offset)
     y += offset.y;
 }
 
+string Vec2d::toIntString()
+{
+    return "(" + to_string(int(x)) + ", " + to_string(int(y)) +")";
+}
+
 string Vec2d::toString()
 {
     return "(" + to_string(x) + ", " + to_string(y) +")";

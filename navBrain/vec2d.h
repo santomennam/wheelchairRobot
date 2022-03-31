@@ -25,6 +25,7 @@ public:
     void rotate(double radians);
     void translate(Vec2d offset);
 
+    std::string toIntString();
     std::string toString();
     Vec2d rotated(double radians) { Vec2d res = *this; res.rotate(radians); return res; }
     Vec2d scaled(double s) { Vec2d res = *this; res.scale(s); return res; }
