@@ -77,7 +77,7 @@ void World::updateTargets()
 {
     if(targets.size())
     {
-        if(posTracker.position.equals(targets[0].pos,acceptableError))
+        if(posTracker.encoderReadings.equals(targets[0].encoderReadings,acceptableError))
         {
             cout<<"Pos "<<posTracker.position<<", I think I've reached "<<targets[0].pos<<endl;
             cout<<"Targets: ";
@@ -186,7 +186,7 @@ void World::draw(Graphics &g)
         {
             i = view.worldToScreen(i);
         }
-        g.polyline(arrowPoints,{50,50,150});
+        g.polyline(arrowPoints,{50,50+posTracker.navPoints.size(),150});
     }
     if(showBeam){
         //for(int i = 0; i<world.robot.measuredPoints.size(); i++)

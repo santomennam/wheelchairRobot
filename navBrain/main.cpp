@@ -83,7 +83,7 @@ void graphicsMain(Graphics& g)
     //TESTING THE PATH NAV SYSTEM
     Vec2d destination{100,0};
     //    world.masterNav(destination,g);
-    world.path = vector<Vec2d>{{50,0}};
+    world.path = vector<Vec2d>{{100,0}};//,{100,-50},{0,0}};
     //    vector<Vec2d> path = {{300,200},{600,800}};
     world.findEncPath(world.path);
     for(int i = 0; i < world.targets.size(); i++)
@@ -170,8 +170,8 @@ void graphicsMain(Graphics& g)
             if(world.queried)
             {
                 std::chrono::duration<double> diff = std::chrono::steady_clock::now() - queriedTime;
-                g.text(g.width() - 300, 155, 20, "Last queried target: "+ world.queriedTarget.toIntString());
-                g.text(g.width() - 300,125,10,to_string(diff.count()));
+                g.text(g.width() - 400, 155, 20, "Last queried target: "+ world.queriedTarget.toIntString());
+                g.text(g.width() - 400,125,10,to_string(diff.count()));
             }
         }
 

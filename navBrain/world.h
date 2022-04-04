@@ -49,7 +49,7 @@ public:
     AbsolutePosTracker posTracker;
     std::vector<double> anglesAfterWaypoints;
     std::vector<navPoint> targets;
-    double acceptableError = 3.3300; //in inches //3.3300 is 800 encs in inches
+    double acceptableError = 600; //in encs //was 1200
     bool targetsChanged = true;
 public:
     int encoders(double distance);
