@@ -17,6 +17,8 @@ using tp = std::chrono::time_point<std::chrono::steady_clock>;
 class World
 {
 public:
+    double vel1;
+    double vel2;
     Viewport view;
     Vec2d panOffset {0,0};
     Vec2d queriedTarget;

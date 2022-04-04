@@ -253,6 +253,7 @@ void World::dataInterp(string data)
         stringstream dataStream(useful);
         double a;
         double b;
+
         if(query){
             dataStream>>a>>b;
             cout<<"useful: " + useful<<endl;
@@ -260,7 +261,7 @@ void World::dataInterp(string data)
             queried = true;
             return;
         }
-        dataStream>>robot.distanceRead>>a>>b; // uwu
+        dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
         robot.distanceRead /= 2.54;
         robot.distanceRead += 8; //this will need to be removed
         posTracker.update(a,b);

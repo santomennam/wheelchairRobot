@@ -23,6 +23,7 @@ bool debug = true;
 // soft e-stop switch
 const int estop1 = 6; // OUTPUT LOW
 const int estop2 = 7; // pulled up to High.  These pins are connected together with a NC switch    HIGH means STOP
+const int modeLED = 4;
 
 void wakeWheelchair()
 {
@@ -38,7 +39,7 @@ int threshold = 600; // amount of acceptable error (encoder units: 2400/rotation
 
 int targetIndex = 0;
 
-double cruisingSpeed = 300; // desired crusing speed, in encs per 100 milliseconds
+double cruisingSpeed = 5; // desired crusing speed, in encs per millisecond
 int velSwitchThreshold = 6000; //how close should we be, in encoder units, to our target before switching to fine position control?
 
 bool velocityMode = true; // if this is true, we're far away and want to use PID to control our velocity instead of our enc counts
@@ -65,10 +66,10 @@ double outputR = 0;
 double outputL = 0;
 
 double pL = 0.03; // 0.05 is pretty close but overshoots a little bit
-double iL = 0; // 0.0005;
+double iL = 0.005; // 0.0005;
 double dL = 0.002;
 
-double pR = 0.07;
+double pR = 0.05;
 double iR = 0.005; //0.0005;
 double dR = 0.002;
 
@@ -173,6 +174,7 @@ void setup()
   wheelChairSetup();
   softwareSetup();
   pinMode(estop1, OUTPUT);
+  pinMode(modeLED,OUTPUT);
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
 }
@@ -337,8 +339,6 @@ void getCommands()
     targetL = (getValue(data, ' ', 0)).toDouble();
     targetR = (getValue(data, ' ', 1)).toDouble();  //these are enc targets
 
-    
-     
     PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
     setMotorSpeeds(0,0);
@@ -392,6 +392,7 @@ void loop()
   // use the encoder values we sent as PID inputs, or use velocities
   if(velocityMode)
   {
+    digitalWrite(modeLED,HIGH);
     Vec2d vels = calcVelocities(Vec2d{-1.0*newPositionRed,-1.0*newPositionBlack});
     inputL = vels.x;
     inputR = vels.y;
@@ -413,8 +414,12 @@ void loop()
   Serial.print("#");
   Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
   Serial.print(" ");
-  Serial.print(newPositionRed);
+  Serial.print(-newPositionRed);
   Serial.print(" ");
-  Serial.println(newPositionBlack);
+  Serial.print(-newPositionBlack);
+   Serial.print(" ");
+  Serial.print(inputL);
+   Serial.print(" ");
+  Serial.println(inputR);
 
 }

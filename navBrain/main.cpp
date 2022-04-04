@@ -173,6 +173,8 @@ void graphicsMain(Graphics& g)
                 g.text(g.width() - 400, 155, 20, "Last queried target: "+ world.queriedTarget.toIntString());
                 g.text(g.width() - 400,125,10,to_string(diff.count()));
             }
+            g.text(g.width() - 400, 105, 20, "Velocities: " + to_string(world.vel1) +" " + to_string(world.vel2));
+
         }
 
 
