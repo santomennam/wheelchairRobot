@@ -54,7 +54,7 @@ void sendTarget(Graphics& g, Vec2d encoderTarget)
 
 void resetDestination(Graphics& g, World& world, Vec2d destination)
 {
-   resetBot(g);
+    resetBot(g);
 
     setDebugMode(g);
 
@@ -289,6 +289,7 @@ void graphicsMain(Graphics& g)
                 {
                 case static_cast<int>(Key::ESC):
                     resetBot();
+                    world.targets.clear();
                     break;
                 case '.':
                     resetDestination(g, world, {100, 0});
