@@ -33,23 +33,27 @@ void wakeWheelchair()
   foreBrainComm.write('e');
   // Serial.println("Woken");
 }
+
+
+//GLOBAL VARIABLES//
+
 bool gotFirstTargets = false;
-
 int threshold = 600; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
-
 int targetIndex = 0;
-
 double cruisingSpeed = 5; // desired crusing speed, in encs per millisecond
 int velSwitchThreshold = 6000; //how close should we be, in encoder units, to our target before switching to fine position control?
-
 bool velocityMode = true; // if this is true, we're far away and want to use PID to control our velocity instead of our enc counts
-
-
-// this is just how u initialize a vector
-//  std::vector<Vec2d> targets; //this will hold (targetL,targetR)
-
 const int numTargs = 4;
-
+long oldPositionBlack = -999;
+long oldPositionRed = -999;
+double oldTime = millis();
+Vec2d oldVals = {0,0};
+unsigned long lastTime;
+int disconnect = 0;
+int timeout = 500;
+String data;
+bool gotNewLeft = false;
+bool gotNewRight = false;
 Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000,-8000)};
 
 //= {Vec2d(8000,8000)};
@@ -116,9 +120,6 @@ Vec2d generateTurn(int degrees)
   return motorVals;
 }
 
-double oldTime = millis();
-Vec2d oldVals = {0,0};
-
 Vec2d calcVelocities(Vec2d encReadings)
 {
   double elapsedTime = millis()-oldTime;
@@ -137,8 +138,6 @@ void enableDebug()
   // Serial.println("Debug enabled");
 }
 
-
-
 void setMotorSpeeds(int left, int right)
 {
   char m1 = (char)left;
@@ -149,10 +148,36 @@ void setMotorSpeeds(int left, int right)
   foreBrainComm.write('x');
 }
 
-unsigned long lastTime;
+void resetGlobals()
+{
+  gotFirstTargets = false;
+  threshold = 600; 
+  targetIndex = 0;
+  cruisingSpeed = 5; 
+  velSwitchThreshold = 6000; 
+  velocityMode = true; numTargs = 4;
+  oldPositionBlack = -999;
+  oldPositionRed = -999;
+  oldTime = millis();
+  Vec2d oldVals = {0,0};
+  lastTime = unsigned long;
+  disconnect = 0;
+  timeout = 500;
+  data;
+  gotNewLeft = false;
+  gotNewRight = false;
+  targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000,-8000)};
+  inputL = 0;
+  inputR = 0;
+  targetL;
+  targetR;
+  outputR = 0;
+  outputL = 0;
+}
 
 void wheelChairSetup()
 {
+  gotFirstTargets = false;
   Serial.begin(115200);
   foreBrainComm.begin(9600);
   delay(1000);
@@ -171,6 +196,7 @@ void softwareSetup()
 
 void setup()
 {
+  resetGlobals();
   wheelChairSetup();
   softwareSetup();
   pinMode(estop1, OUTPUT);
@@ -180,9 +206,7 @@ void setup()
 }
 
 // create variables for wheelchair control
-int disconnect = 0;
-int timeout = 500;
-String data;
+
 
 // create variables for sensor control
 // int dist; //actual distance measurements of LiDAR
@@ -190,9 +214,6 @@ String data;
 Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
 Encoder red(18, 19); // black right red left
 //   avoid using pins with LEDs attached for encoders
-
-long oldPositionBlack = -999;
-long oldPositionRed = -999;
 
 String getValue(String data, char separator, int index)
 {
@@ -224,8 +245,6 @@ void checkEstop()
       //measure
        long newPositionBlack = black.read();
        long newPositionRed = red.read();
-
-
       // send
       Serial.print("#");
       Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
@@ -250,6 +269,12 @@ void switchToVel()
   inputL = 0; inputR = 0; 
   PIDControllerL.begin(&inputL, &outputL, &cruisingSpeed, pL, iL, dL);
   PIDControllerR.begin(&inputR, &outputR, &cruisingSpeed, pR, iR, dR);
+}
+
+void resetEncoders()
+{
+  red.write(0);
+  black.write(0);  
 }
 
 int readLidarDist()
@@ -299,9 +324,6 @@ int readLidarDist()
   }
   return dist;
 }
-
-  bool gotNewLeft = false;
-  bool gotNewRight = false;
   
 void getCommands()
 {
@@ -322,6 +344,13 @@ void getCommands()
     {
       debug = !debug;
       lastTime = millis();
+      return;
+    }
+
+    if (data.startsWith("reset"))
+    {
+      clearTargets();
+      setup();
     }
 
   else if(data.startsWith("ask")){
