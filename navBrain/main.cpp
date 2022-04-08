@@ -23,6 +23,56 @@
 using namespace std;
 using namespace mssm;
 
+string lastCommandSent;
+int msSinceLastCommand = 0;
+
+void resetBot(Graphics& g)
+{
+    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"reset\n"); 
+    cout << "Sent Command to Bot: reset" << endl;
+    lastCommandSent = "reset";
+    msSinceLastCommand = 0;
+}
+
+void setDebugMode(Graphics& g)
+{
+    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug\n"); 
+    cout << "Sent Command to Bot: debug" << endl;
+    lastCommandSent = "debug";
+    msSinceLastCommand = 0;
+}
+
+void sendTarget(Graphics& g, Vec2d encoderTarget)
+{
+    stringstream ss;
+    ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y<<'\n';
+    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+    cout << "Sent Command to Bot: " << ss.str() << endl;
+    lastCommandSent = ss.str();
+    msSinceLastCommand = 0;
+}
+
+void resetDestination(Graphics& g, World& world, Vec2d destination)
+{
+   resetBot(g);
+
+    setDebugMode(g);
+
+    world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
+    
+    world.findEncPath(world.path);
+
+    for(int i = 0; i < world.targets.size(); i++)
+    {
+        if(i > 1){
+            cout<<"Pos "<<world.targets[i-1].pos<<" and ";
+        }
+        cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
+    }
+    cout<<"Initial target size: "<<to_string(world.targets.size())<<endl;
+}
+
+
 void graphicsMain(Graphics& g)
 {
 
@@ -38,7 +88,7 @@ void graphicsMain(Graphics& g)
     bool recording = false;
     int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
 
-    NetworkClientPlugin simWorldConnection{g, 1237, "localhost"};
+    // NetworkClientPlugin simWorldConnection{g, 1237, "localhost"};
 
     //string data;
     ofstream file;
@@ -74,28 +124,15 @@ void graphicsMain(Graphics& g)
     world.view.pan(Vec2d{g.width()/2, g.height()/2});
 
     string lastLine;
-    stringstream ss;
+   // stringstream ss;
 
-    ss<<"debug"<<'\n';
-    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str()); //TEMPORARY
-
-
-    //TESTING THE PATH NAV SYSTEM
-    Vec2d destination{100,0};
-    //    world.masterNav(destination,g);
-    world.path = vector<Vec2d>{{100,0}};//,{100,-50},{0,0}};
-    //    vector<Vec2d> path = {{300,200},{600,800}};
-    world.findEncPath(world.path);
-    for(int i = 0; i < world.targets.size(); i++)
-    {
-        if(i > 1){
-            cout<<"Pos "<<world.targets[i-1].pos<<" and ";
-        }
-        cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
-    }
-    cout<<"Initial target size: "<<to_string(world.targets.size())<<endl;
+    resetDestination({100, 0});
 
     while (g.draw()) {
+        g.clear();
+
+        g.text({10,25}, 20, "Last Command: " + lastCommandSent, GREEN);
+
         //        cout<<"Target size: "<<to_string(world.targets.size())<<endl;
         std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
         if(diff.count() >= 1)
@@ -110,7 +147,6 @@ void graphicsMain(Graphics& g)
 
 
 
-        g.clear();
         if(drawAdj)
         {
             world.tree.showAdjacents(g,world.view);
@@ -143,9 +179,8 @@ void graphicsMain(Graphics& g)
             world.targetsChanged = false;
             Vec2d target = world.targets[0].encoderReadings;
             trackingPair = target;
-            cout<<"sending target "<<target<<endl;
-            ss<<"target "<<target.x<<" "<<target.y<<'\n';
-            g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+
+            sendTarget(g, target);
         }
         else if (world.targetsChanged) {
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,GREEN,GREEN);
@@ -252,6 +287,15 @@ void graphicsMain(Graphics& g)
             case EvtType::KeyPress:
                 switch(e.arg)
                 {
+                case static_cast<int>(Key::ESC):
+                    resetBot();
+                    break;
+                case '.':
+                    resetDestination(g, world, {100, 0});
+                    break;
+                case ',':
+                    resetDestination(g, world, {-100, 0});
+                    break;
                 case '8':
                     cout << "Try to say hello back" << endl;
                     simWorldConnection.send("Hello!!!!\n");
