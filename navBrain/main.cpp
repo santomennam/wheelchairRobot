@@ -26,7 +26,7 @@ using namespace mssm;
 string lastCommandSent;
 int msSinceLastCommand = 0;
 
-void resetBot(Graphics& g)
+void resetBot(Graphics& g,int boardPluginID)
 {
     g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"reset\n"); 
     cout << "Sent Command to Bot: reset" << endl;
@@ -34,7 +34,14 @@ void resetBot(Graphics& g)
     msSinceLastCommand = 0;
 }
 
-void setDebugMode(Graphics& g)
+void ask(Graphics& g,int boardPluginID)
+{
+    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"ask\n");
+    cout << "Sent Command to Bot: ask" << endl;
+    lastCommandSent = "ask";
+    msSinceLastCommand = 0;
+}
+void setDebugMode(Graphics& g,int boardPluginID)
 {
     g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug\n"); 
     cout << "Sent Command to Bot: debug" << endl;
@@ -42,7 +49,7 @@ void setDebugMode(Graphics& g)
     msSinceLastCommand = 0;
 }
 
-void sendTarget(Graphics& g, Vec2d encoderTarget)
+void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
 {
     stringstream ss;
     ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y<<'\n';
@@ -52,11 +59,11 @@ void sendTarget(Graphics& g, Vec2d encoderTarget)
     msSinceLastCommand = 0;
 }
 
-void resetDestination(Graphics& g, World& world, Vec2d destination)
+void resetDestination(Graphics& g, World& world, Vec2d destination,int boardPluginID)
 {
-    resetBot(g);
+    resetBot(g,boardPluginID);
 
-    setDebugMode(g);
+    setDebugMode(g,boardPluginID);
 
     world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
     
@@ -75,6 +82,7 @@ void resetDestination(Graphics& g, World& world, Vec2d destination)
 
 void graphicsMain(Graphics& g)
 {
+    Vec2d destination = {0,0};
 
     bool drawAdj = false;
 
@@ -126,12 +134,12 @@ void graphicsMain(Graphics& g)
     string lastLine;
    // stringstream ss;
 
-    resetDestination({100, 0});
+    resetDestination(g,world,{100, 0},boardPluginID);
 
     while (g.draw()) {
         g.clear();
 
-        g.text({10,25}, 20, "Last Command: " + lastCommandSent, GREEN);
+        g.text({10,30}, 20, "Last Command: " + lastCommandSent, GREEN);
 
         //        cout<<"Target size: "<<to_string(world.targets.size())<<endl;
         std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
@@ -180,7 +188,7 @@ void graphicsMain(Graphics& g)
             Vec2d target = world.targets[0].encoderReadings;
             trackingPair = target;
 
-            sendTarget(g, target);
+            sendTarget(g, target,boardPluginID);
         }
         else if (world.targetsChanged) {
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,GREEN,GREEN);
@@ -266,7 +274,7 @@ void graphicsMain(Graphics& g)
 
                     int find = e.data.find("\r\n");
                     if(find != -1 && e.data != "ok\r\n"){
-                        cout<<e.data<<endl;
+//                        cout<<e.data<<endl;
                     }
                 }
                 if(e.pluginId == boardPluginID)
@@ -278,7 +286,7 @@ void graphicsMain(Graphics& g)
                         cout<<"recording"<<endl;
                     }
                     if(!playback&&!recording){
-                        cout<<e.data<<endl;
+//                        cout<<e.data<<endl;
                         world.dataInterp(e.data);
                     }
                 }
@@ -288,18 +296,14 @@ void graphicsMain(Graphics& g)
                 switch(e.arg)
                 {
                 case static_cast<int>(Key::ESC):
-                    resetBot();
+                    resetBot(g,boardPluginID);
                     world.targets.clear();
                     break;
                 case '.':
-                    resetDestination(g, world, {100, 0});
+                    resetDestination(g, world, {100, 0},boardPluginID);
                     break;
                 case ',':
-                    resetDestination(g, world, {-100, 0});
-                    break;
-                case '8':
-                    cout << "Try to say hello back" << endl;
-                    simWorldConnection.send("Hello!!!!\n");
+                    resetDestination(g, world, {-100, 0},boardPluginID);
                     break;
                 case 'S':
                     world.save("loadTestOne");
@@ -316,8 +320,7 @@ void graphicsMain(Graphics& g)
                     break;
                 case 'T':
                     cout<<"ask"<<endl;
-                    ss<<"ask"<<'\n';
-                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
+                    ask(g,boardPluginID);
                     queriedTime = std::chrono::steady_clock::now();
                     break;
                 case 'D':
@@ -363,11 +366,6 @@ void graphicsMain(Graphics& g)
                         merge2 = g.mousePos();
                     }
                     break;
-                case static_cast<int>(Key::ESC):
-                {
-                    world.view.reset(world.robot.position);
-                    break;
-                }
                 case 'W':
                     world.robot.speed =10;
                     break;

@@ -50,11 +50,8 @@ bool pointInPolygon(const POINT& p, const std::vector<POINT>& poly)
 {
     unsigned int crossCount = 0;
     POINT s1 = poly.back();
-    for (const POINT& s2 : poly) { // size_t i = 0; i < pts.size(); i++) {
+    for (const POINT& s2 : poly) {
         if ((s1.y >= p.y && s2.y < p.y) || (s1.y < p.y && s2.y >= p.y)) {
-            // segment straddles... now need to find out if intersection point is to the left
-            // point-slope form    y - y1 = m (x - x1)
-            // solve for x:   x = ((y - y1)/m) + x1  => ((y - y1)*(s2.x-s1.x)/(s2.y-s1.y)) + x1
             auto x = ((p.y - s1.y)*(s2.x-s1.x)/(s2.y-s1.y)) + s1.x;
             if (x < p.x) {
                 crossCount++;

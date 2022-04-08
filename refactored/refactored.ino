@@ -155,18 +155,17 @@ void resetGlobals()
   targetIndex = 0;
   cruisingSpeed = 5; 
   velSwitchThreshold = 6000; 
-  velocityMode = true; numTargs = 4;
+  velocityMode = true;
   oldPositionBlack = -999;
   oldPositionRed = -999;
   oldTime = millis();
   Vec2d oldVals = {0,0};
-  lastTime = unsigned long;
+  lastTime = 0;
   disconnect = 0;
   timeout = 500;
   data;
   gotNewLeft = false;
   gotNewRight = false;
-  targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000,-8000)};
   inputL = 0;
   inputR = 0;
   targetL;
@@ -199,6 +198,7 @@ void setup()
   resetGlobals();
   wheelChairSetup();
   softwareSetup();
+  setMotorSpeeds(0,0);
   pinMode(estop1, OUTPUT);
   pinMode(modeLED,OUTPUT);
   digitalWrite(estop1, LOW);
@@ -349,8 +349,9 @@ void getCommands()
 
     if (data.startsWith("reset"))
     {
-      clearTargets();
-      setup();
+     resetEncoders();
+     setup();
+     return;
     }
 
   else if(data.startsWith("ask")){
