@@ -362,8 +362,7 @@ void getCommands()
   }
   // get target encoder values for the PID
   else if (data.startsWith("target"))
-  {
-    
+  {   
     gotFirstTargets = true;
     data = data.substring(data.indexOf(" ") + 1, -1);
     targetL = (getValue(data, ' ', 0)).toDouble();
@@ -374,6 +373,7 @@ void getCommands()
     setMotorSpeeds(0,0);
     delay(1000);
     wakeWheelchair();
+    return;
   }
  }
 }
