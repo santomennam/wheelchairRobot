@@ -42,7 +42,8 @@ int threshold = 600; // amount of acceptable error (encoder units: 2400/rotation
 int targetIndex = 0;
 double cruisingSpeed = 5; // desired crusing speed, in encs per millisecond
 int velSwitchThreshold = 6000; //how close should we be, in encoder units, to our target before switching to fine position control?
-bool velocityMode = true; // if this is true, we're far away and want to use PID to control our velocity instead of our enc counts
+bool leftVelocityMode = true; // if this is true, we're far away and want to use PID to control our velocity instead of our enc counts
+bool rightVelocityMode = true;
 const int numTargs = 4;
 long oldPositionBlack = -999;
 long oldPositionRed = -999;
@@ -55,7 +56,7 @@ String data;
 bool gotNewLeft = false;
 bool gotNewRight = false;
 Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000,-8000)};
-
+Vec2d encTargets;
 //= {Vec2d(8000,8000)};
 
 float wheelCircumference = 10.01383; // inches. circ of encoder dummy wheels
@@ -155,7 +156,7 @@ void resetGlobals()
   targetIndex = 0;
   cruisingSpeed = 5; 
   velSwitchThreshold = 6000; 
-  velocityMode = true;
+  leftVelocityMode = true;
   oldPositionBlack = -999;
   oldPositionRed = -999;
   oldTime = millis();
@@ -172,6 +173,7 @@ void resetGlobals()
   targetR;
   outputR = 0;
   outputL = 0;
+  Vec2d encTargets = {0,0};
 }
 
 void wheelChairSetup()
@@ -256,19 +258,30 @@ void checkEstop()
   }
 }
 
-void switchToPos(int leftEncs, int rightEncs) //input readings
+void leftSwitchToPos(int leftEncs) //input readings
 {
-  velocityMode = false;
-  inputL = leftEncs; inputR = rightEncs; 
+  leftVelocityMode = false;
+  inputL = leftEncs;
   PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
+}
+void leftSwitchToVel(Vec2d encoders)
+{
+  leftVelocityMode = true;
+  inputL = calcVelocities(encoders).x;
+  PIDControllerL.begin(&inputL, &outputL, &cruisingSpeed, pL, iL, dL);
+}
+
+void rightSwitchToPos(int rightEncs) //input readings
+{
+  rightVelocityMode = false;
+  inputR = rightEncs; 
   PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
 }
-void switchToVel()
+void rightSwitchToVel(Vec2d encoders)
 {
-  velocityMode = true;
-  inputL = 0; inputR = 0; 
+  rightVelocityMode = true;
+  inputR = calcVelocities(encoders).y; 
   PIDControllerL.begin(&inputL, &outputL, &cruisingSpeed, pL, iL, dL);
-  PIDControllerR.begin(&inputR, &outputR, &cruisingSpeed, pR, iR, dR);
 }
 
 void resetEncoders()
@@ -367,7 +380,7 @@ void getCommands()
     data = data.substring(data.indexOf(" ") + 1, -1);
     targetL = (getValue(data, ' ', 0)).toDouble();
     targetR = (getValue(data, ' ', 1)).toDouble();  //these are enc targets
-
+    encTargets{targetR,targetL};
     PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
     setMotorSpeeds(0,0);
@@ -378,19 +391,21 @@ void getCommands()
  }
 }
 
-bool closeEnough(int threshold)
+bool closeEnough(int threshold,int encoder, int encTarget)
 {
-  if (abs(inputL - targetL) < threshold && abs(inputR - targetR) < threshold)
+  if (abs(encoders- encTargets) < threshold)
   {
     return true;
   }
   return false;
 }
+
 void loop()
 {
   checkEstop();
-
+  delay(100);
   getCommands();
+  delay(100);
 
   // you'll never guess what these do
   long newPositionBlack = black.read();
@@ -405,34 +420,56 @@ void loop()
     oldPositionRed = newPositionRed;
   }
 
+  Vec2d encoders{-oldPositionRed,-oldPositionBlack};
   //check if we are in the appropriate mode, change if not
 
-  if(closeEnough(velSwitchThreshold))
+  if(closeEnough(velSwitchThreshold,encoders.x,encTargets.x))
   {
-    if(velocityMode)
+    if(leftVelocityMode)
     {
-      switchToPos(newPositionRed,newPositionBlack);
+      leftSwitchToPos(-1*newPositionRed);
     }
   }
-  else if(!velocityMode)
+  else if(!leftVelocityMode)
   {
-    switchToVel();
+    leftSwitchToVel(encoders);
+  }
+
+
+  if(closeEnough(velSwitchThreshold,encoders.y,encTargets.y))
+  {
+    if(leftVelocityMode)
+    {
+      rightSwitchToPos(-1*newPositionBlack);
+    }
+  }
+  else if(!leftVelocityMode)
+  {
+    rightSwitchToVel(encoders);
   }
 
   // use the encoder values we sent as PID inputs, or use velocities
-  if(velocityMode)
+  if(leftVelocityMode)
   {
     digitalWrite(modeLED,HIGH);
     Vec2d vels = calcVelocities(Vec2d{-1.0*newPositionRed,-1.0*newPositionBlack});
     inputL = vels.x;
-    inputR = vels.y;
   }
   else{
     inputL = -newPositionRed;
+  }
+
+   if(rightVelocityMode)
+  {
+    digitalWrite(modeLED,HIGH);
+    Vec2d vels = calcVelocities(Vec2d{-1.0*newPositionRed,-1.0*newPositionBlack});
+    inputR = vels.r;
+  }
+  else{
     inputR = -newPositionBlack;
   }
   
-  if (!closeEnough(threshold) && gotFirstTargets)
+  if ((!closeEnough(threshold,encoders.x,encTargets.x) || !closeEnough(threshold,encoders.y,encTargets.y)) && gotFirstTargets)
   {
     // compute PID and set motors
     PIDControllerL.compute(); // these will change outputL and outputR by reference, not by return value
