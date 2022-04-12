@@ -59,6 +59,8 @@ Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90
 Vec2d encTargets;
 //= {Vec2d(8000,8000)};
 
+double wheelSpeedRatio = 1; // ratio of left/right speeds when given the same power
+
 float wheelCircumference = 10.01383; // inches. circ of encoder dummy wheels
 int encUnitsRot = 2400;               // encoder units per rotation
 float barDiameter = 17;              // inches. this is the distance between the dummy wheels
@@ -266,6 +268,7 @@ void leftSwitchToPos(int leftEncs) //input readings
 }
 void leftSwitchToVel(Vec2d encoders)
 {
+    outputR = 0;
   leftVelocityMode = true;
   inputL = calcVelocities(encoders).x;
   PIDControllerL.begin(&inputL, &outputL, &cruisingSpeed, pL, iL, dL);
@@ -273,12 +276,14 @@ void leftSwitchToVel(Vec2d encoders)
 
 void rightSwitchToPos(int rightEncs) //input readings
 {
+    outputR = 0;
   rightVelocityMode = false;
   inputR = rightEncs; 
   PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
 }
 void rightSwitchToVel(Vec2d encoders)
 {
+  outputR = 0;
   rightVelocityMode = true;
   inputR = calcVelocities(encoders).y; 
   PIDControllerL.begin(&inputL, &outputL, &cruisingSpeed, pL, iL, dL);
@@ -380,7 +385,7 @@ void getCommands()
     data = data.substring(data.indexOf(" ") + 1, -1);
     targetL = (getValue(data, ' ', 0)).toDouble();
     targetR = (getValue(data, ' ', 1)).toDouble();  //these are enc targets
-    encTargets{targetR,targetL};
+    encTargets = {targetR,targetL};
     PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
     PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
     setMotorSpeeds(0,0);
@@ -393,7 +398,7 @@ void getCommands()
 
 bool closeEnough(int threshold,int encoder, int encTarget)
 {
-  if (abs(encoders- encTargets) < threshold)
+  if (abs(encoder - encTarget) < threshold)
   {
     return true;
   }
@@ -463,7 +468,7 @@ void loop()
   {
     digitalWrite(modeLED,HIGH);
     Vec2d vels = calcVelocities(Vec2d{-1.0*newPositionRed,-1.0*newPositionBlack});
-    inputR = vels.r;
+    inputR = vels.y;
   }
   else{
     inputR = -newPositionBlack;
@@ -471,9 +476,21 @@ void loop()
   
   if ((!closeEnough(threshold,encoders.x,encTargets.x) || !closeEnough(threshold,encoders.y,encTargets.y)) && gotFirstTargets)
   {
-    // compute PID and set motors
-    PIDControllerL.compute(); // these will change outputL and outputR by reference, not by return value
-    PIDControllerR.compute();
+    if(leftVelocityMode)
+    {
+      outputL = 35 * wheelSpeedRatio;
+    }
+    else{
+      PIDControllerL.compute(); // these will change outputL and outputR by reference, not by return value
+    }
+
+    if(rightVelocityMode)
+    {
+      outputR = 35;
+    }
+    else{
+      PIDControllerR.compute(); // these will change outputL and outputR by reference, not by return value
+    }
     setMotorSpeeds(outputL, outputR);
   }
 
