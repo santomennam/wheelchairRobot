@@ -54,9 +54,9 @@ void SerialPortReader::handleError(QSerialPort::SerialPortError serialPortError)
     case QSerialPort::DeviceNotFoundError:       cout << "::DeviceNotFoundError:       " << endl; break;
     case QSerialPort::PermissionError:           cout << "::PermissionError:           " << endl; break;
     case QSerialPort::OpenError:                 cout << "::OpenError:                 " << endl; break;
-    case QSerialPort::ParityError:               cout << "::ParityError:               " << endl; break;
-    case QSerialPort::FramingError:              cout << "::FramingError:              " << endl; break;
-    case QSerialPort::BreakConditionError:       cout << "::BreakConditionError:       " << endl; break;
+//    case QSerialPort::ParityError:               cout << "::ParityError:               " << endl; break;
+//    case QSerialPort::FramingError:              cout << "::FramingError:              " << endl; break;
+//    case QSerialPort::BreakConditionError:       cout << "::BreakConditionError:       " << endl; break;
     case QSerialPort::WriteError:                cout << "::WriteError:                " << endl; break;
     case QSerialPort::ReadError:                 cout << "::ReadError:                 " << endl; break;
     case QSerialPort::ResourceError:             cout << "::ResourceError:             " << endl; break;

@@ -868,7 +868,7 @@ void Graphics::draw(QWidget *pd, QPainter *painter, int width, int height, int e
             QObject::disconnect(musicPlayer.get(), SIGNAL(stateChanged(QMediaPlayer::State)), ((Widget*)pd)->_parent, SLOT(musicStateChanged(QMediaPlayer::State)));
         }
         musicPlayer.reset(new QMediaPlayer(pd));
-        musicPlayer->setMedia(QUrl::fromLocalFile(QString::fromStdString(musicFile)));
+       // musicPlayer->setMedia(QUrl::fromLocalFile(QString::fromStdString(musicFile)));
         musicPlayer->play();
         QObject::connect(musicPlayer.get(), SIGNAL(stateChanged(QMediaPlayer::State)), ((Widget*)pd)->_parent, SLOT(musicStateChanged(QMediaPlayer::State)));
         musicFile.clear();
@@ -918,9 +918,9 @@ void Graphics::draw(QWidget *pd, QPainter *painter, int width, int height, int e
             QBrush qbg = QBrush(QColor(background.r, background.g, background.b));
             painter->fillRect(0, 0, width, height, qbg);
 
-            QMatrix m;
+            QTransform m;
             m.translate(0, height);
-            painter->setMatrix(m);
+            painter->setTransform(m);
 
         for (auto& g : active)
         {
@@ -990,7 +990,7 @@ bool Graphics::appendOutputText(const std::string& txt)
 
 void Graphics::music(const std::string& filename)
 {
-    qDebug() << "graphicsMain " << QThread::currentThreadId() << endl;
+  //  qDebug() << "graphicsMain " << QThread::currentThreadId() << endl;
 
     std::unique_lock<std::mutex> lock(glock);
 
@@ -1074,9 +1074,9 @@ void Graphics::snapShot(Image &image)
 
     QPainter painter(image.pixmap.get());
 
-    QMatrix m;
+    QTransform m;
     m.translate(0, _height);
-    painter.setMatrix(m);
+    painter.setTransform(m);
 
     for (auto& g : active)
     {
@@ -1380,7 +1380,7 @@ ModKey cvtMods(Qt::KeyboardModifiers qmods)
 
 void Widget::wheelEvent(QWheelEvent *event)
 {
-    _graphics->handleEvent(event->x(), event->y(), EvtType::MouseWheel,
+    _graphics->handleEvent(event->position().x(), event->position().y(), EvtType::MouseWheel,
                            cvtMods(event->modifiers()),
                            event->angleDelta().y());
 }
@@ -1388,21 +1388,21 @@ void Widget::wheelEvent(QWheelEvent *event)
 
 void Widget::mousePressEvent(QMouseEvent * event)
 {
-    _graphics->handleEvent(event->x(), event->y(), EvtType::MousePress,
+    _graphics->handleEvent(event->position().x(), event->position().y(), EvtType::MousePress,
                            cvtMods(event->modifiers()),
                            (int)event->button());
 }
 
 void Widget::mouseReleaseEvent(QMouseEvent * event)
 {
-    _graphics->handleEvent(event->x(), event->y(), EvtType::MouseRelease,
+    _graphics->handleEvent(event->position().x(), event->position().y(), EvtType::MouseRelease,
                            cvtMods(event->modifiers()),
                            (int)event->button());
 }
 
 void Widget::mouseMoveEvent(QMouseEvent * event)
 {
-    _graphics->handleEvent(event->x(), event->y(), EvtType::MouseMove,
+    _graphics->handleEvent(event->position().x(), event->position().y(), EvtType::MouseMove,
                            cvtMods(event->modifiers()),
                            (int)event->buttons());
 }
@@ -1525,11 +1525,11 @@ void Window::textEntered()
     cv.notify_all();
 }
 
-void Window::musicStateChanged(QMediaPlayer::State state)
-{
-    qDebug() << "Music State Changed: " << static_cast<int>(state) << " Thread: " << QThread::currentThreadId();
-    graphics->postEvent(0, 0, EvtType::PluginMessage, ModKey{}, state, 0, "MusicPlayer");
-}
+//void Window::musicStateChanged(QMediaPlayer::State state)
+//{
+//    qDebug() << "Music State Changed: " << static_cast<int>(state) << " Thread: " << QThread::currentThreadId();
+//    graphics->postEvent(0, 0, EvtType::PluginMessage, ModKey{}, state, 0, "MusicPlayer");
+//}
 
 namespace mssm
 {

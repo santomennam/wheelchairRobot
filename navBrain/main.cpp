@@ -260,7 +260,6 @@ void graphicsMain(Graphics& g)
                     resetDestination(g, world, {-100, 0},boardPluginID);
                     break;
                 case 'T':
-                    cout<<"ask"<<endl;
                     ask(g,boardPluginID);
                     queriedTime = std::chrono::steady_clock::now();
                     break;

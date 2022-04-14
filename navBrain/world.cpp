@@ -228,11 +228,6 @@ void World::draw(Graphics &g)
 
 void World::dataInterp(string data)
 {
-    bool query = false;
-    if(data[0] == 'a'){
-       cout<<data<<endl;
-       query = true;
-    }
     lastTime = std::chrono::steady_clock::now();
     std::replace(data.begin(),data.end(),'\r','\n');
     incomingData += data;
@@ -251,22 +246,45 @@ void World::dataInterp(string data)
         string useful = incomingData.substr(1,(j-incomingData.begin()));
         incomingData.erase(incomingData.begin(),j);
         stringstream dataStream(useful);
+
+        char cmd;
+
+        dataStream >> cmd;
+
         double a;
         double b;
 
-        if(query){
-            dataStream>>a>>b;
-            cout<<"useful: " + useful<<endl;
-            queriedTarget = {a,b};
+        switch (cmd) {
+        case 'A':
+            dataStream >> a >> b;
+            cout << useful <<endl;
+            queriedTarget = {a, b};
             queried = true;
             return;
+        case 'R': // reset ack
+            cout << useful <<endl;
+            break;
+        case 'D': // debug ack
+            cout << useful <<endl;
+            break;
+        case 'T': // debug ack
+            cout << useful <<endl;
+            break;
+        case 'P': // position
+            cout << useful << endl;
+            dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
+            robot.distanceRead /= 2.54;
+            robot.distanceRead += 8; //this will need to be removed
+            posTracker.update(a,b);
+            robot.angle = posTracker.getAngle();
+            robot.position = posTracker.getPos();
+            break;
+        case 'E': // Error
+            cout << "Error: " << useful << endl;
+            break;
+        default:
+            cout << "UNKNOWN RESPONSE: " << useful << endl;
         }
-        dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
-        robot.distanceRead /= 2.54;
-        robot.distanceRead += 8; //this will need to be removed
-        posTracker.update(a,b);
-        robot.angle = posTracker.getAngle();
-        robot.position = posTracker.getPos();
     }
 }
 

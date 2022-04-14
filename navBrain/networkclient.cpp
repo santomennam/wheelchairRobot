@@ -30,7 +30,7 @@ NetworkClient::NetworkClient(int clientId, NetworkServer* server, qintptr socket
 
     cout  << "NetworkClient Created.  ID = " << clientId << endl;
 
-    qDebug() << "Constructing NetworkClient on Thread: " << QThread::currentThreadId() << endl;
+    //qDebug() << "Constructing NetworkClient on Thread: " << QThread::currentThreadId() << endl;
     auto s = new QTcpSocket();
 
     if(!s->setSocketDescriptor(socketId))

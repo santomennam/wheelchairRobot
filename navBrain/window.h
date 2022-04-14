@@ -64,7 +64,7 @@ public:
 
 public slots:
     void textEntered();
-    void musicStateChanged(QMediaPlayer::State state);
+   // void musicStateChanged(QMediaPlayer::State state);
 };
 
 class Worker : public QObject {
