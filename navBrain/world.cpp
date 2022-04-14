@@ -243,13 +243,20 @@ void World::dataInterp(string data)
         {
             return;
         }
-        string useful = incomingData.substr(1,(j-incomingData.begin()));
+        string recCmd = incomingData.substr(1,(j-incomingData.begin()-1));
         incomingData.erase(incomingData.begin(),j);
-        stringstream dataStream(useful);
+        stringstream dataStream(recCmd);
 
         char cmd;
 
         dataStream >> cmd;
+
+        if (recCmd == "H") {
+            // just a heartbeat
+        }
+        else {
+            receivedCommand = recCmd;
+        }
 
         double a;
         double b;
@@ -257,21 +264,21 @@ void World::dataInterp(string data)
         switch (cmd) {
         case 'A':
             dataStream >> a >> b;
-            cout << useful <<endl;
+            cout << receivedCommand <<endl;
             queriedTarget = {a, b};
             queried = true;
             return;
         case 'R': // reset ack
-            cout << useful <<endl;
+            cout << receivedCommand <<endl;
             break;
         case 'D': // debug ack
-            cout << useful <<endl;
+            cout << receivedCommand <<endl;
             break;
         case 'T': // debug ack
-            cout << useful <<endl;
+            cout << receivedCommand <<endl;
             break;
         case 'P': // position
-            cout << useful << endl;
+            cout << receivedCommand << endl;
             dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
             robot.distanceRead /= 2.54;
             robot.distanceRead += 8; //this will need to be removed
@@ -280,10 +287,20 @@ void World::dataInterp(string data)
             robot.position = posTracker.getPos();
             break;
         case 'E': // Error
-            cout << "Error: " << useful << endl;
+            cout << "Error: " << receivedCommand << endl;
+            receivedError = receivedCommand;
+            break;
+        case 'I': // Info
+            cout << "Info: " << receivedCommand << endl;
+            receivedInfo = receivedCommand;
+            break;
+        case 'X': // EStop
+            cout << "E-Stop: " << receivedCommand << endl;
+            break;
+        case 'H': // Heartbeat
             break;
         default:
-            cout << "UNKNOWN RESPONSE: " << useful << endl;
+            cout << "UNKNOWN RESPONSE: " << receivedCommand << endl;
         }
     }
 }

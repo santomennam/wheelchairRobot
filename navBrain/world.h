@@ -36,7 +36,12 @@ public:
     bool showBeam = false;
     std::vector<Vec2d> newlyDetected;
     std::vector<Vec2d> alreadyDetected;
+
     std::string incomingData;
+    std::string receivedCommand;
+    std::string receivedError;
+    std::string receivedInfo;
+
     bool timedOut = false;
 //    double olda = 0;
 //    double oldb = 0;

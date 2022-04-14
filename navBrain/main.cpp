@@ -26,37 +26,35 @@ using namespace mssm;
 string lastCommandSent;
 int msSinceLastCommand = 0;
 
+void sendCommand(Graphics& g, int boardPluginId, string cmd)
+{
+    cout << ">>>>> Sending Command to Bot: " << cmd << endl;
+    g.callPlugin(boardPluginId,static_cast<int>(SerialPortReader::Command::send),0,cmd);
+    lastCommandSent = cmd;
+    msSinceLastCommand = 0;
+}
+
 void resetBot(Graphics& g,int boardPluginID)
 {
-    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"reset\n"); 
-    cout << "Sent Command to Bot: reset" << endl;
-    lastCommandSent = "reset";
-    msSinceLastCommand = 0;
+    sendCommand(g, boardPluginID, "#reset\n");
+
 }
 
 void ask(Graphics& g,int boardPluginID)
 {
-    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"ask\n");
-    cout << "Sent Command to Bot: ask" << endl;
-    lastCommandSent = "ask";
-    msSinceLastCommand = 0;
+    sendCommand(g, boardPluginID, "#ask\n");
 }
+
 void setDebugMode(Graphics& g,int boardPluginID)
 {
-    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug\n"); 
-    cout << "Sent Command to Bot: debug" << endl;
-    lastCommandSent = "debug";
-    msSinceLastCommand = 0;
+    sendCommand(g, boardPluginID, "#debug\n");
 }
 
 void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
 {
     stringstream ss;
-    ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y<<'\n';
-    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,ss.str());
-    cout << "Sent Command to Bot: " << ss.str() << endl;
-    lastCommandSent = ss.str();
-    msSinceLastCommand = 0;
+    ss<<"#target "<<encoderTarget.x<<" "<<encoderTarget.y<<'\n';
+    sendCommand(g, boardPluginID, ss.str());
 }
 
 void resetDestination(Graphics& g, World& world, Vec2d destination,int boardPluginID)
@@ -122,7 +120,17 @@ void graphicsMain(Graphics& g)
     while (g.draw()) {
         g.clear();
 
-        g.text({10,30}, 20, "Last Command: " + lastCommandSent, GREEN);
+        int textY = g.height();
+
+        g.text({10,textY -= 25}, 20, "incomingCommand: " + world.incomingData, GREEN);
+        g.text({10,textY -= 25}, 20, "receivedCommand: " + world.receivedCommand, GREEN);
+        g.text({10,textY -= 25}, 20, "Last Command:    " + lastCommandSent, GREEN);
+        if (!world.receivedInfo.empty()) {
+            g.text({10,textY -= 25}, 20, "ERROR:    " + world.receivedInfo, YELLOW);
+        }
+        if (!world.receivedError.empty()) {
+            g.text({10,textY -= 25}, 20, "ERROR:    " + world.receivedError, RED);
+        }
 
         std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
         if(diff.count() >= 1)
@@ -297,6 +305,9 @@ void graphicsMain(Graphics& g)
             }
         }
     }
+
+    resetBot(g,boardPluginID);
+
 }
 
 int main()

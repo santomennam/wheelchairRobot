@@ -46,14 +46,18 @@ int velSwitchThreshold = 6000; //how close should we be, in encoder units, to ou
 bool leftVelocityMode = true; // if this is true, we're far away and want to use PID to control our velocity instead of our enc counts
 bool rightVelocityMode = true;
 const int numTargs = 4;
-long oldPositionBlack = -999;
-long oldPositionRed = -999;
+
+long leftEncoderCount = 0;
+long rightEncoderCount = 0;
+long prevLeftEncoderCount = 0;
+long prevRightEncoderCount = 0;
+
 double oldTime = millis();
 Vec2d oldVals = {0, 0};
 unsigned long lastTime;
 int disconnect = 0;
 int timeout = 500;
-String data;
+
 bool gotNewLeft = false;
 bool gotNewRight = false;
 Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000, -8000)};
@@ -80,6 +84,53 @@ double dL = 0.002;
 double pR = 0.05;
 double iR = 0.005; //0.0005;
 double dR = 0.002;
+
+String readDelimited(bool flushData)
+{
+  static bool gotStart = false;
+  static String data;
+  String result;
+
+  if (flushData) {
+    data = "";    
+  }
+
+  // read data from computer
+  while (Serial.available() > 0)
+  {
+    int dat = Serial.read();
+
+    if (flushData) {
+      continue;
+    }
+    
+    if (dat == '#') {
+      gotStart = true;
+      data = ""; // clear and
+    }
+    else if (dat == '\n') {
+      if (gotStart) {
+        // end of line
+        result = data;
+        data = "";
+        gotStart = false;
+            Serial.println("Handling Command: " + data);
+        return result;
+      }
+    }
+    else {
+      data.concat(static_cast<char>(dat));
+      if (data.length() > 100) {
+        data = "";
+        gotStart = false;
+      }
+    }
+
+
+  }
+
+  return result;
+}
 
 // takes inches and returns encoder units
 int encoders(double distance)
@@ -153,14 +204,14 @@ void resetGlobals()
   cruisingSpeed = 5;
   velSwitchThreshold = 6000;
   leftVelocityMode = true;
-  oldPositionBlack = -999;
-  oldPositionRed = -999;
+
+
+  
   oldTime = millis();
   Vec2d oldVals = {0, 0};
   lastTime = 0;
   disconnect = 0;
   timeout = 500;
-  data;
   gotNewLeft = false;
   gotNewRight = false;
   inputL = 0;
@@ -172,36 +223,34 @@ void resetGlobals()
   Vec2d encTargets = {0, 0};
 }
 
-void wheelChairSetup()
+void wheelChairReset()
 {
   gotFirstTargets = false;
-  Serial.begin(115200);
-  foreBrainComm.begin(9600);
-  delay(1000);
-  wakeWheelchair();
   setMotorSpeeds(0, 0);
+  wakeWheelchair();
   lastTime = millis();
   PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
   PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
   PIDControllerL.setOutputLimits(-35, 35);
   PIDControllerR.setOutputLimits(-35, 35);
-}
-
-void softwareSetup()
-{
-  Serial1a.begin(115200);
+  resetGlobals();
+  resetEncoders();
 }
 
 void setup()
 {
-  resetGlobals();
-  wheelChairSetup();
-  softwareSetup();
   pinMode(estop1, OUTPUT);
   pinMode(leftModeLED, OUTPUT);
   pinMode(rightModeLED, OUTPUT);
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
+  
+  Serial.begin(115200);
+  foreBrainComm.begin(9600);
+  Serial1a.begin(115200);
+
+  delay(500);
+  wheelChairReset();  
 }
 
 // create variables for wheelchair control
@@ -230,30 +279,79 @@ String getValue(String data, char separator, int index)
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
+
+void resetEncoders()
+{
+  red.write(0);  // left
+  black.write(0);  // right
+  leftEncoderCount = 0;
+  rightEncoderCount = 0;
+  prevLeftEncoderCount = 0;
+  prevRightEncoderCount = 0;
+}
+
+bool updateEncoders()
+{
+  bool changed = false;
+  
+  leftEncoderCount = -red.read();
+  rightEncoderCount = -black.read();
+
+  if (leftEncoderCount != prevLeftEncoderCount) {
+    changed = true;
+    prevLeftEncoderCount = leftEncoderCount;
+  }
+
+  if (rightEncoderCount != prevRightEncoderCount) {
+    changed = true;
+    prevRightEncoderCount = rightEncoderCount;
+  }
+
+  return changed;
+}
+
+
 void checkEstop()
 {
   if (digitalRead(estop2) == HIGH)
   {
     setMotorSpeeds(0, 0);
-    Serial.println("E-STOP Detected!!!");
+    readDelimited(true);
+    
+    bool first = true;
+
     while (true)
     {
       //in an e-stop holding pattern
       delay(100);
 
-      //measure
-      long newPositionBlack = black.read();
-      long newPositionRed = red.read();
-      // send
-      Serial.print("#");
-      Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
-      Serial.print(" ");
-      Serial.print(newPositionRed);
-      Serial.print(" ");
-      Serial.println(newPositionBlack);
+      bool encChanged = updateEncoders();
+      
+      if (first || encChanged) {
+        Serial.print("#X ESTOP "); // estop
+        Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
+        Serial.print(" ");
+        Serial.print(leftEncoderCount);
+        Serial.print(" ");
+        Serial.println(leftEncoderCount);
+        first = false;
+      }
+
+      String command = readDelimited(false);
+      
+      if (command.startsWith("reset"))
+      {
+        Serial.println("#R Reset Received");// T indicates target data
+        wheelChairReset();
+        return;
+      }
+      else if (command.length() > 0) {
+        Serial.println("#I Ignoring: " + command);
+      }
     }
   }
 }
+
 
 void leftSwitchToPos(int leftEncs) //input readings
 {
@@ -261,7 +359,8 @@ void leftSwitchToPos(int leftEncs) //input readings
   inputL = leftEncs;
   PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
 }
-void leftSwitchToVel(Vec2d encoders)
+
+void leftSwitchToVel()
 {
   outputR = 0;
   leftVelocityMode = true;
@@ -276,18 +375,13 @@ void rightSwitchToPos(int rightEncs) //input readings
   PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
 }
 
-void rightSwitchToVel(Vec2d encoders)
+void rightSwitchToVel()
 {
   outputR = 0;
   rightVelocityMode = true;
   PIDControllerL.stop();
 }
 
-void resetEncoders()
-{
-  red.write(0);
-  black.write(0);
-}
 
 int readLidarDist()
 {
@@ -339,61 +433,51 @@ int readLidarDist()
 
 void getCommands()
 {
-  // read data from computer
-  while (Serial.available() > 0)
-  {
-    int dat = Serial.read();
-    data.concat(static_cast<char>(dat));
+  String command = readDelimited(false);
+
+  if (command.length() == 0) {
+    return;
   }
 
-  // format data
-  int endIndex = data.indexOf('\n');
-  data = data.substring(endIndex + 1);
-
-  if (endIndex != -1)
+  if (command.startsWith("debug"))
   {
-    if (data.startsWith("debug"))
-    {
-      debug = !debug;
-      if (debug) {
-        Serial.println("#D Debug ON");
-      }
-      else {
-        Serial.println("#D Debug OFF");
-      }
-      lastTime = millis();
-      return;
-    }
-    else if (data.startsWith("reset"))
-    {
-      Serial.println("#R Reset Received");// T indicates target data
-      resetEncoders();
-      setup();
-      return;
-    }
-    else if (data.startsWith("ask")) {
-      Serial.println(String("#A " + String(targetL) + " " + String(targetR))); // T indicates target data
-      return;
-    }
-    // get target encoder values for the PID
-    else if (data.startsWith("target"))
-    {
-      gotFirstTargets = true;
-      data = data.substring(data.indexOf(" ") + 1, -1);
-      targetL = (getValue(data, ' ', 0)).toDouble();
-      targetR = (getValue(data, ' ', 1)).toDouble();  //these are enc targets
-      encTargets = {targetR, targetL};
-      PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
-      PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
-      Serial.println(String("#T " + String(targetL) + " " + String(targetR))); // T indicates target data
-      setMotorSpeeds(0, 0);
-      delay(1000);
-      wakeWheelchair();
-      return;
+    debug = !debug;
+    if (debug) {
+      Serial.println("#D Debug ON");
     }
     else {
-      Serial.println(String("#E Invalid command: ") + data);
+      Serial.println("#D Debug OFF");
     }
+    lastTime = millis();
+    return;
+  }
+  else if (command.startsWith("reset"))
+  {
+    Serial.println("#R Reset Received");// T indicates target data
+    wheelChairReset();
+    return;
+  }
+  else if (command.startsWith("ask")) {
+    Serial.println(String("#A " + String(targetL) + " " + String(targetR))); // T indicates target data
+    return;
+  }
+  // get target encoder values for the PID
+  else if (command.startsWith("target"))
+  {
+    gotFirstTargets = true;
+    command = command.substring(command.indexOf(" ") + 1, -1);
+    targetL = (getValue(command, ' ', 0)).toDouble();
+    targetR = (getValue(command, ' ', 1)).toDouble();  //these are enc targets
+    encTargets = {targetR, targetL};
+    PIDControllerL.begin(&inputL, &outputL, &targetL, pL, iL, dL);
+    PIDControllerR.begin(&inputR, &outputR, &targetR, pR, iR, dR);
+    Serial.println(String("#T " + String(targetL) + " " + String(targetR))); // T indicates target data
+    setMotorSpeeds(0, 0);
+    wakeWheelchair();
+    return;
+  }
+  else {
+    Serial.println(String("#E Invalid command: ") + command);
   }
 }
 
@@ -406,6 +490,8 @@ bool closeEnough(int threshold, int encoder, int encTarget)
   return false;
 }
 
+
+
 void loop()
 {
   checkEstop();
@@ -413,45 +499,34 @@ void loop()
   getCommands();
   //  delay(100);
 
-  // you'll never guess what these do
-  long newPositionBlack = black.read();
-  if (newPositionBlack != oldPositionBlack)
-  {
-    oldPositionBlack = newPositionBlack;
-  }
+  bool encodersChanged = updateEncoders();
 
-  long newPositionRed = red.read();
-  if (newPositionRed != oldPositionRed)
-  {
-    oldPositionRed = newPositionRed;
-  }
-
-  Vec2d encoders{ -oldPositionRed, -oldPositionBlack};
+ // Vec2d encoders{ leftEncoderCount, rightEncoderCount};
   //check if we are in the appropriate mode, change if not
 
-  if (closeEnough(velSwitchThreshold, encoders.x, encTargets.x))
+  if (closeEnough(velSwitchThreshold, leftEncoderCount, encTargets.x))
   {
     if (leftVelocityMode)
     {
-      leftSwitchToPos(-1 * newPositionRed);
+      leftSwitchToPos(-1 * leftEncoderCount);
     }
   }
   else if (!leftVelocityMode)
   {
-    leftSwitchToVel(encoders);
+    leftSwitchToVel();
   }
 
 
-  if (closeEnough(velSwitchThreshold, encoders.y, encTargets.y))
+  if (closeEnough(velSwitchThreshold, rightEncoderCount, encTargets.y))
   {
     if (rightVelocityMode)
     {
-      rightSwitchToPos(-1 * newPositionBlack);
+      rightSwitchToPos(-1 * rightEncoderCount);
     }
   }
   else if (!rightVelocityMode)
   {
-    rightSwitchToVel(encoders);
+    rightSwitchToVel();
   }
 
   // use the encoder values we sent as PID inputs, or use velocities
@@ -462,7 +537,7 @@ void loop()
   }
   else {
     digitalWrite(leftModeLED, LOW);
-    inputL = -newPositionRed;
+    inputL = leftEncoderCount;
   }
 
   if (rightVelocityMode)
@@ -472,10 +547,11 @@ void loop()
   }
   else {
     digitalWrite(rightModeLED, LOW);
-    inputR = -newPositionBlack;
+    inputR = rightEncoderCount;
   }
 
-  if ((!closeEnough(threshold, encoders.x, encTargets.x) || !closeEnough(threshold, encoders.y, encTargets.y)) && gotFirstTargets) //potentially change this to be by wheel instead of activating both on the or
+  if ((!closeEnough(threshold, leftEncoderCount,  encTargets.x) || 
+       !closeEnough(threshold, rightEncoderCount, encTargets.y)) && gotFirstTargets) //potentially change this to be by wheel instead of activating both on the or
   {
     if (leftVelocityMode)
     {
@@ -496,15 +572,20 @@ void loop()
   }
 
   delay(100);
-  Serial.print("#P ");  // P indicates position data
-  Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
-  Serial.print(" ");
-  Serial.print(-newPositionRed);
-  Serial.print(" ");
-  Serial.print(-newPositionBlack);
-  Serial.print(" ");
-  Serial.print(inputL);
-  Serial.print(" ");
-  Serial.println(inputR);
+  if (encodersChanged) {
+    Serial.print("#P ");  // P indicates position data
+    Serial.print(0); // output measure distance value of LiDAR, currently hardcoded to 0 for convenience.
+    Serial.print(" ");
+    Serial.print(leftEncoderCount);
+    Serial.print(" ");
+    Serial.print(rightEncoderCount);
+    Serial.print(" ");
+    Serial.print(inputL);
+    Serial.print(" ");
+    Serial.println(inputR);
+  }
+  else {
+    Serial.println("#H"); // heartbeat
+  }
 
 }
