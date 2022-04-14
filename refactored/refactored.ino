@@ -35,7 +35,6 @@ void wakeWheelchair()
   // Serial.println("Woken");
 }
 
-
 //GLOBAL VARIABLES//
 
 bool gotFirstTargets = false;
@@ -58,8 +57,6 @@ bool gotNewLeft = false;
 bool gotNewRight = false;
 Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90), Vec2d(-8000,-8000)};
 Vec2d encTargets;
-//= {Vec2d(8000,8000)};
-
 double wheelSpeedRatio = 1; // ratio of right/left speeds when given the same power
 
 float wheelCircumference = 10.01383; // inches. circ of encoder dummy wheels
@@ -92,11 +89,6 @@ float inches(int encs)
 {
   return (wheelCircumference * encs / encUnitsRot);
 }
-
-// float degrees(double rads)
-// {
-//   return rads * 57.2958; //conversion factor
-// }
 
 float rads(int degrees)
 {
@@ -211,10 +203,7 @@ void setup()
   pinMode(estop2, INPUT_PULLUP);
 }
 
-// create variables for wheelchair control
 
-
-// create variables for sensor control
 // int dist; //actual distance measurements of LiDAR
 
 Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
@@ -307,15 +296,12 @@ int readLidarDist()
   int j;
   int uart[9];             // save data measured by LiDAR
   const int HEADER = 0x59; // frame header of data package
-
   //  read from the time-of-flight distance sensor
   Serial1a.listen(); // set bit rate of serial port connecting LiDAR with Arduino
-
   bool gotDataRight = false;
   while (!gotDataRight)
   {
     checkEstop();
-
     if (Serial1a.available())
     { // check if serial port has data input
       if (Serial1a.read() == HEADER)
@@ -335,7 +321,6 @@ int readLidarDist()
             temprature = temprature / 8 - 256;
             unsigned long currentTime = millis();
             Serial1a.end();
-
             gotDataRight = true;
           }
         }
@@ -353,7 +338,6 @@ void getCommands()
     int dat = Serial.read();
     data.concat(static_cast<char>(dat));
   }
-
   // format data
   int endIndex = data.indexOf('\n');
   data = data.substring(endIndex + 1);
@@ -428,8 +412,8 @@ void loop()
   }
 
   Vec2d encoders{-oldPositionRed,-oldPositionBlack};
+  
   //check if we are in the appropriate mode, change if not
-
   if(closeEnough(velSwitchThreshold,encoders.x,encTargets.x))
   {
     if(leftVelocityMode)
@@ -503,9 +487,9 @@ void loop()
   Serial.print(-newPositionRed);
   Serial.print(" ");
   Serial.print(-newPositionBlack);
-   Serial.print(" ");
+  Serial.print(" ");
   Serial.print(inputL);
-   Serial.print(" ");
+  Serial.print(" ");
   Serial.println(inputR);
 
 }

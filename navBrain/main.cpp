@@ -62,13 +62,9 @@ void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
 void resetDestination(Graphics& g, World& world, Vec2d destination,int boardPluginID)
 {
     resetBot(g,boardPluginID);
-
     setDebugMode(g,boardPluginID);
-
     world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
-    
     world.findEncPath(world.path);
-
     for(int i = 0; i < world.targets.size(); i++)
     {
         if(i > 1){
@@ -86,27 +82,17 @@ void graphicsMain(Graphics& g)
 
     bool drawAdj = false;
 
-    //    todo:
-    //        -write tests on carefully placed points to make sure we continuously do things right
-    //        -fix the uses of sharedseg
-    //          -run under debugger, try to plot path through the node formed after pressing T a couple times - notice how it doesnt splitEdge, instead it makes a new, thin node
     physics phys;
 
     Vec2d previous;
     bool recording = false;
     int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
 
-    // NetworkClientPlugin simWorldConnection{g, 1237, "localhost"};
-
-    //string data;
     ofstream file;
     ifstream input;
     bool playback = false;
-    Vec2d queriedLoc;
     std::chrono::time_point<std::chrono::steady_clock> queriedTime;
-    Vec2d merge2;
     Vec2d trackingPair;
-    bool merge = false;
     bool clicked = false;
     Vec2d point;
     vector<Vec2d> points;
@@ -115,8 +101,6 @@ void graphicsMain(Graphics& g)
     World world({0,0},{{100,100}},width,height);
     phys.botWidth = world.tree.botWidth;
     string incomingData;
-    //world.createObstacles(g);
-    //  Node* closestNode = nullptr;
 
     vector<Vec2d> midpoints;
     double stepx = width/5;
@@ -132,7 +116,6 @@ void graphicsMain(Graphics& g)
     world.view.pan(Vec2d{g.width()/2, g.height()/2});
 
     string lastLine;
-   // stringstream ss;
 
     resetDestination(g,world,{100, 0},boardPluginID);
 
@@ -141,19 +124,12 @@ void graphicsMain(Graphics& g)
 
         g.text({10,30}, 20, "Last Command: " + lastCommandSent, GREEN);
 
-        //        cout<<"Target size: "<<to_string(world.targets.size())<<endl;
         std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
         if(diff.count() >= 1)
         {
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,RED,RED);
             g.text(g.width()/2-g.width()*0.04,g.height()*0.05,10,"TIMED OUT",WHITE);
         }
-
-        //know circumferences, each wheel travels half of the section of the circumference
-
-        //        world.masterNav(destination,g); // COMMENTED OUT ON 1/26/22
-
-
 
         if(drawAdj)
         {
@@ -171,8 +147,6 @@ void graphicsMain(Graphics& g)
         {
             g.rect(g.width()-20,g.height()-20,10,10,GREEN,GREEN);
         }
-
-
 
         vector<Vec2d> copynav = world.path;
         for(auto& n : copynav)
@@ -220,28 +194,16 @@ void graphicsMain(Graphics& g)
 
         }
 
-
-        if(playback)
-        {
-            string line;
-            if(getline(input,line)){
-                world.dataInterp(line);
-                cout<<line<<endl;
-            }
-        }
         for (const Event& e : g.events())
         {
             switch (e.evtType)
             {
-
             case EvtType::MousePress:
                 if(e.arg == 1)
                 {
                     if(clicked){
                         points = world.tree.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
-                        //                        cout<<world.tree.doesSegmentCollide(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()))<<endl;
-                        //                        cout<<"nav"<<endl;
-                        clicked = false;
+                         clicked = false;
                     }
                     else{
                         clicked = true;
@@ -271,14 +233,6 @@ void graphicsMain(Graphics& g)
             case EvtType::PluginMessage:
                 if(e.pluginId == boardPluginID)
                 {
-
-                    int find = e.data.find("\r\n");
-                    if(find != -1 && e.data != "ok\r\n"){
-//                        cout<<e.data<<endl;
-                    }
-                }
-                if(e.pluginId == boardPluginID)
-                {
                     if(recording)
                     {
                         file<<e.data;
@@ -305,19 +259,6 @@ void graphicsMain(Graphics& g)
                 case ',':
                     resetDestination(g, world, {-100, 0},boardPluginID);
                     break;
-                case 'S':
-                    world.save("loadTestOne");
-                    break;
-                case 'L':
-                    world.load("loadTestOne");
-                    break;
-                case 'P':
-                    recording = false;
-                    playback = !playback;
-                    if(playback){
-                        input.open("serialData.txt");
-                    }
-                    break;
                 case 'T':
                     cout<<"ask"<<endl;
                     ask(g,boardPluginID);
@@ -325,7 +266,6 @@ void graphicsMain(Graphics& g)
                     break;
                 case 'D':
                     world.diagnostics = !world.diagnostics;
-//                    g.callPlugin(boardPluginID,static_cast<int>(SerialPortReader::Command::send),0,"debug");
                     break;
                 case 'X':
                 {
@@ -341,43 +281,9 @@ void graphicsMain(Graphics& g)
                     }
 
                 }break;
-                case 'R':
-                    recording = !recording;
-                    playback = false;
-                    if(recording)
-                    {
-                        file = ofstream("12112020.txt");
-                    }
-                    else{
-                        file.close();
-                    }
-                    break;
-                case 'C':
-                    world.tree.clear();
-                    break;
-                case 'M':
-                    if(merge)
-                    {
-                        world.tree.combineNodes(g.mousePos(),merge2);
-                        merge = false;
-                    }
-                    else{
-                        merge = true;
-                        merge2 = g.mousePos();
-                    }
-                    break;
-                case 'W':
-                    world.robot.speed =10;
-                    break;
-                    //                case 'S':
-                    //                    world.robot.speed =-10;
-                    //                    break;
                 case 'A':
                     drawAdj = !drawAdj;
                     break;
-                    //                case 'D':
-                    //                    world.robot.angle -= 0.1;
-                    //                    break;
                 case ' ':
                     world.showObstacle = !world.showObstacle;
                     break;
@@ -389,20 +295,6 @@ void graphicsMain(Graphics& g)
                     break;
                 }
                 break;
-                //            case EvtType::KeyRelease:
-                //                switch(e.arg)
-                //                {
-                //                case 'S':
-                //                case 'W':
-                //                    world.robot.speed = 0;
-                //                    break;
-                //                case 'D':
-                //                case 'A':
-                //                    world.robot.angularVelocity = 0;
-                //                    break;
-                //                default:
-                //                    break;
-                //                }
             }
         }
     }
@@ -411,5 +303,5 @@ void graphicsMain(Graphics& g)
 int main()
 {
     // main should be empty except for the following line:
-    Graphics g("Drawing", 800, 600, graphicsMain);
+    Graphics g("Navigation", 800, 600, graphicsMain);
 }
