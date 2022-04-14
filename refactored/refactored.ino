@@ -23,7 +23,8 @@ bool debug = true;
 // soft e-stop switch
 const int estop1 = 6; // OUTPUT LOW
 const int estop2 = 7; // pulled up to High.  These pins are connected together with a NC switch    HIGH means STOP
-const int modeLED = 4;
+const int leftModeLED = 4;
+const int rightModeLED = 5;
 
 void wakeWheelchair()
 {
@@ -59,7 +60,7 @@ Vec2d targets[numTargs] = {Vec2d(8000, 8000), generateTurn(90), generateTurn(-90
 Vec2d encTargets;
 //= {Vec2d(8000,8000)};
 
-double wheelSpeedRatio = 1; // ratio of left/right speeds when given the same power
+double wheelSpeedRatio = 1; // ratio of right/left speeds when given the same power
 
 float wheelCircumference = 10.01383; // inches. circ of encoder dummy wheels
 int encUnitsRot = 2400;               // encoder units per rotation
@@ -204,7 +205,8 @@ void setup()
   softwareSetup();
   setMotorSpeeds(0,0);
   pinMode(estop1, OUTPUT);
-  pinMode(modeLED,OUTPUT);
+  pinMode(leftModeLED,OUTPUT);
+  pinMode(rightModeLED,OUTPUT);
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
 }
@@ -443,12 +445,12 @@ void loop()
 
   if(closeEnough(velSwitchThreshold,encoders.y,encTargets.y))
   {
-    if(leftVelocityMode)
+    if(rightVelocityMode)
     {
       rightSwitchToPos(-1*newPositionBlack);
     }
   }
-  else if(!leftVelocityMode)
+  else if(!rightVelocityMode)
   {
     rightSwitchToVel(encoders);
   }
@@ -456,7 +458,7 @@ void loop()
   // use the encoder values we sent as PID inputs, or use velocities
   if(leftVelocityMode)
   {
-    digitalWrite(modeLED,HIGH);
+    digitalWrite(leftModeLED,HIGH);
     Vec2d vels = calcVelocities(Vec2d{-1.0*newPositionRed,-1.0*newPositionBlack});
     inputL = vels.x;
   }
@@ -466,7 +468,7 @@ void loop()
 
    if(rightVelocityMode)
   {
-    digitalWrite(modeLED,HIGH);
+    digitalWrite(rightModeLED,HIGH);
     Vec2d vels = calcVelocities(Vec2d{-1.0*newPositionRed,-1.0*newPositionBlack});
     inputR = vels.y;
   }
@@ -474,7 +476,7 @@ void loop()
     inputR = -newPositionBlack;
   }
   
-  if ((!closeEnough(threshold,encoders.x,encTargets.x) || !closeEnough(threshold,encoders.y,encTargets.y)) && gotFirstTargets)
+  if ((!closeEnough(threshold,encoders.x,encTargets.x) || !closeEnough(threshold,encoders.y,encTargets.y)) && gotFirstTargets) //potentially change this to be by wheel instead of activating both on the or
   {
     if(leftVelocityMode)
     {
