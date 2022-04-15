@@ -681,7 +681,7 @@ void loop()
     
   delay(100);
   
-  if (encodersChanged || motorL != 0 || motorR != 0 || leftEncoder.getHasTarget() || rightEncoder.getHasTarget()) {
+  if (encodersChanged || motorL != 0 || motorR != 0) {
     writeDelimited(String("P 0 ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
   }
   else {

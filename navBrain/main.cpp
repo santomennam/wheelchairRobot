@@ -30,10 +30,12 @@ string lastCommandSent;
 tp lastCommandTime;
 Vec2d lastSentTarget;
 
-void sendCommand(Graphics& g, int boardPluginId, string cmd)
+void sendCommand(Graphics& g, int boardPluginId, string cmd, bool debug)
 {
     cmd = wrapDelimitedCRC8(cmd);
-    cout << ">>>>> Sending Command to Bot: " << cmd << endl;
+    if (debug) {
+        cout << ">>>>> Sending Command to Bot: " << cmd << endl;
+    }
     g.callPlugin(boardPluginId,static_cast<int>(SerialPortReader::Command::send),0,cmd);
     lastCommandSent = cmd;
     lastCommandTime = std::chrono::steady_clock::now();
@@ -41,23 +43,23 @@ void sendCommand(Graphics& g, int boardPluginId, string cmd)
 
 void resetBot(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "reset");
+    sendCommand(g, boardPluginID, "reset", true);
 
 }
 
 void ask(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "ask");
+    sendCommand(g, boardPluginID, "ask", true);
 }
 
 void setDebugMode(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "debug");
+    sendCommand(g, boardPluginID, "debug", true);
 }
 
 void keepBotAlive(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "ping");
+    sendCommand(g, boardPluginID, "ping", false);
 }
 
 void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
@@ -65,7 +67,7 @@ void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
     lastSentTarget = encoderTarget;
     stringstream ss;
     ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y;
-    sendCommand(g, boardPluginID, ss.str());
+    sendCommand(g, boardPluginID, ss.str(), true);
 }
 
 void resetDestination(Graphics& g, World& world, Vec2d destination,int boardPluginID)
@@ -238,16 +240,16 @@ void graphicsMain(Graphics& g)
         if ((world.posTracker.encoderReadings-lastSentTarget).magnitude() < 1000) {
             switch (arrows) {
             case 0x01: // up only
-                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ 1000, 1000 }, boardPluginID);
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ 2000, 2000 }, boardPluginID);
                 break;
             case 0x02: // down only
-                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ -1000, -1000 }, boardPluginID);
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ -2000, -2000 }, boardPluginID);
                 break;
             case 0x04: // left only
-                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ -500, 500 }, boardPluginID);
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ -1500, 1500 }, boardPluginID);
                 break;
             case 0x08: // right only
-                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ 500, -500 }, boardPluginID);
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ 1500, -1500 }, boardPluginID);
                 break;
             }
         }
