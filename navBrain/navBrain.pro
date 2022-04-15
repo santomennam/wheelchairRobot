@@ -8,6 +8,7 @@ HEADERS    = \
     networkclient.h \
     networkplugin.h \
     networkserver.h \
+    simplecrc.h \
     window.h \
     graphics.h \
     vec2d.h \
@@ -35,6 +36,7 @@ SOURCES     = \
     networkclient.cpp \
     networkplugin.cpp \
     networkserver.cpp \
+    simplecrc.cpp \
     vec2d.cpp \
     vec3d.cpp \
     plugin.cpp \

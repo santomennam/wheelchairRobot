@@ -17,6 +17,9 @@
 #include "viewport.h"
 #include "physics.h"
 #include<windows.h>
+
+#include "simplecrc.h"
+
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -24,43 +27,50 @@ using namespace std;
 using namespace mssm;
 
 string lastCommandSent;
-int msSinceLastCommand = 0;
+tp lastCommandTime;
 
 void sendCommand(Graphics& g, int boardPluginId, string cmd)
 {
+    cmd = wrapDelimitedCRC8(cmd);
     cout << ">>>>> Sending Command to Bot: " << cmd << endl;
     g.callPlugin(boardPluginId,static_cast<int>(SerialPortReader::Command::send),0,cmd);
     lastCommandSent = cmd;
-    msSinceLastCommand = 0;
+    lastCommandTime = std::chrono::steady_clock::now();
 }
 
 void resetBot(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "#reset\n");
+    sendCommand(g, boardPluginID, "reset");
 
 }
 
 void ask(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "#ask\n");
+    sendCommand(g, boardPluginID, "ask");
 }
 
 void setDebugMode(Graphics& g,int boardPluginID)
 {
-    sendCommand(g, boardPluginID, "#debug\n");
+    sendCommand(g, boardPluginID, "debug");
+}
+
+void keepBotAlive(Graphics& g,int boardPluginID)
+{
+    sendCommand(g, boardPluginID, "ping");
 }
 
 void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
 {
     stringstream ss;
-    ss<<"#target "<<encoderTarget.x<<" "<<encoderTarget.y<<'\n';
+    ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y;
     sendCommand(g, boardPluginID, ss.str());
 }
 
 void resetDestination(Graphics& g, World& world, Vec2d destination,int boardPluginID)
 {
+    cout << "resetDestination calling resetBot" << endl;
     resetBot(g,boardPluginID);
-    setDebugMode(g,boardPluginID);
+    //setDebugMode(g,boardPluginID);
     world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
     world.findEncPath(world.path);
     for(int i = 0; i < world.targets.size(); i++)
@@ -84,7 +94,7 @@ void graphicsMain(Graphics& g)
 
     Vec2d previous;
     bool recording = false;
-    int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud115200); });
+    int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud19200); });
 
     ofstream file;
     ifstream input;
@@ -115,16 +125,16 @@ void graphicsMain(Graphics& g)
 
     string lastLine;
 
-    resetDestination(g,world,{100, 0},boardPluginID);
+    resetDestination(g,world,{10, 0},boardPluginID);
 
     while (g.draw()) {
         g.clear();
 
         int textY = g.height();
 
-        g.text({10,textY -= 25}, 20, "incomingCommand: " + world.incomingData, GREEN);
-        g.text({10,textY -= 25}, 20, "receivedCommand: " + world.receivedCommand, GREEN);
+        //g.text({10,textY -= 25}, 20, "incomingResponse: " + world.incomingData, GREEN);
         g.text({10,textY -= 25}, 20, "Last Command:    " + lastCommandSent, GREEN);
+        g.text({10,textY -= 25}, 20, "receivedResponse: " + world.receivedCommand, GREEN);
         if (!world.receivedInfo.empty()) {
             g.text({10,textY -= 25}, 20, "ERROR:    " + world.receivedInfo, YELLOW);
         }
@@ -138,6 +148,10 @@ void graphicsMain(Graphics& g)
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,RED,RED);
             g.text(g.width()/2-g.width()*0.04,g.height()*0.05,10,"TIMED OUT",WHITE);
         }
+
+
+
+
 
         if(drawAdj)
         {
@@ -170,7 +184,7 @@ void graphicsMain(Graphics& g)
             Vec2d target = world.targets[0].encoderReadings;
             trackingPair = target;
 
-            sendTarget(g, target,boardPluginID);
+ //           sendTarget(g, target,boardPluginID);
         }
         else if (world.targetsChanged) {
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,GREEN,GREEN);
@@ -201,6 +215,8 @@ void graphicsMain(Graphics& g)
             g.text(g.width() - 400, 105, 20, "Velocities: " + to_string(world.vel1) +" " + to_string(world.vel2));
 
         }
+
+
 
         for (const Event& e : g.events())
         {
@@ -241,6 +257,7 @@ void graphicsMain(Graphics& g)
             case EvtType::PluginMessage:
                 if(e.pluginId == boardPluginID)
                 {
+                    //cout << "----------\n" << e << "----------" << endl;
                     if(recording)
                     {
                         file<<e.data;
@@ -261,11 +278,21 @@ void graphicsMain(Graphics& g)
                     resetBot(g,boardPluginID);
                     world.targets.clear();
                     break;
+                case '>':
+                    sendTarget(g, {4000,4000}, boardPluginID);
+                   // resetDestination(g, world, {10, 0},boardPluginID);
+                    break;
+                case '<':
+                    sendTarget(g, {-4000,-4000}, boardPluginID);
+                  //  resetDestination(g, world, {-10, 0},boardPluginID);
+                    break;
                 case '.':
-                    resetDestination(g, world, {100, 0},boardPluginID);
+                    sendTarget(g, {2000,2000}, boardPluginID);
+                   // resetDestination(g, world, {10, 0},boardPluginID);
                     break;
                 case ',':
-                    resetDestination(g, world, {-100, 0},boardPluginID);
+                    sendTarget(g, {-2000,-2000}, boardPluginID);
+                  //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case 'T':
                     ask(g,boardPluginID);
@@ -304,8 +331,16 @@ void graphicsMain(Graphics& g)
                 break;
             }
         }
+
+
+        std::chrono::duration<double> elapsedSinceSentCommand = std::chrono::steady_clock::now() - lastCommandTime;
+        if(elapsedSinceSentCommand.count() >= 0.2)
+        {
+            keepBotAlive(g, boardPluginID);
+        }
     }
 
+    cout << "Application closing: reset bot" << endl;
     resetBot(g,boardPluginID);
 
 }

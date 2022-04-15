@@ -2,6 +2,8 @@
 #include <iostream>
 #include <algorithm>
 #include <ostream>
+#include "simplecrc.h"
+
 using namespace std;
 using namespace mssm;
 
@@ -228,6 +230,7 @@ void World::draw(Graphics &g)
 
 void World::dataInterp(string data)
 {
+    // cout << "[[" << data << "]]" << endl;
     lastTime = std::chrono::steady_clock::now();
     std::replace(data.begin(),data.end(),'\r','\n');
     incomingData += data;
@@ -243,19 +246,25 @@ void World::dataInterp(string data)
         {
             return;
         }
+
         string recCmd = incomingData.substr(1,(j-incomingData.begin()-1));
         incomingData.erase(incomingData.begin(),j);
+
+        if (!stripCRC8(recCmd)) {
+            cout << "CHECKSUM ERROR!!! " << recCmd << endl;
+            receivedError = recCmd;
+            continue;
+        }
+
         stringstream dataStream(recCmd);
 
         char cmd;
 
         dataStream >> cmd;
 
-        if (recCmd == "H") {
-            // just a heartbeat
-        }
-        else {
-            receivedCommand = recCmd;
+        if (recCmd[0] != 'H') {
+            receivedCommand = recCmd;  // don't bother recording heartbeat
+            cout << "<<<<<< " << receivedCommand << endl;
         }
 
         double a;
@@ -264,21 +273,21 @@ void World::dataInterp(string data)
         switch (cmd) {
         case 'A':
             dataStream >> a >> b;
-            cout << receivedCommand <<endl;
             queriedTarget = {a, b};
             queried = true;
-            return;
+            break;
+        case 'B':
+            receivedError = receivedCommand;
+            break;
         case 'R': // reset ack
-            cout << receivedCommand <<endl;
+            receivedError = "";
+            receivedInfo = "";
             break;
         case 'D': // debug ack
-            cout << receivedCommand <<endl;
             break;
-        case 'T': // debug ack
-            cout << receivedCommand <<endl;
+        case 'T': // target ack
             break;
         case 'P': // position
-            cout << receivedCommand << endl;
             dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
             robot.distanceRead /= 2.54;
             robot.distanceRead += 8; //this will need to be removed
@@ -287,20 +296,18 @@ void World::dataInterp(string data)
             robot.position = posTracker.getPos();
             break;
         case 'E': // Error
-            cout << "Error: " << receivedCommand << endl;
             receivedError = receivedCommand;
             break;
         case 'I': // Info
-            cout << "Info: " << receivedCommand << endl;
             receivedInfo = receivedCommand;
             break;
         case 'X': // EStop
-            cout << "E-Stop: " << receivedCommand << endl;
             break;
         case 'H': // Heartbeat
             break;
         default:
             cout << "UNKNOWN RESPONSE: " << receivedCommand << endl;
+            break;
         }
     }
 }
