@@ -28,6 +28,7 @@ using namespace mssm;
 
 string lastCommandSent;
 tp lastCommandTime;
+Vec2d lastSentTarget;
 
 void sendCommand(Graphics& g, int boardPluginId, string cmd)
 {
@@ -61,6 +62,7 @@ void keepBotAlive(Graphics& g,int boardPluginID)
 
 void sendTarget(Graphics& g, Vec2d encoderTarget,int boardPluginID)
 {
+    lastSentTarget = encoderTarget;
     stringstream ss;
     ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y;
     sendCommand(g, boardPluginID, ss.str());
@@ -127,6 +129,8 @@ void graphicsMain(Graphics& g)
 
     resetDestination(g,world,{10, 0},boardPluginID);
 
+    bool arrowPressed = false;
+
     while (g.draw()) {
         g.clear();
 
@@ -184,7 +188,7 @@ void graphicsMain(Graphics& g)
             Vec2d target = world.targets[0].encoderReadings;
             trackingPair = target;
 
- //           sendTarget(g, target,boardPluginID);
+            //           sendTarget(g, target,boardPluginID);
         }
         else if (world.targetsChanged) {
             g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,GREEN,GREEN);
@@ -216,7 +220,37 @@ void graphicsMain(Graphics& g)
 
         }
 
+        int arrows =
+                (g.isKeyPressed(Key::Up)    ? 0x01 : 0x00) |
+                (g.isKeyPressed(Key::Down)  ? 0x02 : 0x00) |
+                (g.isKeyPressed(Key::Left)  ? 0x04 : 0x00) |
+                (g.isKeyPressed(Key::Right) ? 0x08 : 0x00);
 
+        if (arrowPressed && !arrows) {
+            // just released arrows
+            arrowPressed = false;
+            //sendTarget(g, world.posTracker.encoderReadings, boardPluginID);
+        }
+        if (arrows) {
+            arrowPressed = true;
+        }
+
+        if ((world.posTracker.encoderReadings-lastSentTarget).magnitude() < 1000) {
+            switch (arrows) {
+            case 0x01: // up only
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ 1000, 1000 }, boardPluginID);
+                break;
+            case 0x02: // down only
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ -1000, -1000 }, boardPluginID);
+                break;
+            case 0x04: // left only
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ -500, 500 }, boardPluginID);
+                break;
+            case 0x08: // right only
+                sendTarget(g, world.posTracker.encoderReadings + Vec2d{ 500, -500 }, boardPluginID);
+                break;
+            }
+        }
 
         for (const Event& e : g.events())
         {
@@ -227,7 +261,7 @@ void graphicsMain(Graphics& g)
                 {
                     if(clicked){
                         points = world.tree.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
-                         clicked = false;
+                        clicked = false;
                     }
                     else{
                         clicked = true;
@@ -265,7 +299,7 @@ void graphicsMain(Graphics& g)
                         cout<<"recording"<<endl;
                     }
                     if(!playback&&!recording){
-//                        cout<<e.data<<endl;
+                        //                        cout<<e.data<<endl;
                         world.dataInterp(e.data);
                     }
                 }
@@ -274,25 +308,27 @@ void graphicsMain(Graphics& g)
             case EvtType::KeyPress:
                 switch(e.arg)
                 {
+
+
                 case static_cast<int>(Key::ESC):
                     resetBot(g,boardPluginID);
                     world.targets.clear();
                     break;
                 case '>':
                     sendTarget(g, {4000,4000}, boardPluginID);
-                   // resetDestination(g, world, {10, 0},boardPluginID);
+                    // resetDestination(g, world, {10, 0},boardPluginID);
                     break;
                 case '<':
                     sendTarget(g, {-4000,-4000}, boardPluginID);
-                  //  resetDestination(g, world, {-10, 0},boardPluginID);
+                    //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case '.':
                     sendTarget(g, {2000,2000}, boardPluginID);
-                   // resetDestination(g, world, {10, 0},boardPluginID);
+                    // resetDestination(g, world, {10, 0},boardPluginID);
                     break;
                 case ',':
                     sendTarget(g, {-2000,-2000}, boardPluginID);
-                  //  resetDestination(g, world, {-10, 0},boardPluginID);
+                    //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case 'T':
                     ask(g,boardPluginID);

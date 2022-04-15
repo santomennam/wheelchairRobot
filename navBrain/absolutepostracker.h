@@ -50,6 +50,8 @@ public:
     bool update(int leftEnc, int rightEnc);
     double getAngle() {return angle;};
     Vec2d getPos() {return position;};
+    int leftEnc() { return oldLeftEnc; }
+    int rightEnc() { return oldRightEnc; }
 };
 
 #endif // ABSOLUTEPOSTRACKER_H

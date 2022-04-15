@@ -3,10 +3,17 @@
 #include <ArduPID.h>
 #include <Encoder.h>
 
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include "Adafruit_LEDBackpack.h"
+
+Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
+
 ArduPID PIDControllerL;
 ArduPID PIDControllerR;
 
 int encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
+
 
 Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
 Encoder red(18, 19); // black right red left
@@ -31,6 +38,95 @@ const int estop2 = 7; // pulled up to High.  These pins are connected together w
 const int leftModeLED = 4;
 const int rightModeLED = 5;
 
+
+static const uint8_t PROGMEM
+  smile_bmp[] =
+  { B00111100,
+    B01000010,
+    B10100101,
+    B10000001,
+    B10100101,
+    B10011001,
+    B01000010,
+    B00111100 },
+  arrow_up[] =
+  { 
+    B00010000,
+    B00111000,
+    B01010100,
+    B10010010,
+    B00010000,
+    B00010000,
+    B00010000,
+    B00010000 
+  },
+  arrow_dn[] =
+  { 
+    B00010000,
+    B00010000,
+    B00010000,
+    B00010000,
+    B10010010,
+    B01010100,
+    B00111000,
+    B00010000 
+  },
+  frown_bmp[] =
+  { B00111100,
+    B01000010,
+    B10100101,
+    B10000001,
+    B10011001,
+    B10100101,
+    B01000010,
+    B00111100 };
+
+
+bool needDisplayUpdate = false;
+
+void beginDraw()
+{
+  if (!needDisplayUpdate) {
+    needDisplayUpdate = true;
+    matrix.clear();
+  }
+}
+
+void updateDisplay()
+{
+  if (needDisplayUpdate) {
+    matrix.writeDisplay();
+    needDisplayUpdate = false;  
+  }
+}
+
+void displayX( uint8_t r, uint8_t g, uint8_t b)
+{
+  beginDraw();
+  matrix.drawLine(0,0, 7, 7, LED_ON);
+  matrix.drawLine(7,0, 0, 7, LED_ON);
+}
+
+
+void drawArrow(int x, int value, bool fwd)
+{
+   beginDraw();
+   if (value != 0) {
+      matrix.drawBitmap(x, 0, fwd ? arrow_up : arrow_dn, 8, 8, LED_ON);
+   }
+}
+
+
+
+void drawArrows(int leftPower, int rightPower)
+{
+   bool leftFwd  = leftPower >= 0;
+   bool rightFwd = rightPower >= 0;
+   drawArrow(0, leftPower, leftFwd);
+   drawArrow(8, rightPower, rightFwd);
+}
+
+
 void wakeWheelchair()
 {
   foreBrainComm.write('w');
@@ -49,6 +145,8 @@ void enableDebug()
 
 void setMotorSpeeds(int left, int right)
 {
+  drawArrows(left, right);
+  
   char m1 = (char)left;
   char m2 = (char)right;
   foreBrainComm.write('m');
@@ -299,7 +397,7 @@ String readDelimited(bool flushData)
         }
         else {
           // HOW DO WE HANDLE THIS ERROR!!
-          writeDelimited(String("E CRC Failed Checksum: ") + crc + data);
+          writeDelimited(String("E CRC Failed Checksum: ") + crc + "-'" + data + "'");
         }
         data = "";
         gotStart = false;
@@ -369,7 +467,6 @@ String getValue(String data, char separator, int index)
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-
 void checkEstop()
 {
   if (digitalRead(estop2) == HIGH)
@@ -379,8 +476,14 @@ void checkEstop()
 
     bool first = true;
 
+    displayX(20,0,0);
+    updateDisplay();
+    
     while (true)
     {
+      
+
+  
       //in an e-stop holding pattern
       delay(100);
 
@@ -511,8 +614,21 @@ void setup()
   foreBrainComm.begin(9600);
   Serial1a.begin(115200);
 
+  matrix.begin(0x70); 
+  matrix.setRotation(1);
+  matrix.setBrightness(5);
+  
+  matrix.clear();
+  matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
+  matrix.writeDisplay();  // write the changes we just made to the display
+  
   delay(500);
+  
   wheelChairReset();
+
+  matrix.clear();
+  matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
+  matrix.writeDisplay();  // write the changes we just made to the display
 }
 
 long lastCmdTime = 0;
@@ -522,6 +638,7 @@ bool commEstablished = false;
 void loop()
 {
   checkEstop();
+
 
   bool gotCommand = processCommands();
 
@@ -546,6 +663,7 @@ void loop()
   }
 
   if (!commEstablished) {
+    updateDisplay();
     return;
   }
 
@@ -559,6 +677,8 @@ void loop()
 
   setMotorSpeeds(motorL, motorR);
 
+  updateDisplay();
+    
   delay(100);
   
   if (encodersChanged || motorL != 0 || motorR != 0 || leftEncoder.getHasTarget() || rightEncoder.getHasTarget()) {

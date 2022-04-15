@@ -8,7 +8,8 @@ AbsolutePosTracker::AbsolutePosTracker()
 bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
 {
     bool moved{false};
-    double left = leftEnc; double right = rightEnc;
+    double left = leftEnc;
+    double right = rightEnc;
     encoderReadings = {left,right};
 
     if(gotFirstReading) {
