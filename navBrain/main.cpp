@@ -110,6 +110,9 @@ void graphicsMain(Graphics& g)
 
     bool arrowPressed = false;
     bool resetRequested = false;
+    bool targetRequested = false;
+
+    Vec2d target;
 
     while (g.draw()) {
         g.clear();
@@ -311,19 +314,23 @@ void graphicsMain(Graphics& g)
                     world.targets.clear();
                     break;
                 case '>':
-                    bot.sendTarget({4000,4000});
+                    targetRequested = true;
+                    target = {4000,4000};
                     // resetDestination(g, world, {10, 0},boardPluginID);
                     break;
                 case '<':
-                    bot.sendTarget({-4000,-4000});
+                    targetRequested = true;
+                    target = {-4000,-4000};
                     //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case '.':
-                    bot.sendTarget({2000,2000});
+                    targetRequested = true;
+                    target = {2000,2000};
                     // resetDestination(g, world, {10, 0},boardPluginID);
                     break;
                 case ',':
-                    bot.sendTarget({-2000,-2000});
+                    targetRequested = true;
+                    target = {-2000,-2000};
                     //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case 'D':
@@ -363,8 +370,13 @@ void graphicsMain(Graphics& g)
         if (resetRequested && (bot.readyForNextCommand() || bot.elapsedSinceLastSend() >= 0.2)) {
             bot.resetBot();
             resetRequested = false;
+            targetRequested = false;
         }
-        else if(bot.elapsedSinceLastSend() >= 0.1 && bot.readyForNextCommand())
+        else if (targetRequested && bot.readyForNextCommand()) {
+            bot.sendTarget(target);
+            targetRequested = false;
+        }
+        else if(bot.elapsedSinceLastSend() >= 0.2 && bot.readyForNextCommand())
         {
             bot.keepBotAlive();
         }
