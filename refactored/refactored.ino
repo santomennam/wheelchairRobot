@@ -221,9 +221,9 @@ class SmartEncoder {
     double pidInput;
     double pidOutput;
     double pidTarget;
-    double kP = 0.05;  // 0.05 is pretty close but overshoots a little bit
-    double kI = 0.002; // 0.0005;
-    double kD = 0.00;
+    double kP = 0.002;  // 0.05 is pretty close but overshoots a little bit
+    double kI = 0.003; // 0.0005;
+    double kD = 1; // 1000;
   public:
     SmartEncoder(Encoder& enc, ArduPID& pid) : enc{enc}, pid{pid} {}
     bool refresh();
@@ -288,7 +288,8 @@ void SmartEncoder::enablePid()
     pidInput  = count;
     pidTarget = target;
     pid.begin(&pidInput, &pidOutput, &pidTarget, kP, kI, kD);
-    pid.setOutputLimits(-20, 20);
+    pid.setOutputLimits(-30, 30);
+    pid.setWindUpLimits(-20, 20);
   }
 }
 
@@ -319,14 +320,14 @@ int SmartEncoder::computeMotorSpeed()
     return 0;
   }
 
-  const long velModeThreshold = 2000;
-  const int motorSpeedBase = 20;
-
-  if (absDist() > velModeThreshold) {
-    // we're far enough away that we won't use PID control
-    disablePid();
-    return fixMotorSpeedSign(motorSpeedBase);
-  }
+//  const long velModeThreshold = 2000;
+//  const int motorSpeedBase = 25;
+//
+//  if (absDist() > velModeThreshold) {
+//    // we're far enough away that we won't use PID control
+//    disablePid();
+//    return fixMotorSpeedSign(motorSpeedBase);
+//  }
 
   enablePid();
   pid.compute();

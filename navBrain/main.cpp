@@ -114,10 +114,23 @@ void graphicsMain(Graphics& g)
 
     Vec2d target;
 
+    vector<double> leftMotorSpeed;
+    vector<double> rightMotorSpeed;
+
     while (g.draw()) {
         g.clear();
 
         bot.update();
+
+        Vec2d mot = bot.getMotors();
+
+        leftMotorSpeed.push_back(mot.x);
+        rightMotorSpeed.push_back(mot.y);
+
+        while (leftMotorSpeed.size() > 300) {
+            leftMotorSpeed.erase(leftMotorSpeed.begin());
+            rightMotorSpeed.erase(rightMotorSpeed.begin());
+        }
 
         int textY = g.height();
 
