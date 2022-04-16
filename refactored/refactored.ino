@@ -578,7 +578,7 @@ bool processCommands()
     return true;
   }
   else if (command.startsWith("ask")) {
-    writeDelimited("A " + String(leftEncoder.getTarget()) + " " + String(rightEncoder.getTarget())); 
+    writeDelimited("T " + String(leftEncoder.getTarget()) + " " + String(rightEncoder.getTarget())); 
     return true;
   }
   else if (command.startsWith("target"))

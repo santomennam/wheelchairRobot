@@ -21,14 +21,13 @@ public:
     double vel2;
     Viewport view;
     Vec2d panOffset {0,0};
-    Vec2d queriedTarget;
-    bool queried = false;
+
     std::ofstream strm;
     double worldScale = 0.5;
     Robot robot;
     AreaTree tree;
     bool diagnostics = true;
-    tp lastTime;
+
     std::vector<Obstacle> obstacles;    
     bool paused = false;
     bool showObstacle = false;
@@ -59,6 +58,12 @@ public:
     double acceptableError = 600; //in encs //was 1200
     bool targetsChanged = true;
 public:
+
+    // used by BotConnection:
+    void botTargetUpdated(Vec2d targets);
+    void botEncoderUpdated(Vec2d encoders);
+    void botMotorsUpdated(Vec2d motors);
+
     int encoders(double distance);
     double inches(int encs);
     void updateTargets();
@@ -76,7 +81,6 @@ public:
     World(Vec2d botStart,std::vector<Vec2d> obstaclePoints, double width, double height);
     void draw(mssm::Graphics&g);
     void update();
-    void dataInterp(std::string data);
     void sensorCoords();
     void createObstacles(mssm::Graphics&g);
     void makeNewArea();

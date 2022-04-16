@@ -5,6 +5,9 @@ CONFIG += gui
 CONFIG += c++14
 HEADERS    = \
     absolutepostracker.h \
+    botcomm.h \
+    botcommserial.h \
+    botconnection.h \
     networkclient.h \
     networkplugin.h \
     networkserver.h \
@@ -31,6 +34,9 @@ HEADERS    = \
 
 SOURCES     = \
     absolutepostracker.cpp \
+    botcomm.cpp \
+    botcommserial.cpp \
+    botconnection.cpp \
     main.cpp \
     graphics.cpp \
     networkclient.cpp \

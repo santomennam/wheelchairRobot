@@ -9,6 +9,26 @@ using namespace mssm;
 
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
+void World::botTargetUpdated(Vec2d targets)
+{
+
+}
+
+void World::botEncoderUpdated(Vec2d encoders)
+{
+//    dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
+//    robot.distanceRead /= 2.54;
+//    robot.distanceRead += 8; //this will need to be removed
+    posTracker.update(encoders.x, encoders.y);
+    robot.angle = posTracker.getAngle();
+    robot.position = posTracker.getPos();
+}
+
+void World::botMotorsUpdated(Vec2d motors)
+{
+
+}
+
 int World::encoders(double distance)
 {
     return int(distance * RobotParams::countsPerRev / RobotParams::encWheelCirc());
@@ -146,7 +166,7 @@ void World::load(string filename)
 }
 
 World::World(Vec2d botStart, vector<Vec2d> obstaclePoints, double width, double height)
-    :robot(botStart), tree(width,height,robot.width), lastTime(std::chrono::steady_clock::now())
+    :robot(botStart), tree(width,height,robot.width)
 {
     strm = ofstream("writeNode.txt");
     // obstacles.emplace_back(obstaclePoints);
@@ -225,90 +245,6 @@ void World::draw(Graphics &g)
     for(int i = 0; i<alreadyDetected.size();i++)
     {
         g.point(view.worldToScreen(alreadyDetected[i]),GREEN);
-    }
-}
-
-void World::dataInterp(string data)
-{
-    // cout << "[[" << data << "]]" << endl;
-    lastTime = std::chrono::steady_clock::now();
-    std::replace(data.begin(),data.end(),'\r','\n');
-    incomingData += data;
-    while(true){
-        auto i = find(incomingData.begin(),incomingData.end(),'#');
-        if(i == incomingData.end())
-        {
-            return;
-        }
-        incomingData.erase(incomingData.begin(),i);
-        auto j = find(incomingData.begin(),incomingData.end(),'\n');
-        if(j == incomingData.end())
-        {
-            return;
-        }
-
-        string recCmd = incomingData.substr(1,(j-incomingData.begin()-1));
-        incomingData.erase(incomingData.begin(),j);
-
-        if (!stripCRC8(recCmd)) {
-            cout << "CHECKSUM ERROR!!! " << recCmd << endl;
-            receivedError = recCmd;
-            continue;
-        }
-
-        stringstream dataStream(recCmd);
-
-        char cmd;
-
-        dataStream >> cmd;
-
-        if (recCmd[0] != 'H') {
-            receivedCommand = recCmd;  // don't bother recording heartbeat
-            cout << "<<<<<< " << receivedCommand << endl;
-        }
-
-        double a;
-        double b;
-
-        switch (cmd) {
-        case 'A':
-            dataStream >> a >> b;
-            queriedTarget = {a, b};
-            queried = true;
-            break;
-        case 'B':
-            receivedError = receivedCommand;
-            break;
-        case 'R': // reset ack
-            receivedError = "";
-            receivedInfo = "";
-            break;
-        case 'D': // debug ack
-            break;
-        case 'T': // target ack
-            break;
-        case 'P': // position
-            dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
-            robot.distanceRead /= 2.54;
-            robot.distanceRead += 8; //this will need to be removed
-            posTracker.update(a,b);
-            robot.angle = posTracker.getAngle();
-            robot.position = posTracker.getPos();
-            break;
-        case 'E': // Error
-            receivedError = receivedCommand;
-            break;
-        case 'I': // Info
-            receivedInfo = receivedCommand;
-            break;
-        case 'X': // EStop
-            break;
-        case 'H': // Heartbeat
-            break;
-        default:
-            cout << "UNKNOWN RESPONSE: " << receivedCommand << endl;
-            break;
-        }
     }
 }
 
