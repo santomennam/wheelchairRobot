@@ -3,7 +3,7 @@
 
 #include <string>
 
-class BotCommUser {
+class BotCommClient {
 public:
     virtual void onBotCommPacket(std::string data) = 0;
     virtual void onBotCommConnect() = 0;
@@ -13,7 +13,7 @@ public:
 
 class BotComm {
 public:
-    virtual void attach(BotCommUser* user) = 0;
+    virtual void attach(BotCommClient* user) = 0;
     virtual void sendPacket(std::string data) = 0;
     virtual void connect(std::string connectionName) = 0;
     virtual void disconnect() = 0;

@@ -6,6 +6,7 @@ CONFIG += c++14
 HEADERS    = \
     absolutepostracker.h \
     botcomm.h \
+    botcommmonitor.h \
     botcommserial.h \
     botconnection.h \
     networkclient.h \
@@ -35,6 +36,7 @@ HEADERS    = \
 SOURCES     = \
     absolutepostracker.cpp \
     botcomm.cpp \
+    botcommmonitor.cpp \
     botcommserial.cpp \
     botconnection.cpp \
     main.cpp \

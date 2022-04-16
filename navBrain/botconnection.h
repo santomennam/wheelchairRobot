@@ -7,7 +7,7 @@
 
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
-class BotConnection : public BotCommUser {
+class BotConnection : public BotCommClient {
 
     BotComm* botComm;
 
@@ -34,6 +34,10 @@ public:
     void update();
 
     void tankSteer(double left, double right); // left/right in range -1 to 1
+
+    std::string getReceivedCommand() const { return receivedCommand; }
+    std::string getReceivedError() const { return receivedError; }
+    std::string getReceivedInfo() const { return receivedInfo; }
 
     void setOnTargetUpdateHandler(std::function<void(Vec2d target)>  onTargetUpdate);
     void setOnEncoderUpdateHandler(std::function<void(Vec2d encoder)> onEncoderUpdate);

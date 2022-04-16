@@ -174,6 +174,7 @@ void BotConnection::onBotCommDisconnect()
 {
 }
 
-void BotConnection::onBotCommError(std::string /*msg*/)
+void BotConnection::onBotCommError(std::string msg)
 {
+    receivedError = msg;
 }

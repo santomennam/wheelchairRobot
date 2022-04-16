@@ -10,16 +10,17 @@ class Graphics;
 class BotCommSerial : public BotComm {
 
     mssm::Graphics& g;
-    int             pluginId;
-    BotCommUser    *user;
+    int             pluginId{-1};
+    BotCommClient  *client;
     std::string     incomingData;
 public:
-    BotCommSerial(mssm::Graphics& g, int pluginId);
+    BotCommSerial(mssm::Graphics& g);
 
     void handleRawData(std::string data);
+    int getPluginId() const { return pluginId; }
 
     // BotComm interface
-    void attach(BotCommUser *user) override;
+    void attach(BotCommClient *client) override;
     void sendPacket(std::string data) override;
     void connect(std::string connectionName) override;
     void disconnect() override;

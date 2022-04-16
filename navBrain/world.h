@@ -36,10 +36,10 @@ public:
     std::vector<Vec2d> newlyDetected;
     std::vector<Vec2d> alreadyDetected;
 
-    std::string incomingData;
-    std::string receivedCommand;
-    std::string receivedError;
-    std::string receivedInfo;
+//    std::string incomingData;
+//    std::string receivedCommand;
+//    std::string receivedError;
+//    std::string receivedInfo;
 
     bool timedOut = false;
 //    double olda = 0;

@@ -20,6 +20,8 @@
 
 #include "botconnection.h"
 #include "botcommserial.h"
+#include "botcommmonitor.h"
+
 
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -57,10 +59,14 @@ void graphicsMain(Graphics& g)
 
     Vec2d previous;
     bool recording = false;
-    int boardPluginID = g.registerPlugin([](QObject* parent) { return new SerialPortReader(parent, "COM5",QSerialPort::Baud19200); });
 
-    BotCommSerial botSerial(g, boardPluginID);
+    BotCommSerial botSerial(g);
+
+    //BotCommMonitor botMonitor(&botSerial);
+
     BotConnection bot(&botSerial);
+
+    botSerial.connect("COM5");
 
     ofstream file;
     ifstream input;
@@ -112,12 +118,12 @@ void graphicsMain(Graphics& g)
 
         //g.text({10,textY -= 25}, 20, "incomingResponse: " + world.incomingData, GREEN);
         g.text({10,textY -= 25}, 20, "Last Command:    " + bot.lastCommand(), GREEN);
-        g.text({10,textY -= 25}, 20, "receivedResponse: " + world.receivedCommand, GREEN);
-        if (!world.receivedInfo.empty()) {
-            g.text({10,textY -= 25}, 20, "ERROR:    " + world.receivedInfo, YELLOW);
+        g.text({10,textY -= 25}, 20, "receivedResponse: " + bot.getReceivedCommand(), GREEN);
+        if (!bot.getReceivedInfo().empty()) {
+            g.text({10,textY -= 25}, 20, "INFO:     " + bot.getReceivedInfo(), YELLOW);
         }
-        if (!world.receivedError.empty()) {
-            g.text({10,textY -= 25}, 20, "ERROR:    " + world.receivedError, RED);
+        if (!bot.getReceivedError().empty()) {
+            g.text({10,textY -= 25}, 20, "ERROR:    " + bot.getReceivedError(), RED);
         }
 
 //        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
@@ -268,7 +274,7 @@ void graphicsMain(Graphics& g)
                 }
                 break;
             case EvtType::PluginMessage:
-                if(e.pluginId == boardPluginID)
+                if(e.pluginId == botSerial.getPluginId())
                 {
                     botSerial.handleRawData(e.data);
                 }

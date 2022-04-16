@@ -6,8 +6,8 @@
 using namespace std;
 using namespace mssm;
 
-BotCommSerial::BotCommSerial(mssm::Graphics &g, int pluginId)
-    : g{g}, pluginId{pluginId}
+BotCommSerial::BotCommSerial(mssm::Graphics &g)
+    : g{g}
 {
 
 }
@@ -33,31 +33,41 @@ void BotCommSerial::handleRawData(std::string data)
         incomingData.erase(incomingData.begin(),j);
 
         if (!stripCRC8(recCmd)) {
-            if (user) {
-                user->onBotCommError("CHECKSUM ERROR: " + recCmd);
+            if (client) {
+                client->onBotCommError("CHECKSUM ERROR: " + recCmd);
             }
             continue;
         }
 
-        if (user) {
-            user->onBotCommPacket(recCmd);
+        if (client) {
+            client->onBotCommPacket(recCmd);
         }
     }
 }
 
-void BotCommSerial::attach(BotCommUser *user)
+void BotCommSerial::attach(BotCommClient *client)
 {
-    this->user = user;
+    this->client = client;
 }
 
 void BotCommSerial::sendPacket(std::string data)
 {
-    data = wrapDelimitedCRC8(data);
-    g.callPlugin(pluginId,static_cast<int>(SerialPortReader::Command::send),0, data);
+    if (pluginId < 0) {
+        if (client) {
+            client->onBotCommError("Attempt to sendPacket before connected!!");
+        }
+    }
+    else {
+        data = wrapDelimitedCRC8(data);
+        g.callPlugin(pluginId,static_cast<int>(SerialPortReader::Command::send),0, data);
+    }
 }
 
-void BotCommSerial::connect(std::string /*connectionName*/)
+void BotCommSerial::connect(std::string connectionName)
 {
+    pluginId = g.registerPlugin([connectionName](QObject* parent) {
+          return new SerialPortReader(parent, connectionName, QSerialPort::Baud19200);
+    });
 }
 
 void BotCommSerial::disconnect()
