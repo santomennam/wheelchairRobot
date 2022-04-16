@@ -2,6 +2,7 @@
 #include "graphics.h"
 #include "simplecrc.h"
 #include "serialportreader.h"
+#include <iostream>
 
 using namespace std;
 using namespace mssm;
@@ -41,6 +42,9 @@ void BotCommSerial::handleRawData(std::string data)
 
         if (client) {
             client->onBotCommPacket(recCmd);
+        }
+        else {
+            cout << "NO CLIENT TO RECEIVE PACKET!" << endl;
         }
     }
 }

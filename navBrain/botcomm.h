@@ -3,6 +3,7 @@
 
 #include <string>
 
+// responses FROM the bot
 class BotCommClient {
 public:
     virtual void onBotCommPacket(std::string data) = 0;
@@ -11,6 +12,7 @@ public:
     virtual void onBotCommError(std::string msg) = 0;
 };
 
+// commands sent TO the bot
 class BotComm {
 public:
     virtual void attach(BotCommClient* user) = 0;

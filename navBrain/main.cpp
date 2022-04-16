@@ -35,6 +35,7 @@ void resetDestination(BotConnection& bot, World& world, Vec2d destination)
     cout << "resetDestination calling resetBot" << endl;
 
     bot.resetBot();
+   // bot.setDebugMode();
     //setDebugMode(g,boardPluginID);
     world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
     world.findEncPath(world.path);
@@ -62,9 +63,9 @@ void graphicsMain(Graphics& g)
 
     BotCommSerial botSerial(g);
 
-    //BotCommMonitor botMonitor(&botSerial);
+    BotCommMonitor botMonitor(&botSerial);
 
-    BotConnection bot(&botSerial);
+    BotConnection bot(&botMonitor);
 
     botSerial.connect("COM5");
 
@@ -108,6 +109,7 @@ void graphicsMain(Graphics& g)
     resetDestination(bot, world, {0, 0});
 
     bool arrowPressed = false;
+    bool resetRequested = false;
 
     while (g.draw()) {
         g.clear();
@@ -115,6 +117,16 @@ void graphicsMain(Graphics& g)
         bot.update();
 
         int textY = g.height();
+
+        if (bot.readyForNextCommand()) {
+            g.text({10,textY -= 25}, 20, "Ready", GREEN);
+        }
+        else if (bot.elapsedSinceLastResponse() > 1) {
+            g.text({10,textY -= 25}, 20, "Waiting", RED);
+        }
+        else {
+            g.text({10,textY -= 25}, 20, "Waiting", YELLOW);
+        }
 
         //g.text({10,textY -= 25}, 20, "incomingResponse: " + world.incomingData, GREEN);
         g.text({10,textY -= 25}, 20, "Last Command:    " + bot.lastCommand(), GREEN);
@@ -203,44 +215,55 @@ void graphicsMain(Graphics& g)
 
         if (arrowPressed && !arrows) {
             // just released arrows
-            arrowPressed = false;
-            bot.tankSteer(0,0);
-        }
-        if (arrows) {
-            arrowPressed = true;
+            if (bot.readyForNextCommand()) {
+                arrowPressed = false;
+                bot.tankSteer(0,0);
+            }
         }
 
-        switch (arrows) {
-        case 0x01: // up only
-            bot.tankSteer(1,1);
-            break;
-        case 0x02: // down only
-            bot.tankSteer(-1,-1);
-            break;
-        case 0x04: // left only
-            bot.tankSteer(-1,1);
-            break;
-        case 0x08: // right only
-            bot.tankSteer(1,-1);
-            break;
-        case 0x05: // left && up
-            bot.tankSteer(0,1);
-            break;
-        case 0x09: // right && up
-            bot.tankSteer(1,0);
-            break;
-        case 0x06: // left && down
-            bot.tankSteer(-1,0);
-            break;
-        case 0x0A: // right && down
-            bot.tankSteer(0,-1);
-            break;
+        if (arrows) {
+            arrowPressed = true;
+
+            if (bot.readyForNextCommand()) {
+                switch (arrows) {
+                case 0x01: // up only
+                    bot.tankSteer(1,1);
+                    break;
+                case 0x02: // down only
+                    bot.tankSteer(-1,-1);
+                    break;
+                case 0x04: // left only
+                    bot.tankSteer(-1,1);
+                    break;
+                case 0x08: // right only
+                    bot.tankSteer(1,-1);
+                    break;
+                case 0x05: // left && up
+                    bot.tankSteer(0,1);
+                    break;
+                case 0x09: // right && up
+                    bot.tankSteer(1,0);
+                    break;
+                case 0x06: // left && down
+                    bot.tankSteer(-1,0);
+                    break;
+                case 0x0A: // right && down
+                    bot.tankSteer(0,-1);
+                    break;
+                }
+            }
+            else {
+                cout << "Not ready for arrows" << endl;
+            }
         }
 
         for (const Event& e : g.events())
         {
             switch (e.evtType)
             {
+            default:
+               // cout << e << endl;
+                break;
             case EvtType::MousePress:
                 if(e.arg == 1)
                 {
@@ -284,7 +307,7 @@ void graphicsMain(Graphics& g)
                 switch(e.arg)
                 {
                 case static_cast<int>(Key::ESC):
-                    bot.resetBot();
+                    resetRequested = true;
                     world.targets.clear();
                     break;
                 case '>':
@@ -302,10 +325,6 @@ void graphicsMain(Graphics& g)
                 case ',':
                     bot.sendTarget({-2000,-2000});
                     //  resetDestination(g, world, {-10, 0},boardPluginID);
-                    break;
-                case 'T':
-                    bot.ask();
-                    queriedTime = std::chrono::steady_clock::now();
                     break;
                 case 'D':
                     world.diagnostics = !world.diagnostics;
@@ -341,8 +360,11 @@ void graphicsMain(Graphics& g)
             }
         }
 
-
-        if(bot.elapsedSinceLastSend() >= 0.2)
+        if (resetRequested && (bot.readyForNextCommand() || bot.elapsedSinceLastSend() >= 0.2)) {
+            bot.resetBot();
+            resetRequested = false;
+        }
+        else if(bot.elapsedSinceLastSend() >= 0.1 && bot.readyForNextCommand())
         {
             bot.keepBotAlive();
         }

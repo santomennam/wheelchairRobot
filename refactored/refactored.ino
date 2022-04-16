@@ -1,4 +1,4 @@
-#include <SoftwareSerial.h>
+
 #include <string.h>
 #include <ArduPID.h>
 #include <Encoder.h>
@@ -20,8 +20,6 @@ Encoder red(18, 19); // black right red left
 
 //   avoid using pins with LEDs attached for encoders
 
-//SoftwareSerial Serial3(10, 9);
-//SoftwareSerial foreBrainComm(12, 13); // (COMRX, COMTX); //talk from board to robot
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
@@ -178,32 +176,36 @@ int readLidarDist()
 
 ///////////////////////////////////
 
+bool forceSendMotorSpeed = true;
+
 void wakeWheelchair()
 {
-  Serial2.write('w');
-  Serial2.write('a');
-  Serial2.write('k');
-  Serial2.write('e');
+  forceSendMotorSpeed = true;
+  Serial2.write("wake",4);
+  Serial2.flush();
+  delay(100);
 }
 
 void enableDebug()
 {
-  Serial2.write('d');
-  Serial2.write('b');
-  Serial2.write('u');
-  Serial2.write('g');
+  Serial2.write("dbug",4);
+  Serial2.flush();
+  delay(100);
 }
 
 void setMotorSpeeds(int left, int right)
 {
-  drawArrows(left, right);
+  static uint8_t mspeed[] = "m##x";
   
-  char m1 = (char)left;
-  char m2 = (char)right;
-  Serial2.write('m');
-  Serial2.write(m1);
-  Serial2.write(m2);
-  Serial2.write('x');
+  if (forceSendMotorSpeed || mspeed[1] != left || mspeed[2] != right) {
+    mspeed[1] = left;
+    mspeed[2] = right;      
+    Serial2.write(mspeed, 4);
+    Serial2.flush();
+  //  forceSendMotorSpeed = false;
+  }
+  
+  drawArrows(left, right);
 }
 
 class SmartEncoder {
@@ -413,16 +415,19 @@ void writeDelimited(String str)
     Serial.println(str);
 }
 
-String readDelimited(bool flushData)
+String readDelimited(bool flushData, char& c1, char &c2)
 {
   static bool gotStart = false;
   static String data;
   String result;
   static int startBytes = 3;
   static char crc[] = "XX:";
+  static int junkCount = 0;
 
   if (flushData) {
     data = "";
+    c1 = '0';
+    c2 = '0';
   }
 
   // read data from computer
@@ -446,12 +451,18 @@ String readDelimited(bool flushData)
       if (gotStart) {
         // end of line
 
+        c1 = crc[0];
+        c2 = crc[1];
+
         if (validateCRC8(reinterpret_cast<const uint8_t*>(data.c_str()), data.length(), crc[0], crc[1])) {
-          result = data;        
+          result = data;
+          c1 = crc[0];
+          c2 = crc[1];      
         }
         else {
           // HOW DO WE HANDLE THIS ERROR!!
           writeDelimited(String("E CRC Failed Checksum: ") + crc + "-'" + data + "'");
+          result = "failcrc";
         }
         data = "";
         gotStart = false;
@@ -478,12 +489,22 @@ String readDelimited(bool flushData)
       }
       
       if (data.length() > 100) {
+        while (Serial.available() > 0)
+        {
+            Serial.read();
+        }
+        writeDelimited("E Buffer Overrun: " + data);
         data = "";
         gotStart = false;
       }
     }
     else {
       // ignoring junk, since we haven't seen a #
+      junkCount++;
+      if (junkCount > 20) {
+        writeDelimited("E Junk");
+        junkCount = 0;
+      }
     }
   }
 
@@ -512,6 +533,8 @@ String getValue(String data, char separator, int index)
 long lastCmdTime = 0;
 long commTimeoutMs = 500;
 bool commEstablished = false;
+bool commTimeout = false;
+
 bool tankDriveMode = false;
 float tankDriveLeft = 0;
 float tankDriveRight = 0;
@@ -533,13 +556,32 @@ void wheelChairStop()
   tankDriveMode = false;
 }
 
+void sendAck(char c1, char c2)
+{
+  char msg[] = "A XX";
+  msg[2] = c1;
+  msg[3] = c2;
+  writeDelimited(msg);
+}
+
+void sendNack(char c1, char c2)
+{
+  char msg[] = "N XX";
+  msg[2] = c1;
+  msg[3] = c2;
+  writeDelimited(msg);  
+}
+
 void checkEstop()
 {
   if (digitalRead(estop2) == HIGH)
   {
     tankDriveMode = false;
     setMotorSpeeds(0, 0);
-    readDelimited(true);
+
+    char c1;
+    char c2;
+    readDelimited(true, c1, c2); // flushing input
 
     bool first = true;
 
@@ -558,24 +600,29 @@ void checkEstop()
         first = false;
       }
 
-      String command = readDelimited(false);
+      char c1;
+      char c2;
+      
+      String command = readDelimited(false, c1, c2);
 
       if (command.startsWith("reset"))
       {
-        writeDelimited("R Reset Received");// T indicates target data
+//        writeDelimited("R Reset Received");// T indicates target data
         wheelChairStop();
+        sendAck(c1, c2);
         return;
       }
       else if (command.length() > 0) {
         writeDelimited("I In E-Stop so ignoring: " + command);
+        sendNack(c1, c2);
       }
     }
   }
 }
 
-bool processCommands()
+bool processCommands(char& c1, char& c2)
 {
-  String command = readDelimited(false);
+  String command = readDelimited(false, c1, c2);
 
   if (command.length() == 0) {
     return false;
@@ -585,23 +632,21 @@ bool processCommands()
      tankDriveMode  = true;
      tankDriveLeft  = getValue(command, ' ', 1).toFloat();
      tankDriveRight = getValue(command, ' ', 2).toFloat();
-     //writeDelimited("I " + command + " " + String(tankDriveLeft) + " " + String(tankDriveRight));
   }
   else if (command.startsWith("debug"))
   {
     enableDebug();
-    writeDelimited("D Debug ON");
-    return true;
+    writeDelimited("I Debug ON");
   }
   else if (command.startsWith("reset"))
   {
+    beginDraw();
+    matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
     wheelChairReset();
-    writeDelimited("R Reset Received");// T indicates target data
-    return true;
+    writeDelimited("I Reset Received");// T indicates target data
   }
   else if (command.startsWith("ask")) {
     writeDelimited("T " + String(leftEncoder.getTarget()) + " " + String(rightEncoder.getTarget())); 
-    return true;
   }
   else if (command.startsWith("target"))
   {
@@ -612,17 +657,16 @@ bool processCommands()
     leftEncoder.setTarget(leftTarget);
     rightEncoder.setTarget(rightTarget);
     writeDelimited("T " + String(leftEncoder.getTarget()) + " " + String(rightEncoder.getTarget())); 
-    return true;
   }
   else if (command.startsWith("ping")) // keep awake
   {
-    return true;
   }
   else {
     writeDelimited("E Invalid command (doing a stop)" + command);
     wheelChairStop();
-    return true;
   }
+
+  return true;
 }
 
 void setup()
@@ -635,7 +679,7 @@ void setup()
 
   Serial.begin(19200);   // laptop/host
   Serial2.begin(9600);   // forebrain
-  Serial3.begin(115200); // distance
+ // Serial3.begin(115200); // distance
 
   matrix.begin(0x70); 
   matrix.setRotation(1);
@@ -655,13 +699,14 @@ void setup()
 }
 
 
-
 void loop()
 {
   checkEstop();
 
+  char c1;
+  char c2;
 
-  bool gotCommand = processCommands();
+  bool gotCommand = processCommands(c1, c2);
 
   long currentTime = millis();
 
@@ -671,6 +716,10 @@ void loop()
          // established connection to host!
          commEstablished = true;
          wakeWheelchair();
+         if (commTimeout) {
+             writeDelimited("I Timeout");
+             commTimeout = false;
+         }
      }
   }
   else {
@@ -679,7 +728,7 @@ void loop()
          // communication from host timed out!
          commEstablished = false;
          wheelChairStop();
-         writeDelimited("B Byeeee (timeout)"); 
+         commTimeout = false;
      }
   }
 
@@ -687,6 +736,11 @@ void loop()
   
   if (!commEstablished) {
     updateDisplay();
+    if (gotCommand) {
+        // really should be nothing to acknowledge here
+        writeDelimited("I Unexpected State");
+        sendNack(c1, c2);
+    }
     return;
   }
 
@@ -705,14 +759,16 @@ void loop()
   setMotorSpeeds(motorL, motorR);
     
   updateDisplay();
-  
-  delay(100);
-  
-  if (encodersChanged || motorL != 0 || motorR != 0) {
-    writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
-  }
-  else {
-    writeDelimited("H"); // heartbeat
+
+  if (gotCommand) {
+    if (encodersChanged || motorL != 0 || motorR != 0) {
+      writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
+    }    
+
+    sendAck(c1, c2);
+
+    Serial.flush();
   }
 
+  delay(50);
 }

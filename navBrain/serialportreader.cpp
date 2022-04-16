@@ -32,7 +32,7 @@ SerialPortReader::SerialPortReader(QObject *parent, const std::string& serialPor
 
 
     connect(&serialPort, SIGNAL(readyRead()), this, SLOT(handleReadyRead()));
-    connect(&serialPort, SIGNAL(error(QSerialPort::SerialPortError)), SLOT(handleError(QSerialPort::SerialPortError)));
+    connect(&serialPort, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), SLOT(handleError(QSerialPort::SerialPortError)));
 }
 
 SerialPortReader::~SerialPortReader()
@@ -77,7 +77,7 @@ void SerialPortReader::call(int arg1, int arg2, const std::string& arg3)
 {
     switch (static_cast<Command>(arg1)) {
     case Command::send:
-       // std::cout << "Sending data: " << arg3<< std::endl;
+//        std::cout << "Sending data: " << arg3<< std::endl;
 //        serialPort.clearError();
         serialPort.write(arg3.data(), arg3.size());
         serialPort.flush();

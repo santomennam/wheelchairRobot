@@ -46,6 +46,12 @@ double BotConnection::elapsedSinceLastSend() const
     return elapsed.count();
 }
 
+double BotConnection::elapsedSinceLastResponse() const
+{
+    std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - lastResponseTime;
+    return elapsed.count();
+}
+
 void BotConnection::updateEncoders(Vec2d encoderCounts)
 {
     lastReceivedEncoders = encoderCounts;
@@ -75,12 +81,16 @@ void BotConnection::updateMotors(Vec2d motorSpeeds)
 
 void BotConnection::sendCommand(string cmd, bool debug)
 {
+    if (isWaitingForResponse) {
+        cout << ">>>>>>>>>>>>>>> sendCommand didn't wait for response <<<<<<<<<<<<<" << endl;
+    }
     if (debug) {
         cout << ">>>>> Sending Command to Bot: " << cmd << endl;
     }
     botComm->sendPacket(cmd);
     lastCommandSent = cmd;
     lastCommandTime = std::chrono::steady_clock::now();
+    isWaitingForResponse = true;
 }
 
 void BotConnection::resetBot()
@@ -114,16 +124,12 @@ void BotConnection::sendTarget(Vec2d encoderTarget)
 
 void BotConnection::onBotCommPacket(std::string recCmd)
 {
+    //cout << recCmd << endl;
     stringstream dataStream(recCmd);
 
     char cmd;
 
     dataStream >> cmd;
-
-    if (recCmd[0] != 'H') {
-        receivedCommand = recCmd;  // don't bother recording heartbeat
-        cout << "<<<<<< " << receivedCommand << endl;
-    }
 
     double a;
     double b;
@@ -132,14 +138,16 @@ void BotConnection::onBotCommPacket(std::string recCmd)
     double rightMotor;
 
     switch (cmd) {
-    case 'B':
-        receivedError = receivedCommand;
+    case 'A':
+        // Ack: Acknowledge
+        lastResponseTime = std::chrono::steady_clock::now();
+        isWaitingForResponse = false;
         break;
-    case 'R': // reset ack
-        receivedError = "";
-        receivedInfo = "";
-        break;
-    case 'D': // debug ack
+    case 'N':
+        // Nack: Negative Acknowledge
+        lastResponseTime = std::chrono::steady_clock::now();
+        isWaitingForResponse = false;
+        cout << "NACKNACKNACK" << endl;
         break;
     case 'T': // target ack
         dataStream >> a >> b;
@@ -151,17 +159,15 @@ void BotConnection::onBotCommPacket(std::string recCmd)
         updateMotors({leftMotor, rightMotor});
         break;
     case 'E': // Error
-        receivedError = receivedCommand;
+        receivedError = receivedResponse;
         break;
     case 'I': // Info
-        receivedInfo = receivedCommand;
+        receivedInfo = receivedResponse;
         break;
     case 'X': // EStop
         break;
-    case 'H': // Heartbeat
-        break;
     default:
-        cout << "UNKNOWN RESPONSE: " << receivedCommand << endl;
+        cout << "UNKNOWN RESPONSE: " << receivedResponse << endl;
         break;
     }
 }
