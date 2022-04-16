@@ -585,7 +585,7 @@ bool processCommands()
      tankDriveMode  = true;
      tankDriveLeft  = getValue(command, ' ', 1).toFloat();
      tankDriveRight = getValue(command, ' ', 2).toFloat();
-     writeDelimited("I " + command + " " + String(tankDriveLeft) + " " + String(tankDriveRight));
+     //writeDelimited("I " + command + " " + String(tankDriveLeft) + " " + String(tankDriveRight));
   }
   else if (command.startsWith("debug"))
   {
@@ -595,8 +595,8 @@ bool processCommands()
   }
   else if (command.startsWith("reset"))
   {
-    writeDelimited("R Reset Received");// T indicates target data
     wheelChairReset();
+    writeDelimited("R Reset Received");// T indicates target data
     return true;
   }
   else if (command.startsWith("ask")) {
@@ -619,7 +619,7 @@ bool processCommands()
     return true;
   }
   else {
-    writeDelimited("E Invalid command (doing a reset)" + command);
+    writeDelimited("E Invalid command (doing a stop)" + command);
     wheelChairStop();
     return true;
   }
@@ -683,49 +683,36 @@ void loop()
      }
   }
 
+  bool encodersChanged = refreshEncoders();
+  
   if (!commEstablished) {
     updateDisplay();
     return;
   }
 
-  bool encodersChanged = refreshEncoders();
+  int motorL = 0;
+  int motorR = 0;
 
   if (tankDriveMode) {
-    
-    int motorL = 25 * tankDriveLeft;
-    int motorR = 25 * tankDriveRight;
-  
-    setMotorSpeeds(motorL, motorR);
-      
-    updateDisplay();
-    
-    delay(100);
-    
-    if (encodersChanged || motorL != 0 || motorR != 0) {
-      writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
-    }
-    else {
-      writeDelimited("H"); // heartbeat
-    }
+    motorL = 25 * tankDriveLeft;
+    motorR = 25 * tankDriveRight;
   }
   else {
-    int motorL = leftEncoder.computeMotorSpeed();
-    int motorR = rightEncoder.computeMotorSpeed();
-  
-    setMotorSpeeds(motorL, motorR);
-      
-    updateDisplay();
-    
-    delay(100);
-    
-    if (encodersChanged || motorL != 0 || motorR != 0) {
-      writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
-    }
-    else {
-      writeDelimited("H"); // heartbeat
-    }
+    motorL = leftEncoder.computeMotorSpeed();
+    motorR = rightEncoder.computeMotorSpeed();
   }
 
-
+  setMotorSpeeds(motorL, motorR);
+    
+  updateDisplay();
+  
+  delay(100);
+  
+  if (encodersChanged || motorL != 0 || motorR != 0) {
+    writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
+  }
+  else {
+    writeDelimited("H"); // heartbeat
+  }
 
 }
