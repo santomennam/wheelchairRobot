@@ -35,8 +35,8 @@ SoftwareSerial foreBrainComm(12, 13); // (COMRX, COMTX); //talk from board to ro
 // soft e-stop switch
 const int estop1 = 6; // OUTPUT LOW
 const int estop2 = 7; // pulled up to High.  These pins are connected together with a NC switch    HIGH means STOP
-const int leftModeLED = 4;
-const int rightModeLED = 5;
+//const int leftModeLED = 4;
+//const int rightModeLED = 5;
 
 
 static const uint8_t PROGMEM
@@ -126,6 +126,57 @@ void drawArrows(int leftPower, int rightPower)
    drawArrow(8, rightPower, rightFwd);
 }
 
+///////////////////////////////////
+
+int readLidarDist()
+{
+  int dist = -1;
+  int strength; // signal strength of LiDAR
+
+  float temprature;
+  int check; // save check value
+  int j;
+  int uart[9];             // save data measured by LiDAR
+  const int HEADER = 0x59; // frame header of data package
+
+  //  read from the time-of-flight distance sensor
+  Serial1a.listen(); // set bit rate of serial port connecting LiDAR with Arduino
+
+  bool gotDataRight = false;
+  while (!gotDataRight)
+  {
+    checkEstop();
+
+    if (Serial1a.available())
+    { // check if serial port has data input
+      if (Serial1a.read() == HEADER)
+      { // assess data package frame header 0x59
+        uart[0] = HEADER;
+        if (Serial1a.read() == HEADER)
+        { // assess data package frame header 0x59
+          uart[1] = HEADER;
+          for (j = 2; j < 9; j++)
+          { // save data in array
+            uart[j] = Serial1a.read();
+          }
+          check = uart[0] + uart[1] + uart[2] + uart[3] + uart[4] + uart[5] + uart[6] + uart[7];
+          if (uart[8] == (check & 0xff))
+          { // verify the received data as per protocol
+            dist = uart[2] + uart[3] * 256; // calculate distance value
+            temprature = temprature / 8 - 256;
+            unsigned long currentTime = millis();
+            Serial1a.end();
+
+            gotDataRight = true;
+          }
+        }
+      }
+    }
+  }
+  return dist;
+}
+
+///////////////////////////////////
 
 void wakeWheelchair()
 {
@@ -291,6 +342,9 @@ bool refreshEncoders()
   bool rightUpdated = rightEncoder.refresh();
   return leftUpdated || rightUpdated;  // if you refactor this, be careful about short circuit evaluation... we want both refresh calls to happen!
 }
+
+///////////////////////////////// Communications with Host /////////////////////////////////////
+
 // single digit 0-15 -> 0-F  (capital)
 char digitToHexChar(int i)
 {
@@ -436,21 +490,6 @@ String readDelimited(bool flushData)
   return result;
 }
 
-void wheelChairReset()
-{
-  setMotorSpeeds(0, 0);
-  wakeWheelchair();
-  leftEncoder.reset();
-  rightEncoder.reset();
-}
-
-void wheelChairStop()
-{
-  setMotorSpeeds(0,0);
-  leftEncoder.clearTarget();
-  rightEncoder.clearTarget();
-}
-
 String getValue(String data, char separator, int index)
 {
   int found = 0;
@@ -467,10 +506,38 @@ String getValue(String data, char separator, int index)
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
+//////////////////////////////////////////////////////////////////////
+
+
+long lastCmdTime = 0;
+long commTimeoutMs = 500;
+bool commEstablished = false;
+bool tankDriveMode = false;
+float tankDriveLeft = 0;
+float tankDriveRight = 0;
+
+void wheelChairReset()
+{
+  setMotorSpeeds(0, 0);
+  wakeWheelchair();
+  leftEncoder.reset();
+  rightEncoder.reset();
+  tankDriveMode = false;
+}
+
+void wheelChairStop()
+{
+  setMotorSpeeds(0,0);
+  leftEncoder.clearTarget();
+  rightEncoder.clearTarget();
+  tankDriveMode = false;
+}
+
 void checkEstop()
 {
   if (digitalRead(estop2) == HIGH)
   {
+    tankDriveMode = false;
     setMotorSpeeds(0, 0);
     readDelimited(true);
 
@@ -481,16 +548,13 @@ void checkEstop()
     
     while (true)
     {
-      
-
-  
       //in an e-stop holding pattern
       delay(100);
 
       bool encChanged = refreshEncoders();
 
       if (first || encChanged) {
-        writeDelimited(String("X ESTOP 0 ") + leftEncoder.getCount() + " " + rightEncoder.getCount()); // estop
+        writeDelimited(String("X ESTOP ") + leftEncoder.getCount() + " " + rightEncoder.getCount()); // estop
         first = false;
       }
 
@@ -509,54 +573,6 @@ void checkEstop()
   }
 }
 
-int readLidarDist()
-{
-  int dist = -1;
-  int strength; // signal strength of LiDAR
-
-  float temprature;
-  int check; // save check value
-  int j;
-  int uart[9];             // save data measured by LiDAR
-  const int HEADER = 0x59; // frame header of data package
-
-  //  read from the time-of-flight distance sensor
-  Serial1a.listen(); // set bit rate of serial port connecting LiDAR with Arduino
-
-  bool gotDataRight = false;
-  while (!gotDataRight)
-  {
-    checkEstop();
-
-    if (Serial1a.available())
-    { // check if serial port has data input
-      if (Serial1a.read() == HEADER)
-      { // assess data package frame header 0x59
-        uart[0] = HEADER;
-        if (Serial1a.read() == HEADER)
-        { // assess data package frame header 0x59
-          uart[1] = HEADER;
-          for (j = 2; j < 9; j++)
-          { // save data in array
-            uart[j] = Serial1a.read();
-          }
-          check = uart[0] + uart[1] + uart[2] + uart[3] + uart[4] + uart[5] + uart[6] + uart[7];
-          if (uart[8] == (check & 0xff))
-          { // verify the received data as per protocol
-            dist = uart[2] + uart[3] * 256; // calculate distance value
-            temprature = temprature / 8 - 256;
-            unsigned long currentTime = millis();
-            Serial1a.end();
-
-            gotDataRight = true;
-          }
-        }
-      }
-    }
-  }
-  return dist;
-}
-
 bool processCommands()
 {
   String command = readDelimited(false);
@@ -565,7 +581,12 @@ bool processCommands()
     return false;
   }
 
-  if (command.startsWith("debug"))
+  if (command.startsWith("tank")) {
+     tankDriveMode  = true;
+     tankDriveLeft  = getValue(command, ' ', 0).toFloat();
+     tankDriveRight = getValue(command, ' ', 1).toFloat();
+  }
+  else if (command.startsWith("debug"))
   {
     enableDebug();
     writeDelimited("D Debug ON");
@@ -583,6 +604,7 @@ bool processCommands()
   }
   else if (command.startsWith("target"))
   {
+    tankDriveMode = false;
     command = command.substring(command.indexOf(" ") + 1, -1);
     long leftTarget  = getValue(command, ' ', 0).toInt();
     long rightTarget = getValue(command, ' ', 1).toInt();
@@ -605,8 +627,8 @@ bool processCommands()
 void setup()
 {
   pinMode(estop1, OUTPUT);
-  pinMode(leftModeLED, OUTPUT);
-  pinMode(rightModeLED, OUTPUT);
+//  pinMode(leftModeLED, OUTPUT);
+//  pinMode(rightModeLED, OUTPUT);
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
 
@@ -631,9 +653,7 @@ void setup()
   matrix.writeDisplay();  // write the changes we just made to the display
 }
 
-long lastCmdTime = 0;
-long commTimeoutMs = 500;
-bool commEstablished = false;
+
 
 void loop()
 {
@@ -669,23 +689,42 @@ void loop()
 
   bool encodersChanged = refreshEncoders();
 
-  int motorL = leftEncoder.computeMotorSpeed();
-  int motorR = rightEncoder.computeMotorSpeed();
-
-  digitalWrite(leftModeLED,  leftEncoder.isUsingPid()  ? HIGH : LOW);
-  digitalWrite(rightModeLED, rightEncoder.isUsingPid() ? HIGH : LOW);
-
-  setMotorSpeeds(motorL, motorR);
-
-  updateDisplay();
+  if (tankDriveMode) {
     
-  delay(100);
+    int motorL = 25 * tankDriveLeft;
+    int motorR = 25 * tankDriveRight;
   
-  if (encodersChanged || motorL != 0 || motorR != 0) {
-    writeDelimited(String("P 0 ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
+    setMotorSpeeds(motorL, motorR);
+      
+    updateDisplay();
+    
+    delay(100);
+    
+    if (encodersChanged || motorL != 0 || motorR != 0) {
+      writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
+    }
+    else {
+      writeDelimited("H"); // heartbeat
+    }
   }
   else {
-    writeDelimited("H"); // heartbeat
+    int motorL = leftEncoder.computeMotorSpeed();
+    int motorR = rightEncoder.computeMotorSpeed();
+  
+    setMotorSpeeds(motorL, motorR);
+      
+    updateDisplay();
+    
+    delay(100);
+    
+    if (encodersChanged || motorL != 0 || motorR != 0) {
+      writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
+    }
+    else {
+      writeDelimited("H"); // heartbeat
+    }
   }
+
+
 
 }
