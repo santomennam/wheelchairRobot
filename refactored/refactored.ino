@@ -20,8 +20,8 @@ Encoder red(18, 19); // black right red left
 
 //   avoid using pins with LEDs attached for encoders
 
-SoftwareSerial Serial1a(10, 9);
-SoftwareSerial foreBrainComm(12, 13); // (COMRX, COMTX); //talk from board to robot
+//SoftwareSerial Serial3(10, 9);
+//SoftwareSerial foreBrainComm(12, 13); // (COMRX, COMTX); //talk from board to robot
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
@@ -140,24 +140,24 @@ int readLidarDist()
   const int HEADER = 0x59; // frame header of data package
 
   //  read from the time-of-flight distance sensor
-  Serial1a.listen(); // set bit rate of serial port connecting LiDAR with Arduino
+  //Serial3.listen(); // set bit rate of serial port connecting LiDAR with Arduino
 
   bool gotDataRight = false;
   while (!gotDataRight)
   {
     checkEstop();
 
-    if (Serial1a.available())
+    if (Serial3.available())
     { // check if serial port has data input
-      if (Serial1a.read() == HEADER)
+      if (Serial3.read() == HEADER)
       { // assess data package frame header 0x59
         uart[0] = HEADER;
-        if (Serial1a.read() == HEADER)
+        if (Serial3.read() == HEADER)
         { // assess data package frame header 0x59
           uart[1] = HEADER;
           for (j = 2; j < 9; j++)
           { // save data in array
-            uart[j] = Serial1a.read();
+            uart[j] = Serial3.read();
           }
           check = uart[0] + uart[1] + uart[2] + uart[3] + uart[4] + uart[5] + uart[6] + uart[7];
           if (uart[8] == (check & 0xff))
@@ -165,7 +165,7 @@ int readLidarDist()
             dist = uart[2] + uart[3] * 256; // calculate distance value
             temprature = temprature / 8 - 256;
             unsigned long currentTime = millis();
-            Serial1a.end();
+            Serial3.end();
 
             gotDataRight = true;
           }
@@ -180,18 +180,18 @@ int readLidarDist()
 
 void wakeWheelchair()
 {
-  foreBrainComm.write('w');
-  foreBrainComm.write('a');
-  foreBrainComm.write('k');
-  foreBrainComm.write('e');
+  Serial2.write('w');
+  Serial2.write('a');
+  Serial2.write('k');
+  Serial2.write('e');
 }
 
 void enableDebug()
 {
-  foreBrainComm.write('d');
-  foreBrainComm.write('b');
-  foreBrainComm.write('u');
-  foreBrainComm.write('g');
+  Serial2.write('d');
+  Serial2.write('b');
+  Serial2.write('u');
+  Serial2.write('g');
 }
 
 void setMotorSpeeds(int left, int right)
@@ -200,10 +200,10 @@ void setMotorSpeeds(int left, int right)
   
   char m1 = (char)left;
   char m2 = (char)right;
-  foreBrainComm.write('m');
-  foreBrainComm.write(m1);
-  foreBrainComm.write(m2);
-  foreBrainComm.write('x');
+  Serial2.write('m');
+  Serial2.write(m1);
+  Serial2.write(m2);
+  Serial2.write('x');
 }
 
 class SmartEncoder {
@@ -583,8 +583,9 @@ bool processCommands()
 
   if (command.startsWith("tank")) {
      tankDriveMode  = true;
-     tankDriveLeft  = getValue(command, ' ', 0).toFloat();
-     tankDriveRight = getValue(command, ' ', 1).toFloat();
+     tankDriveLeft  = getValue(command, ' ', 1).toFloat();
+     tankDriveRight = getValue(command, ' ', 2).toFloat();
+     writeDelimited("I " + command + " " + String(tankDriveLeft) + " " + String(tankDriveRight));
   }
   else if (command.startsWith("debug"))
   {
@@ -632,9 +633,9 @@ void setup()
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
 
-  Serial.begin(19200);
-  foreBrainComm.begin(9600);
-  Serial1a.begin(115200);
+  Serial.begin(19200);   // laptop/host
+  Serial2.begin(9600);   // forebrain
+  Serial3.begin(115200); // distance
 
   matrix.begin(0x70); 
   matrix.setRotation(1);
