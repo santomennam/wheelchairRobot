@@ -67,7 +67,7 @@ void graphicsMain(Graphics& g)
 
     BotConnection bot(&botMonitor);
 
-    botSerial.connect("COM6");
+    botSerial.connect("COM5");
 
     ofstream file;
     ifstream input;

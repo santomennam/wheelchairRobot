@@ -600,7 +600,7 @@ void sendNack(char c1, char c2)
 
 void checkEstop()
 {
-  if (false) // digitalRead(estop2) == HIGH)
+  if (digitalRead(estop2) == HIGH)
   {
     tankDriveMode = false;
     setMotorSpeeds(0, 0);
