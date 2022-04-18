@@ -31,9 +31,9 @@ Encoder red(18, 19); // black right red left
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
-// Vec2d by Sage Santomenna (for convenient data storage)
-// ArduPID by PowerBroker2 (for PID)
-//     FireTimer by PowerBroker2 (dependency)
+//  Vec2d by Sage Santomenna (for convenient data storage)
+//  ArduPID by PowerBroker2 (for PID)
+//  FireTimer by PowerBroker2 (dependency)
 //  Encoder by Paul Stoffregen (guess what this is for)
 //  TFmini by Peter Jansen (Time-of-flight distance sensor)
 //  L298N by Andrea Lombardo (not currently in use 2/1/22)
@@ -41,9 +41,6 @@ Encoder red(18, 19); // black right red left
 // soft e-stop switch
 const int estop1 = 6; // OUTPUT LOW
 const int estop2 = 7; // pulled up to High.  These pins are connected together with a NC switch    HIGH means STOP
-//const int leftModeLED = 4;
-//const int rightModeLED = 5;
-
 
 static const uint8_t PROGMEM
   smile_bmp[] =
@@ -122,7 +119,6 @@ void displayX( uint8_t r, uint8_t g, uint8_t b)
   matrix.drawLine(7,0, 0, 7, LED_ON);
 }
 
-
 void drawArrow(int x, int value, bool fwd)
 {
    beginDraw();
@@ -130,8 +126,6 @@ void drawArrow(int x, int value, bool fwd)
       matrix.drawBitmap(x, 0, fwd ? arrow_up : arrow_dn, 8, 8, LED_ON);
    }
 }
-
-
 
 void drawArrows(int leftPower, int rightPower)
 {
@@ -306,15 +300,6 @@ int SmartEncoder::computeMotorSpeed()
     return 0;
   }
 
-//  const long velModeThreshold = 2000;
-//  const int motorSpeedBase = 25;
-//
-//  if (absDist() > velModeThreshold) {
-//    // we're far enough away that we won't use PID control
-//    disablePid();
-//    return fixMotorSpeedSign(motorSpeedBase);
-//  }
-
   enablePid();
   pid.compute();
   
@@ -323,7 +308,6 @@ int SmartEncoder::computeMotorSpeed()
 
 SmartEncoder leftEncoder(red, PIDControllerL);
 SmartEncoder rightEncoder(black, PIDControllerR);
-
 
 bool refreshEncoders()
 {
@@ -516,11 +500,11 @@ String getValue(String data, char separator, int index)
 
 //////////////////////////////////////////////////////////////////////
 
-long commTimeoutMs = 500;
-bool commEstablished = false;
-bool waitingForBrakeRelease = false;
+long  commTimeoutMs = 500;
+bool  commEstablished = false;
+bool  waitingForBrakeRelease = false;
 
-bool tankDriveMode = false;
+bool  tankDriveMode = false;
 float tankDriveLeft = 0;
 float tankDriveRight = 0;
 
