@@ -78,7 +78,7 @@ public:
     bool readyForNextCommand() { return !isWaitingForResponse; }
     bool waitingForResponse() { return isWaitingForResponse; }
 
-    void toggleLogging() { logLevel = (logLevel + 1) % 3; }
+    void toggleLogging() { logLevel = (logLevel + 1) % 4; }
 
     void resetBot();
     void ask();

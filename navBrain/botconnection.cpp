@@ -112,7 +112,7 @@ void BotConnection::setDebugMode()
 
 void BotConnection::keepBotAlive()
 {
-    sendCommand("ping", logLevel > 1);
+    sendCommand("ping", logLevel > 2);
 }
 
 void BotConnection::sendTarget(Vec2d encoderTarget)
@@ -126,7 +126,7 @@ void BotConnection::sendTarget(Vec2d encoderTarget)
 
 void BotConnection::onBotCommPacket(std::string recCmd)
 {
-    if ((logLevel == 1 && !lastCmdPing) || logLevel > 1) {
+    if ((logLevel == 2 && !lastCmdPing) || logLevel > 2) {
         cout << recCmd << endl;
     }
 
@@ -162,6 +162,7 @@ void BotConnection::onBotCommPacket(std::string recCmd)
         dataStream >> a >> b >> leftMotor >> rightMotor;
         updateEncoders({a,b});
         updateMotors({leftMotor, rightMotor});
+        cout << recCmd << endl;
         break;
     case 'E': // Error
         receivedError = receivedResponse;

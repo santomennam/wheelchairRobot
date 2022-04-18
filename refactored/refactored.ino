@@ -208,8 +208,8 @@ class SmartEncoder {
     double pidOutput;
     double pidTarget;
     double kP = 0.002;  // 0.05 is pretty close but overshoots a little bit
-    double kI = 0.003; // 0.0005;
-    double kD = 1; // 1000;
+    double kI = 0.0005; // 0.0005;
+    double kD = 00; // 1000;
   public:
     SmartEncoder(Encoder& enc, ArduPID& pid) : enc{enc}, pid{pid} {}
     bool refresh();
@@ -704,7 +704,7 @@ void setup()
   pinMode(estop2, INPUT_PULLUP);
 
   Serial.begin(19200);   // laptop/host
-  Serial2.begin(19200);   // forebrain
+  Serial2.begin(19200);   // hindbrain
  // Serial3.begin(115200); // distance
 
   matrix.begin(0x70); 
@@ -716,6 +716,8 @@ void setup()
   matrix.writeDisplay();  // write the changes we just made to the display
   
   delay(500);
+
+  Serial2.println("ramp21");
   
   wheelChairReset();
 
