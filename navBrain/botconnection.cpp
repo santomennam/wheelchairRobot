@@ -22,7 +22,7 @@ void BotConnection::tankSteer(double left, double right)
 {
     stringstream ss;
     ss<<"tank " << left << " " << right;
-    sendCommand(ss.str(), true);
+    sendCommand(ss.str(), logLevel > 0);
 }
 
 void BotConnection::setOnTargetUpdateHandler(std::function<void (Vec2d)> onTargetUpdate)
@@ -81,6 +81,8 @@ void BotConnection::updateMotors(Vec2d motorSpeeds)
 
 void BotConnection::sendCommand(string cmd, bool debug)
 {
+    lastCmdPing = cmd == "ping";
+
     if (isWaitingForResponse) {
         cout << ">>>>>>>>>>>>>>> sendCommand didn't wait for response <<<<<<<<<<<<<" << endl;
     }
@@ -95,22 +97,22 @@ void BotConnection::sendCommand(string cmd, bool debug)
 
 void BotConnection::resetBot()
 {
-    sendCommand("reset", true);
+    sendCommand("reset", logLevel > 0);
 }
 
 void BotConnection::ask()
 {
-    sendCommand("ask", true);
+    sendCommand("ask", logLevel > 0);
 }
 
 void BotConnection::setDebugMode()
 {
-    sendCommand("debug", true);
+    sendCommand("debug", logLevel > 0);
 }
 
 void BotConnection::keepBotAlive()
 {
-    sendCommand("ping", false);
+    sendCommand("ping", logLevel > 1);
 }
 
 void BotConnection::sendTarget(Vec2d encoderTarget)
@@ -118,13 +120,16 @@ void BotConnection::sendTarget(Vec2d encoderTarget)
     lastSentTarget = encoderTarget;
     stringstream ss;
     ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y;
-    sendCommand(ss.str(), true);
+    sendCommand(ss.str(), logLevel > 0);
 }
 
 
 void BotConnection::onBotCommPacket(std::string recCmd)
 {
-    //cout << recCmd << endl;
+    if ((logLevel == 1 && !lastCmdPing) || logLevel > 1) {
+        cout << recCmd << endl;
+    }
+
     stringstream dataStream(recCmd);
 
     char cmd;

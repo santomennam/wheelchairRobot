@@ -67,7 +67,7 @@ void graphicsMain(Graphics& g)
 
     BotConnection bot(&botMonitor);
 
-    botSerial.connect("COM5");
+    botSerial.connect("COM6");
 
     ofstream file;
     ifstream input;
@@ -269,7 +269,7 @@ void graphicsMain(Graphics& g)
                 }
             }
             else {
-                cout << "Not ready for arrows" << endl;
+                //cout << "Not ready for arrows" << endl;
             }
         }
 
@@ -347,7 +347,8 @@ void graphicsMain(Graphics& g)
                     //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case 'D':
-                    world.diagnostics = !world.diagnostics;
+                   // world.diagnostics = !world.diagnostics;
+                    bot.toggleLogging();
                     break;
                 case 'X':
                 {

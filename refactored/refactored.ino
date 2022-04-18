@@ -2,7 +2,7 @@
 #include <string.h>
 #include <ArduPID.h>
 #include <Encoder.h>
-
+#include <FireTimer.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include "Adafruit_LEDBackpack.h"
@@ -14,6 +14,14 @@ ArduPID PIDControllerR;
 
 int encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
+int brakeReleaseTime = 250;    // time in ms from "wake" to when the brakes should be released and we can begin giving motor commands
+int motorHeartbeatTime = 200;  // resend motor values at least this often, even if motor values are unchanged (to keep hindbrain awake)
+
+FireTimer brakeReleaseTimer;
+FireTimer motorHeartbeatTimer;
+FireTimer commTimeout;
+
+// brakeReleaseTimer.begin(brakeReleaseTime);
 
 Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
 Encoder red(18, 19); // black right red left
@@ -45,6 +53,15 @@ static const uint8_t PROGMEM
     B10000001,
     B10100101,
     B10011001,
+    B01000010,
+    B00111100 },
+  stop_bmp[] =
+  { B00111100,
+    B01000010,
+    B10100001,
+    B10010001,
+    B10001001,
+    B10000101,
     B01000010,
     B00111100 },
   arrow_up[] =
@@ -176,37 +193,6 @@ int readLidarDist()
 
 ///////////////////////////////////
 
-bool forceSendMotorSpeed = true;
-
-void wakeWheelchair()
-{
-  forceSendMotorSpeed = true;
-  Serial2.write("wake",4);
-  Serial2.flush();
-  delay(100);
-}
-
-void enableDebug()
-{
-  Serial2.write("dbug",4);
-  Serial2.flush();
-  delay(100);
-}
-
-void setMotorSpeeds(int left, int right)
-{
-  static uint8_t mspeed[] = "m##x";
-  
-  if (forceSendMotorSpeed || mspeed[1] != left || mspeed[2] != right) {
-    mspeed[1] = left;
-    mspeed[2] = right;      
-    Serial2.write(mspeed, 4);
-    Serial2.flush();
-  //  forceSendMotorSpeed = false;
-  }
-  
-  drawArrows(left, right);
-}
 
 class SmartEncoder {
   private:
@@ -530,19 +516,56 @@ String getValue(String data, char separator, int index)
 
 //////////////////////////////////////////////////////////////////////
 
-
-long lastCmdTime = 0;
 long commTimeoutMs = 500;
 bool commEstablished = false;
-bool commTimeout = false;
+bool waitingForBrakeRelease = false;
 
 bool tankDriveMode = false;
 float tankDriveLeft = 0;
 float tankDriveRight = 0;
 
+void wakeWheelchair()
+{
+  Serial2.write("wake",4);
+  Serial2.flush();
+  brakeReleaseTimer.begin(brakeReleaseTime);
+  motorHeartbeatTimer.begin(motorHeartbeatTime);
+  waitingForBrakeRelease = true;
+}
+
+void enableDebug()
+{
+  Serial2.write("dbug",4);
+  Serial2.flush();
+}
+
+bool setMotorSpeeds(int left, int right)
+{
+  static uint8_t mspeed[] = "m##x";
+  
+  if (motorHeartbeatTimer.fire() || mspeed[1] != left || mspeed[2] != right) {
+    mspeed[1] = left;
+    mspeed[2] = right;      
+    Serial2.write(mspeed, 4);
+    Serial2.flush();
+    drawArrows(left, right);
+  
+    return true;
+  }
+
+  return false;
+}
+
+void setMotorSpeedZero()
+{
+  static uint8_t mspeed[] = "m\0\0x";
+  Serial2.write(mspeed, 4);
+  Serial2.flush();
+}
+
 void wheelChairReset()
 {
-  setMotorSpeeds(0, 0);
+  setMotorSpeedZero();
   wakeWheelchair();
   leftEncoder.reset();
   rightEncoder.reset();
@@ -551,10 +574,12 @@ void wheelChairReset()
 
 void wheelChairStop()
 {
-  setMotorSpeeds(0,0);
+  setMotorSpeedZero();
   leftEncoder.clearTarget();
   rightEncoder.clearTarget();
   tankDriveMode = false;
+  beginDraw();
+  matrix.drawBitmap(4, 0, stop_bmp, 8, 8, LED_ON);
 }
 
 void sendAck(char c1, char c2)
@@ -575,7 +600,7 @@ void sendNack(char c1, char c2)
 
 void checkEstop()
 {
-  if (digitalRead(estop2) == HIGH)
+  if (false) // digitalRead(estop2) == HIGH)
   {
     tankDriveMode = false;
     setMotorSpeeds(0, 0);
@@ -679,7 +704,7 @@ void setup()
   pinMode(estop2, INPUT_PULLUP);
 
   Serial.begin(19200);   // laptop/host
-  Serial2.begin(9600);   // forebrain
+  Serial2.begin(19200);   // forebrain
  // Serial3.begin(115200); // distance
 
   matrix.begin(0x70); 
@@ -709,28 +734,23 @@ void loop()
 
   bool gotCommand = processCommands(c1, c2);
 
-  long currentTime = millis();
+ //long currentTime = millis();
 
   if (gotCommand) {
-     lastCmdTime = currentTime;
      if (!commEstablished) {
          // established connection to host!
          commEstablished = true;
          wakeWheelchair();
-         if (commTimeout) {
-             writeDelimited("I Timeout");
-             commTimeout = false;
-         }
+         commTimeout.begin(commTimeoutMs);
+     }
+     else {
+         commTimeout.start();
      }
   }
-  else {
-     long elapsed = currentTime - lastCmdTime;
-     if (commEstablished && elapsed > commTimeoutMs) {
-         // communication from host timed out!
-         commEstablished = false;
-         wheelChairStop();
-         commTimeout = false;
-     }
+  else if (commTimeout.fire()) {
+     // communication from host timed out!
+     commEstablished = false;
+     wheelChairStop();
   }
 
   bool encodersChanged = refreshEncoders();
@@ -745,6 +765,16 @@ void loop()
     return;
   }
 
+  if (waitingForBrakeRelease) {
+    if (brakeReleaseTimer.fire()) {
+      waitingForBrakeRelease = false;  
+      sendAck(c1, c2);
+    }
+    else {
+      return; // still waiting for release
+    }
+  }
+  
   int motorL = 0;
   int motorR = 0;
 
@@ -765,11 +795,6 @@ void loop()
     if (encodersChanged || motorL != 0 || motorR != 0) {
       writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
     }    
-
     sendAck(c1, c2);
-
-    Serial.flush();
   }
-
-  delay(100);
 }

@@ -43,6 +43,9 @@ class BotConnection : public BotCommClient {
     tp    lastResponseTime;
     bool  isWaitingForResponse{false};
 
+    int   logLevel{0};
+    bool  lastCmdPing{false};
+
     Vec2d lastSentTarget;
 
     Vec2d lastReceivedMotors;
@@ -75,6 +78,7 @@ public:
     bool readyForNextCommand() { return !isWaitingForResponse; }
     bool waitingForResponse() { return isWaitingForResponse; }
 
+    void toggleLogging() { logLevel = (logLevel + 1) % 3; }
 
     void resetBot();
     void ask();
