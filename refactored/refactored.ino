@@ -6,6 +6,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include "Adafruit_LEDBackpack.h"
+#include <CmdLink.h>
 
 Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 
@@ -23,8 +24,8 @@ FireTimer commTimeout;
 
 // brakeReleaseTimer.begin(brakeReleaseTime);
 
-Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
-Encoder red(18, 19); // black right red left
+//Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
+//Encoder red(18, 19); // black right red left
 
 //   avoid using pins with LEDs attached for encoders
 
@@ -190,7 +191,6 @@ int readLidarDist()
 
 class SmartEncoder {
   private:
-    Encoder& enc;
     ArduPID& pid;
   private:
     long count{0};
@@ -205,8 +205,8 @@ class SmartEncoder {
     double kI = 0.0005; // 0.0005;
     double kD = 00; // 1000;
   public:
-    SmartEncoder(Encoder& enc, ArduPID& pid) : enc{enc}, pid{pid} {}
-    bool refresh();
+    SmartEncoder(ArduPID& pid) : pid{pid} {}
+    bool refresh(int count);
     void reset();
     long getTarget() {
       return target;
@@ -241,9 +241,9 @@ class SmartEncoder {
     void disablePid();
 };
 
-bool SmartEncoder::refresh()
+bool SmartEncoder::refresh(int newCount)
 {
-  count = -enc.read();
+  count = newCount;
   if (count != prevCount) {
     prevCount = count;
     return true;
@@ -256,7 +256,6 @@ void SmartEncoder::reset()
   count = 0;
   prevCount = 0;
   target = 0;
-  enc.write(0);
   clearTarget();
   disablePid();
 }
@@ -306,199 +305,22 @@ int SmartEncoder::computeMotorSpeed()
   return pidOutput;
 }
 
-SmartEncoder leftEncoder(red, PIDControllerL);
-SmartEncoder rightEncoder(black, PIDControllerR);
+SmartEncoder leftEncoder(PIDControllerL);
+SmartEncoder rightEncoder(PIDControllerR);
 
-bool refreshEncoders()
-{
-  bool leftUpdated  = leftEncoder.refresh();
-  bool rightUpdated = rightEncoder.refresh();
-  return leftUpdated || rightUpdated;  // if you refactor this, be careful about short circuit evaluation... we want both refresh calls to happen!
-}
+//bool refreshEncoders()
+//{
+//  bool leftUpdated  = leftEncoder.refresh();
+//  bool rightUpdated = rightEncoder.refresh();
+//  return leftUpdated || rightUpdated;  // if you refactor this, be careful about short circuit evaluation... we want both refresh calls to happen!
+//}
 
-///////////////////////////////// Communications with Host /////////////////////////////////////
 
-// single digit 0-15 -> 0-F  (capital)
-char digitToHexChar(int i)
-{
-    return i > 9 ? ('A' + i - 10) : '0' + i;
-}
 
-// single char 0-F (capital!!) to integer 0-15
-int hexCharToDigit(char c)
-{
-    return c >= 'A' ? (c - 'A' + 10) : c - '0';
-}
 
-uint8_t computeCRC8(const uint8_t  *bytes, int len) {
-  const uint8_t  generator = 0b00101111;   // polynomial = x^8 + x^5 + x^3 + x^2 + x + 1 (ignore MSB which is always 1)
-  uint8_t  crc = 0;
 
-  while (len--)
-  {
-    crc ^= *bytes++; /* XOR-in the next input byte */
+///////////////////////////////////
 
-    for (int i = 0; i < 8; i++)
-    {
-      if ((crc & 0x80) != 0)
-      {
-        crc = (uint8_t )((crc << 1) ^ generator);
-      }
-      else
-      {
-        crc <<= 1;
-      }
-    }
-  }
-  return crc;
-}
-
-void computeCRC8(const uint8_t  *bytes, int len, char& c1, char& c2)
-{
-    int crc = computeCRC8(bytes, len);
-    c2 = digitToHexChar(crc & 0x0F);
-    c1 = digitToHexChar(crc >> 4);
-}
-
-bool validateCRC8(const uint8_t *bytes, int len, char c1, char c2)
-{
-    int crc = computeCRC8(bytes, len);
-    return (c2 == digitToHexChar(crc & 0x0F)) && (c1 == digitToHexChar(crc >> 4));
-}
-
-bool stripCRC8(String& str)
-{
-    if (str.length() < 3) {
-        return false;
-    }
-    bool valid = validateCRC8(reinterpret_cast<const uint8_t*>(str.c_str())+3, str.length()-3, str[0], str[1]);
-    if (valid) {
-        str = String(str.c_str()+3);
-    }
-    return valid;
-}
-
-void writeDelimited(String str)
-{
-    char crc[] = "#xx:";
-    computeCRC8(reinterpret_cast<const uint8_t*>(str.c_str()), str.length(), crc[1], crc[2]);
-    Serial.print(crc);
-    Serial.println(str);
-}
-
-String readDelimited(bool flushData, char& c1, char &c2)
-{
-  static bool gotStart = false;
-  static String data;
-  String result;
-  static int startBytes = 3;
-  static char crc[] = "XX:";
-  static int junkCount = 0;
-
-  if (flushData) {
-    data = "";
-    c1 = '0';
-    c2 = '0';
-  }
-
-  // read data from computer
-  while (Serial.available() > 0)
-  {
-    int dat = Serial.read();
-
-    if (flushData) {
-      continue;
-    }
-
-    if (dat == '#') {
-      gotStart = true;
-      data = ""; 
-      crc[0] = 'X';
-      crc[1] = 'X';
-      crc[2] = ':';
-      startBytes = 3;
-    }
-    else if (dat == '\n') {
-      if (gotStart) {
-        // end of line
-
-        c1 = crc[0];
-        c2 = crc[1];
-
-        if (validateCRC8(reinterpret_cast<const uint8_t*>(data.c_str()), data.length(), crc[0], crc[1])) {
-          result = data;
-          c1 = crc[0];
-          c2 = crc[1];      
-        }
-        else {
-          // HOW DO WE HANDLE THIS ERROR!!
-          writeDelimited(String("E CRC Failed Checksum: ") + crc + "-'" + data + "'");
-          result = "failcrc";
-        }
-        data = "";
-        gotStart = false;
-        return result;
-      }
-    }
-    else if (gotStart) {
-      switch (startBytes) {
-      case 3: // CRC Nibble 1
-        crc[0] = dat;
-        startBytes--;
-        break;
-      case 2: // CRC Nibble 2
-        crc[1] = dat;
-        startBytes--;
-        break;
-      case 1: // :
-        crc[2] = dat;
-        startBytes--; 
-        break;
-      default:
-        data.concat(static_cast<char>(dat));
-        break;
-      }
-      
-      if (data.length() > 100) {
-        while (Serial.available() > 0)
-        {
-            Serial.read();
-        }
-        writeDelimited("E Buffer Overrun: " + data);
-        data = "";
-        gotStart = false;
-      }
-    }
-    else {
-      // ignoring junk, since we haven't seen a #
-      junkCount++;
-      if (junkCount > 20) {
-        writeDelimited("E Junk");
-        junkCount = 0;
-      }
-    }
-  }
-
-  return result;
-}
-
-String getValue(String data, char separator, int index)
-{
-  int found = 0;
-  int strIndex[] = { 0, -1 };
-  int maxIndex = data.length() - 1;
-
-  for (int i = 0; i <= maxIndex && found <= index; i++) {
-    if (data.charAt(i) == separator || i == maxIndex) {
-      found++;
-      strIndex[0] = strIndex[1] + 1;
-      strIndex[1] = (i == maxIndex) ? i + 1 : i;
-    }
-  }
-  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-}
-
-//////////////////////////////////////////////////////////////////////
 
 long  commTimeoutMs = 500;
 bool  commEstablished = false;
@@ -508,32 +330,26 @@ bool  tankDriveMode = false;
 float tankDriveLeft = 0;
 float tankDriveRight = 0;
 
+CmdLink host(Serial, 115200);
+CmdLink hindbrain(Serial2, 19200);
+
+
 void wakeWheelchair()
 {
-  Serial2.write("wake",4);
-  Serial2.flush();
+  hindbrain.sendCmd('W');
   brakeReleaseTimer.begin(brakeReleaseTime);
   motorHeartbeatTimer.begin(motorHeartbeatTime);
   waitingForBrakeRelease = true;
 }
 
-void enableDebug()
-{
-  Serial2.write("dbug",4);
-  Serial2.flush();
-}
-
 bool setMotorSpeeds(int left, int right)
 {
-  static uint8_t mspeed[] = "m##x";
+  static int lastLeft  = 0;
+  static int lastRight = 0;
   
-  if (motorHeartbeatTimer.fire() || mspeed[1] != left || mspeed[2] != right) {
-    mspeed[1] = left;
-    mspeed[2] = right;      
-    Serial2.write(mspeed, 4);
-    Serial2.flush();
-    drawArrows(left, right);
-  
+  if (motorHeartbeatTimer.fire() || lastLeft != left || lastRight != right) {
+    hindbrain.sendCmdBB('M', left, right);
+    drawArrows(left, right);  
     return true;
   }
 
@@ -542,9 +358,7 @@ bool setMotorSpeeds(int left, int right)
 
 void setMotorSpeedZero()
 {
-  static uint8_t mspeed[] = "m\0\0x";
-  Serial2.write(mspeed, 4);
-  Serial2.flush();
+  hindbrain.sendCmdBB('M', 0, 0);
 }
 
 void wheelChairReset()
@@ -566,34 +380,12 @@ void wheelChairStop()
   matrix.drawBitmap(4, 0, stop_bmp, 8, 8, LED_ON);
 }
 
-void sendAck(char c1, char c2)
-{
-  char msg[] = "A XX";
-  msg[2] = c1;
-  msg[3] = c2;
-  writeDelimited(msg);
-}
-
-void sendNack(char c1, char c2)
-{
-  char msg[] = "N XX";
-  msg[2] = c1;
-  msg[3] = c2;
-  writeDelimited(msg);  
-}
-
 void checkEstop()
 {
   if (digitalRead(estop2) == HIGH)
   {
     tankDriveMode = false;
     setMotorSpeeds(0, 0);
-
-    char c1;
-    char c2;
-    readDelimited(true, c1, c2); // flushing input
-
-    bool first = true;
 
     displayX(20,0,0);
     updateDisplay();
@@ -603,93 +395,75 @@ void checkEstop()
       //in an e-stop holding pattern
       delay(100);
 
-      bool encChanged = refreshEncoders();
+      bool gotCmd = host.readCmd();
 
-      if (first || encChanged) {
-        writeDelimited(String("X ESTOP ") + leftEncoder.getCount() + " " + rightEncoder.getCount()); // estop
-        first = false;
-      }
-
-      char c1;
-      char c2;
-      
-      String command = readDelimited(false, c1, c2);
-
-      if (command.startsWith("reset"))
+      if (gotCmd)
       {
-//        writeDelimited("R Reset Received");// T indicates target data
-        wheelChairStop();
-        sendAck(c1, c2);
-        return;
-      }
-      else if (command.length() > 0) {
-        writeDelimited("I In E-Stop so ignoring: " + command);
-        sendNack(c1, c2);
+        if (host.cmd() == 'R') {
+          host.sendInfo("Reset");
+          wheelChairStop();
+          host.sendCmd('K');
+          return;
+        }
+        else {        
+          host.sendCmdFmt('I', "Ign: %c", host.cmd());
+          host.sendCmd('K'); // ack
+        }
       }
     }
   }
 }
 
-bool processCommands(char& c1, char& c2)
+bool processCommands()
 {
-  String command = readDelimited(false, c1, c2);
-
-  if (command.length() == 0) {
+  if (!host.readCmd()) {
     return false;
   }
 
-  if (command.startsWith("tank")) {
-     tankDriveMode  = true;
-     tankDriveLeft  = getValue(command, ' ', 1).toFloat();
-     tankDriveRight = getValue(command, ' ', 2).toFloat();
-  }
-  else if (command.startsWith("debug"))
-  {
-    enableDebug();
-    writeDelimited("I Debug ON");
-  }
-  else if (command.startsWith("reset"))
-  {
-    beginDraw();
-    matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
-    wheelChairReset();
-    writeDelimited("I Reset Received");// T indicates target data
-  }
-  else if (command.startsWith("ask")) {
-    writeDelimited("T " + String(leftEncoder.getTarget()) + " " + String(rightEncoder.getTarget())); 
-  }
-  else if (command.startsWith("target"))
-  {
-    tankDriveMode = false;
-    command = command.substring(command.indexOf(" ") + 1, -1);
-    long leftTarget  = getValue(command, ' ', 0).toInt();
-    long rightTarget = getValue(command, ' ', 1).toInt();
-    leftEncoder.setTarget(leftTarget);
-    rightEncoder.setTarget(rightTarget);
-    writeDelimited("T " + String(leftEncoder.getTarget()) + " " + String(rightEncoder.getTarget())); 
-  }
-  else if (command.startsWith("ping")) // keep awake
-  {
-  }
-  else {
-    writeDelimited("E Invalid command (doing a stop)" + command);
-    wheelChairStop();
+  char c1;
+  char c2;
+  int  v1;
+  int  v2;
+
+  switch (host.cmd()) {
+    case 'D': // tank mode
+      tankDriveMode = true;
+      host.getParam(c1);
+      host.getParam(c2);
+      tankDriveLeft  = c1;
+      tankDriveRight = c2;
+      break;
+    case 'R': // reset
+      beginDraw();
+      matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
+      wheelChairReset();
+      host.sendInfo("Reset");
+      break;
+    case 'T': // target 
+      tankDriveMode = false;
+      host.getParam(v1);
+      host.getParam(v2);
+      leftEncoder.setTarget(v1);
+      rightEncoder.setTarget(v2);
+      host.sendCmdII('T', leftEncoder.getCount(), rightEncoder.getCount());
+      break;
+    case 'P': // ping
+      host.sendInfo("Ping");
+      break;
+    default:
+      host.sendCmdFmt('E', "Unk: %c", host.cmd());
+      break;     
   }
 
   return true;
 }
 
+
 void setup()
 {
   pinMode(estop1, OUTPUT);
-//  pinMode(leftModeLED, OUTPUT);
-//  pinMode(rightModeLED, OUTPUT);
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
-
-  Serial.begin(19200);   // laptop/host
-  Serial2.begin(19200);   // hindbrain
- // Serial3.begin(115200); // distance
 
   matrix.begin(0x70); 
   matrix.setRotation(1);
@@ -698,10 +472,14 @@ void setup()
   matrix.clear();
   matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
   matrix.writeDisplay();  // write the changes we just made to the display
+
+  host.start();
+  hindbrain.start();
   
   delay(500);
 
-  Serial2.println("ramp21");
+  hindbrain.sendCmdBI('c','R',21);  
+  host.sendCmdStr('I',"Forebrain");
   
   wheelChairReset();
 
@@ -713,14 +491,25 @@ void setup()
 
 void loop()
 {
-  checkEstop();
+  //checkEstop();
 
-  char c1;
-  char c2;
+  bool encodersChanged = false;
 
-  bool gotCommand = processCommands(c1, c2);
+  if (hindbrain.readCmd()) {
+    int v1;
+    int v2;
+    switch (hindbrain.cmd()) {
+      case 'C': // encoder count
+        hindbrain.getParam(v1);
+        hindbrain.getParam(v2);
+        leftEncoder.refresh(v1);
+        rightEncoder.refresh(v2);
+        encodersChanged = true;
+        break;
+    }
+  }
 
- //long currentTime = millis();
+  bool gotCommand = processCommands();
 
   if (gotCommand) {
      if (!commEstablished) {
@@ -738,15 +527,12 @@ void loop()
      commEstablished = false;
      wheelChairStop();
   }
-
-  bool encodersChanged = refreshEncoders();
   
   if (!commEstablished) {
     updateDisplay();
     if (gotCommand) {
-        // really should be nothing to acknowledge here
-        writeDelimited("I Unexpected State");
-        sendNack(c1, c2);
+       host.sendInfo("Unexp");
+       host.sendCmd('K'); // ack
     }
     return;
   }
@@ -754,7 +540,7 @@ void loop()
   if (waitingForBrakeRelease) {
     if (brakeReleaseTimer.fire()) {
       waitingForBrakeRelease = false;  
-      sendAck(c1, c2);
+      host.sendCmd('K'); // ack
     }
     else {
       return; // still waiting for release
@@ -779,8 +565,9 @@ void loop()
 
   if (gotCommand) {
     if (encodersChanged || motorL != 0 || motorR != 0) {
-      writeDelimited(String("P ") + leftEncoder.getCount() + " " + rightEncoder.getCount() + " " + motorL + " " + motorR);  // P indicates position data
+      host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());
+      host.sendCmdBB('M', motorL, motorR);
     }    
-    sendAck(c1, c2);
+    host.sendCmd('K'); // ack
   }
 }
