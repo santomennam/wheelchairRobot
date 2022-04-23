@@ -4,9 +4,35 @@
 #include <HardwareSerial.h>
 #else
 #include <cstring>
+#include <iostream>
+#include <iomanip>
 #endif
 
 #define MAX_CMD_SIZE 16
+
+using namespace std;
+
+#ifndef ARDUINO
+void dumpAsHex(std::string data)
+{
+    for (char c : data) {
+        if (isprint(c)) {
+            cout << setfill(' ') << setw(2) << c << " ";
+        }
+        else if (c == '\n') {
+            cout << "\\n ";
+        }
+        else {
+            cout << "__ ";
+        }
+    }
+    cout << endl;
+    for (char c : data) {
+        cout << std::hex << setw(2) << setfill('0') << (0xFF & (int)c) << " ";
+    }
+    cout << std::dec << setfill(' ') << endl;
+}
+#endif
 
 bool CmdBuffer::verify(int hIdx, int lfIdx)
 { 
@@ -36,7 +62,7 @@ bool CmdBuffer::push(char c)
   buffer[pushIdx] = c;
   pushIdx = (pushIdx+1)%MAX_CMD_SIZE;
   if (c == '\n' && hashIdx >= 0) {
-    int lfIdx = pushIdx-1;
+    int lfIdx = (pushIdx+MAX_CMD_SIZE-1)%MAX_CMD_SIZE;
     if (verify(hashIdx, lfIdx)) {
          return true;
     }
@@ -47,10 +73,16 @@ bool CmdBuffer::push(char c)
     while (searchIdx != hashIdx) {
       // 
       if (buffer[searchIdx] == '#' && verify(searchIdx, lfIdx)) {
-        return true;
+          return true;
       }
       searchIdx = (searchIdx + MAX_CMD_SIZE - 1) % MAX_CMD_SIZE;  // back-up with wrap
     }
+#ifndef ARDUINO
+    cout << "Failed Search:\n PushIdx = " << pushIdx << endl;
+    searchIdx = (pushIdx + MAX_CMD_SIZE - 3) % MAX_CMD_SIZE; // start searching for a # three before where we are
+    cout << " SearchIdx = " << searchIdx << endl;
+    dumpAsHex(string(buffer, MAX_CMD_SIZE));
+#endif
   }
   return false;
 }
@@ -61,6 +93,18 @@ void CmdBuffer::copyDataTo(char *dst, int count)
     *dst++ = get(dataIdx++); 
   }
 }
+
+#ifndef ARDUINO
+string CmdBuffer::currentCmdBuffer() const
+{
+    int idx = (dataIdx + MAX_CMD_SIZE - 3) % MAX_CMD_SIZE;
+    char tmp[MAX_CMD_SIZE];
+    for (int i = 0; i < numDataBytes+4; i++) {
+        tmp[i] = get(idx++);
+    }
+    return string(tmp, numDataBytes+4);
+}
+#endif
 
 CmdBuilder::CmdBuilder()
 {
@@ -138,7 +182,7 @@ void CmdLink::sendCmdBB(char cmd, char v1, char v2)
   send();
 }
 
-void CmdLink::sendCmdBI(char cmd, char v1, int16_t v2)
+void CmdLink::sendCmdBI(char cmd, char v1, int32_t v2)
 {
   builder.begin(cmd);
   builder.pushData(v1);
@@ -146,7 +190,7 @@ void CmdLink::sendCmdBI(char cmd, char v1, int16_t v2)
   send();
 }
 
-void CmdLink::sendCmdII(char cmd, int16_t v1, int16_t v2)
+void CmdLink::sendCmdII(char cmd, int32_t v1, int32_t v2)
 {
   builder.begin(cmd);
   builder.pushData(v1);
@@ -154,7 +198,7 @@ void CmdLink::sendCmdII(char cmd, int16_t v1, int16_t v2)
   send();
 }
 
-void CmdLink::sendCmdI(char cmd, int16_t v1)
+void CmdLink::sendCmdI(char cmd, int32_t v1)
 {
   builder.begin(cmd);
   builder.pushData(v1);
@@ -172,6 +216,10 @@ bool CmdLink::readCmd()
 #else
    while (canRead()) {
        if (buffer.push(readChar())) {
+           if (debug) {
+               cout << "Received: \n";
+               dumpAsHex(buffer.currentCmdBuffer());
+           }
            return true;
        }
    }
@@ -179,18 +227,26 @@ bool CmdLink::readCmd()
    return false;
 }
 
+#ifndef ARDUINO
 std::string CmdLink::getStr()
 {
     char buff[10];
     buffer.copyDataTo(buff, buffer.length());
     return std::string(buff, buffer.length());
 }
+#endif
 
 void CmdLink::send()
 {
+    char *sendbuffer = builder.finish();
+    int sendlen = builder.length();
 #ifdef ARDUINO
-  stream.write(builder.finish(), builder.length());
+    stream.write(sendbuffer, sendlen);
 #else
-  writer(builder.finish(), builder.length());
+    if (debug) {
+        cout << "Sending:\n";
+        dumpAsHex(string(sendbuffer, sendlen));
+    }
+    writer(sendbuffer, sendlen);
 #endif
 }

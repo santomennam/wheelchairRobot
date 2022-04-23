@@ -84,8 +84,7 @@ public:
     void toggleLogging() { logLevel = (logLevel + 1) % 4; }
 
     void resetBot();
-    void ask();
-    void setDebugMode();
+    void setDebug(bool dbg) { cmdLink->setDebug(dbg); }
     void keepBotAlive();
     void sendTarget(Vec2d encoderTarget);
 

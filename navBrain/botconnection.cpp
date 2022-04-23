@@ -2,6 +2,7 @@
 
 
 #include <iostream>
+#include <iomanip>
 
 using namespace std;
 using namespace mssm;
@@ -116,8 +117,15 @@ void BotConnection::sendTarget(Vec2d encoderTarget)
 }
 
 
+void dumpAsHex(std::string data);
+
+
 void BotConnection::onBotCommPacket(std::string data)
 {
+    if (cmdLink->isDebug()) {
+        cout << "RawIncoming:\n";
+        dumpAsHex(data);
+    }
     incomingData += data;
 
    // cout << "IncomingData: '" << data << "'" << endl;

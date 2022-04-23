@@ -57,13 +57,13 @@ void BotCommSerial::attach(BotCommClient *client)
 
 void BotCommSerial::sendPacket(std::string data)
 {
+
     if (pluginId < 0) {
         if (client) {
             client->onBotCommError("Attempt to sendPacket before connected!!");
         }
     }
     else {
-        data = wrapDelimitedCRC8(data);
         g.callPlugin(pluginId,static_cast<int>(SerialPortReader::Command::send),0, data);
     }
 }

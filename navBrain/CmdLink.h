@@ -27,7 +27,6 @@ class CmdBuffer {
   char buffer[MAX_CMD_SIZE];
   int  pushIdx{0};
   int  hashIdx{-1}; // -1 means we haven't seen a # yet
-  char get(int idx) { return buffer[idx%MAX_CMD_SIZE]; }
   char lastCmd{0};
   int  numDataBytes{0};
   int  dataIdx{0};
@@ -38,9 +37,13 @@ class CmdBuffer {
   void copyDataTo(char *dst, int count);
   template<typename T>
   void copyDataTo(T& dst);
-  private:
+#ifndef ARDUINO
+  std::string currentCmdBuffer() const;
+#endif
+ private:
   bool verify(int hashIdx, int lfIdx);
-  
+  char get(int idx) const { return buffer[idx%MAX_CMD_SIZE]; }
+
 };
 
 template<typename T>
@@ -79,6 +82,7 @@ class CmdLink {
     std::function<bool()> canRead;
     std::function<char()> readChar;
 #endif
+    bool debug{false};
   CmdBuffer  buffer;
   CmdBuilder builder;
  public:
@@ -99,9 +103,9 @@ class CmdLink {
   template<typename T>
   void sendCmdFmt(char cmd, char* fmt, T val);
   void sendCmdBB(char cmd, char v1, char v2);
-  void sendCmdII(char cmd, int16_t v1, int16_t v2);
-  void sendCmdI(char cmd, int16_t v1);
-  void sendCmdBI(char cmd, char v1, int16_t v2);
+  void sendCmdII(char cmd, int32_t v1, int32_t v2);
+  void sendCmdI(char cmd, int32_t v1);
+  void sendCmdBI(char cmd, char v1, int32_t v2);
   void sendInfo(char* str)  { sendCmdStr('I', str); }
   void sendError(char* str) { sendCmdStr('E', str); }
 
@@ -112,9 +116,11 @@ class CmdLink {
   void getParam(T& dst);
 
 #ifdef ARDUINO
-  String getStr();
+  //String getStr();
 #else
   std::string getStr();
+  void setDebug(bool dbg) { debug = dbg; }
+  bool isDebug() const { return debug; }
 #endif
 
 private:

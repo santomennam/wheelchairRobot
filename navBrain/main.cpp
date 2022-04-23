@@ -67,12 +67,14 @@ void graphicsMain(Graphics& g)
 
     BotConnection bot(&botMonitor);
 
+    bot.setDebug(true);
+
     botSerial.connect("COM9");
 
     ofstream file;
     ifstream input;
     bool playback = false;
-    std::chrono::time_point<std::chrono::steady_clock> queriedTime;
+   // std::chrono::time_point<std::chrono::steady_clock> queriedTime;
     Vec2d trackingPair;
     bool clicked = false;
     Vec2d point;
@@ -89,7 +91,7 @@ void graphicsMain(Graphics& g)
     bot.setOnMotorUpdateHandler([&world](Vec2d motors) { world.botMotorsUpdated(motors); });
 
     phys.botWidth = world.tree.botWidth;
-    string incomingData;
+    //string incomingData;
 
     vector<Vec2d> midpoints;
     double stepx = width/5;
