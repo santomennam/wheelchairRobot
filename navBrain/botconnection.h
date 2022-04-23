@@ -68,7 +68,7 @@ public:
 
     void update();
 
-    void tankSteer(double left, double right); // left/right in range -1 to 1
+    void tankSteer(int left, int right); // left/right -1, 0, 1
 
     std::string getReceivedCommand() const { return receivedResponse; }
     std::string getReceivedError() const { return receivedError; }
@@ -100,7 +100,7 @@ public:
 
 
 private:
-    void sendCommand(std::string cmd, bool debug);
+    void postSend(bool wasPing);
 
     void updateEncoders(Vec2d encoderCounts);
     void updateTarget(Vec2d encoderTarget);

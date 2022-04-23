@@ -5,6 +5,7 @@
 
 #ifndef ARDUINO
 #include <functional>
+#include <string>
 #endif
 
 // commands start with '#' followed by 4 bytes (command specific) followed by '\n'  6 bytes total
@@ -109,6 +110,12 @@ class CmdLink {
 
   template<typename T>
   void getParam(T& dst);
+
+#ifdef ARDUINO
+  String getStr();
+#else
+  std::string getStr();
+#endif
 
 private:
   void send();

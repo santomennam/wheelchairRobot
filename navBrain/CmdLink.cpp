@@ -179,6 +179,13 @@ bool CmdLink::readCmd()
    return false;
 }
 
+std::string CmdLink::getStr()
+{
+    char buff[10];
+    buffer.copyDataTo(buff, buffer.length());
+    return std::string(buff, buffer.length());
+}
+
 void CmdLink::send()
 {
 #ifdef ARDUINO

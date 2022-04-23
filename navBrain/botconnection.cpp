@@ -23,11 +23,10 @@ void BotConnection::update()
 
 }
 
-void BotConnection::tankSteer(double left, double right)
+void BotConnection::tankSteer(int left, int right)
 {
-    stringstream ss;
-    ss<<"tank " << left << " " << right;
-    sendCommand(ss.str(), logLevel > 0);
+    cmdLink->sendCmdBB('D', left, right); // drive
+    postSend(false);
 }
 
 void BotConnection::setOnTargetUpdateHandler(std::function<void (Vec2d)> onTargetUpdate)
@@ -84,48 +83,36 @@ void BotConnection::updateMotors(Vec2d motorSpeeds)
     }
 }
 
-void BotConnection::sendCommand(string cmd, bool debug)
+void BotConnection::postSend(bool wasPing)
 {
-    lastCmdPing = cmd == "ping";
+    lastCmdPing = wasPing;
 
     if (isWaitingForResponse) {
         cout << ">>>>>>>>>>>>>>> sendCommand didn't wait for response <<<<<<<<<<<<<" << endl;
     }
-    if (debug) {
-        cout << ">>>>> Sending Command to Bot: " << cmd << endl;
-    }
-    botComm->sendPacket(cmd);
-    lastCommandSent = cmd;
+    //lastCommandSent = cmd;
     lastCommandTime = std::chrono::steady_clock::now();
     isWaitingForResponse = true;
 }
 
 void BotConnection::resetBot()
 {
-    sendCommand("reset", logLevel > 0);
+    cmdLink->sendCmd('R'); // reset
+    postSend(false);
 }
 
-void BotConnection::ask()
-{
-    sendCommand("ask", logLevel > 0);
-}
-
-void BotConnection::setDebugMode()
-{
-    sendCommand("debug", logLevel > 0);
-}
 
 void BotConnection::keepBotAlive()
 {
-    sendCommand("ping", logLevel > 2);
+    cmdLink->sendCmd('P');
+    postSend(true);
 }
 
 void BotConnection::sendTarget(Vec2d encoderTarget)
 {
     lastSentTarget = encoderTarget;
-    stringstream ss;
-    ss<<"target "<<encoderTarget.x<<" "<<encoderTarget.y;
-    sendCommand(ss.str(), logLevel > 0);
+    cmdLink->sendCmdII('T', encoderTarget.x, encoderTarget.y);
+    postSend(false);
 }
 
 
@@ -133,13 +120,10 @@ void BotConnection::onBotCommPacket(std::string data)
 {
     incomingData += data;
 
-    cout << "IncomingData: '" << incomingData << "'" << endl;
+   // cout << "IncomingData: '" << data << "'" << endl;
 
     while (cmdLink->readCmd()) {
         char cmd = cmdLink->cmd();
-
-        cout << "BotConnection got cmd: " << cmd << endl;
-        continue;
 
         double a;
         double b;
@@ -147,38 +131,56 @@ void BotConnection::onBotCommPacket(std::string data)
         double leftMotor;
         double rightMotor;
 
+        char buffer[10];
+
+        int32_t leftCount;
+        int32_t rightCount;
+
+        char leftM;
+        char rightM;
+
         switch (cmd) {
-        case 'A':
+        case 'I':
+          //  cout << "Got Info: " << endl;
+            receivedResponse = "Info: " + cmdLink->getStr();
+            if (receivedResponse != "Info: Ping") {
+                cout << receivedResponse << endl;
+            }
+            break;
+        case 'K':
             // Ack: Acknowledge
             lastResponseTime = std::chrono::steady_clock::now();
             isWaitingForResponse = false;
+            //cout << "Got Ack" << endl;
             break;
-        case 'N':
+        case 'k':
             // Nack: Negative Acknowledge
             lastResponseTime = std::chrono::steady_clock::now();
             isWaitingForResponse = false;
             cout << "NACKNACKNACK" << endl;
             break;
-        case 'T': // target ack
-            //dataStream >> a >> b;
-            updateTarget({a,b});
-            break;
-        case 'P': // position
-            //dataStream >> a >> b >> leftMotor >> rightMotor;
-            updateEncoders({a,b});
+//        case 'T': // target ack
+//            //dataStream >> a >> b;
+//            updateTarget({a,b});
+//            break;
+        case 'C': // encoder counts
+            cmdLink->getParam(leftCount);
+            cmdLink->getParam(rightCount);
+            cout << "Counts: " << leftCount << " " << rightCount << endl;
+            updateEncoders({(double)leftCount, (double)rightCount});
+        case 'M': // motor values
+            cmdLink->getParam(leftMotor);
+            cmdLink->getParam(rightMotor);
             updateMotors({leftMotor, rightMotor});
-            //cout << recCmd << endl;
             break;
         case 'E': // Error
             receivedError = receivedResponse;
             break;
-        case 'I': // Info
-            receivedInfo = receivedResponse;
-            break;
         case 'X': // EStop
             break;
         default:
-            cout << "UNKNOWN RESPONSE: " << receivedResponse << endl;
+
+            cout << "UNKNOWN RESPONSE: " << cmd << " " << data << endl;
             break;
         }
     }
