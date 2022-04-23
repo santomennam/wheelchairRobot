@@ -6,10 +6,15 @@
 using namespace std;
 using namespace mssm;
 
-BotConnection::BotConnection(BotComm *botComm)
-    : botComm{botComm}
+BotConnection::BotConnection(BotComm *bc)
+    : botComm{bc}
 {
     botComm->attach(this);
+    cmdLink = new CmdLink([this](const char* data, int len) {
+        botComm->sendPacket(string(data, len));
+    },
+    [this]() { return this->incomingData.size() > 0; },
+    [this]() { char c = incomingData[0]; incomingData.erase(incomingData.begin()); return c; });
 }
 
 // called in graphics loop
@@ -124,57 +129,58 @@ void BotConnection::sendTarget(Vec2d encoderTarget)
 }
 
 
-void BotConnection::onBotCommPacket(std::string recCmd)
+void BotConnection::onBotCommPacket(std::string data)
 {
-    if ((logLevel == 2 && !lastCmdPing) || logLevel > 2) {
-        cout << recCmd << endl;
-    }
+    incomingData += data;
 
-    stringstream dataStream(recCmd);
+    cout << "IncomingData: '" << incomingData << "'" << endl;
 
-    char cmd;
+    while (cmdLink->readCmd()) {
+        char cmd = cmdLink->cmd();
 
-    dataStream >> cmd;
+        cout << "BotConnection got cmd: " << cmd << endl;
+        continue;
 
-    double a;
-    double b;
+        double a;
+        double b;
 
-    double leftMotor;
-    double rightMotor;
+        double leftMotor;
+        double rightMotor;
 
-    switch (cmd) {
-    case 'A':
-        // Ack: Acknowledge
-        lastResponseTime = std::chrono::steady_clock::now();
-        isWaitingForResponse = false;
-        break;
-    case 'N':
-        // Nack: Negative Acknowledge
-        lastResponseTime = std::chrono::steady_clock::now();
-        isWaitingForResponse = false;
-        cout << "NACKNACKNACK" << endl;
-        break;
-    case 'T': // target ack
-        dataStream >> a >> b;
-        updateTarget({a,b});
-        break;
-    case 'P': // position
-        dataStream >> a >> b >> leftMotor >> rightMotor;
-        updateEncoders({a,b});
-        updateMotors({leftMotor, rightMotor});
-        cout << recCmd << endl;
-        break;
-    case 'E': // Error
-        receivedError = receivedResponse;
-        break;
-    case 'I': // Info
-        receivedInfo = receivedResponse;
-        break;
-    case 'X': // EStop
-        break;
-    default:
-        cout << "UNKNOWN RESPONSE: " << receivedResponse << endl;
-        break;
+        switch (cmd) {
+        case 'A':
+            // Ack: Acknowledge
+            lastResponseTime = std::chrono::steady_clock::now();
+            isWaitingForResponse = false;
+            break;
+        case 'N':
+            // Nack: Negative Acknowledge
+            lastResponseTime = std::chrono::steady_clock::now();
+            isWaitingForResponse = false;
+            cout << "NACKNACKNACK" << endl;
+            break;
+        case 'T': // target ack
+            //dataStream >> a >> b;
+            updateTarget({a,b});
+            break;
+        case 'P': // position
+            //dataStream >> a >> b >> leftMotor >> rightMotor;
+            updateEncoders({a,b});
+            updateMotors({leftMotor, rightMotor});
+            //cout << recCmd << endl;
+            break;
+        case 'E': // Error
+            receivedError = receivedResponse;
+            break;
+        case 'I': // Info
+            receivedInfo = receivedResponse;
+            break;
+        case 'X': // EStop
+            break;
+        default:
+            cout << "UNKNOWN RESPONSE: " << receivedResponse << endl;
+            break;
+        }
     }
 }
 

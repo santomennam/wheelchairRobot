@@ -4,6 +4,7 @@ QT += multimedia
 CONFIG += gui
 CONFIG += c++14
 HEADERS    = \
+    CmdLink.h \
     absolutepostracker.h \
     botcomm.h \
     botcommmonitor.h \
@@ -34,6 +35,7 @@ HEADERS    = \
     physics.h
 
 SOURCES     = \
+    CmdLink.cpp \
     absolutepostracker.cpp \
     botcomm.cpp \
     botcommmonitor.cpp \

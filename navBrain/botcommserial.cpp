@@ -15,38 +15,39 @@ BotCommSerial::BotCommSerial(mssm::Graphics &g)
 
 void BotCommSerial::handleRawData(std::string data)
 {
-    std::replace(data.begin(),data.end(),'\r','\n');
-    incomingData += data;
-    while(true){
-        auto i = find(incomingData.begin(),incomingData.end(),'#');
-        if(i == incomingData.end())
-        {
-            return;
-        }
-        incomingData.erase(incomingData.begin(),i);
-        auto j = find(incomingData.begin(),incomingData.end(),'\n');
-        if(j == incomingData.end())
-        {
-            return;
-        }
+    client->onBotCommPacket(data);
+//    std::replace(data.begin(),data.end(),'\r','\n');
+//    incomingData += data;
+//    while(true){
+//        auto i = find(incomingData.begin(),incomingData.end(),'#');
+//        if(i == incomingData.end())
+//        {
+//            return;
+//        }
+//        incomingData.erase(incomingData.begin(),i);
+//        auto j = find(incomingData.begin(),incomingData.end(),'\n');
+//        if(j == incomingData.end())
+//        {
+//            return;
+//        }
 
-        string recCmd = incomingData.substr(1,(j-incomingData.begin()-1));
-        incomingData.erase(incomingData.begin(),j);
+//        string recCmd = incomingData.substr(1,(j-incomingData.begin()-1));
+//        incomingData.erase(incomingData.begin(),j);
 
-        if (!stripCRC8(recCmd)) {
-            if (client) {
-                client->onBotCommError("CHECKSUM ERROR: " + recCmd);
-            }
-            continue;
-        }
+//        if (!stripCRC8(recCmd)) {
+//            if (client) {
+//                client->onBotCommError("CHECKSUM ERROR: " + recCmd);
+//            }
+//            continue;
+//        }
 
-        if (client) {
-            client->onBotCommPacket(recCmd);
-        }
-        else {
-            cout << "NO CLIENT TO RECEIVE PACKET!" << endl;
-        }
-    }
+//        if (client) {
+//            client->onBotCommPacket(recCmd);
+//        }
+//        else {
+//            cout << "NO CLIENT TO RECEIVE PACKET!" << endl;
+//        }
+//    }
 }
 
 void BotCommSerial::attach(BotCommClient *client)
@@ -70,7 +71,7 @@ void BotCommSerial::sendPacket(std::string data)
 void BotCommSerial::connect(std::string connectionName)
 {
     pluginId = g.registerPlugin([connectionName](QObject* parent) {
-          return new SerialPortReader(parent, connectionName, QSerialPort::Baud19200);
+          return new SerialPortReader(parent, connectionName, QSerialPort::Baud115200);
     });
 }
 

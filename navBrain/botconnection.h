@@ -4,6 +4,7 @@
 #include "graphics.h"
 #include <functional>
 #include "botcomm.h"
+#include "CmdLink.h"
 
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
@@ -37,6 +38,8 @@ using tp = std::chrono::time_point<std::chrono::steady_clock>;
 class BotConnection : public BotCommClient {
 
     BotComm* botComm;
+
+    CmdLink* cmdLink;
 
     std::string lastCommandSent;
     tp    lastCommandTime;
