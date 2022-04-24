@@ -13,7 +13,7 @@ Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 ArduPID PIDControllerL;
 ArduPID PIDControllerR;
 
-int encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
+int32_t encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
 int brakeReleaseTime = 250;    // time in ms from "wake" to when the brakes should be released and we can begin giving motor commands
 int motorHeartbeatTime = 200;  // resend motor values at least this often, even if motor values are unchanged (to keep hindbrain awake)
@@ -193,9 +193,9 @@ class SmartEncoder {
   private:
     ArduPID& pid;
   private:
-    long count{0};
-    long prevCount{0};
-    long target{0};
+    int32_t count{0};
+    int32_t prevCount{0};
+    int32_t target{0};
     bool hasTarget{false};
     bool usingPid{false};
     double pidInput;
@@ -206,27 +206,27 @@ class SmartEncoder {
     double kD = 00; // 1000;
   public:
     SmartEncoder(ArduPID& pid) : pid{pid} {}
-    bool refresh(int count);
+    bool refresh(int32_t count);
     void reset();
-    long getTarget() {
+    int32_t getTarget() {
       return target;
     }
-    long getCount() {
+    int32_t getCount() {
       return count;
     }
-    void setTarget(long targ);
-    void setRelativeTarget(long offset) {
+    void setTarget(int32_t targ);
+    void setRelativeTarget(int32_t offset) {
       setTarget(target + offset);
     }
     void clearTarget();
     bool getHasTarget() { return hasTarget; }
-    long dist() {
+    int32_t dist() {
       return target - count;
     }
-    long absDist() {
+    int32_t absDist() {
       return abs(target - count);
     }
-    bool reachedTarget(long threshold) {
+    bool reachedTarget(int32_t threshold) {
       return absDist() <= threshold;
     }
     int  computeMotorSpeed();
@@ -241,7 +241,7 @@ class SmartEncoder {
     void disablePid();
 };
 
-bool SmartEncoder::refresh(int newCount)
+bool SmartEncoder::refresh(int32_t newCount)
 {
   count = newCount;
   if (count != prevCount) {
@@ -280,7 +280,7 @@ void SmartEncoder::disablePid()
   }
 }
 
-void SmartEncoder::setTarget(long targ)
+void SmartEncoder::setTarget(int32_t targ)
 {
   target = targ;
   hasTarget = true;
@@ -322,7 +322,7 @@ SmartEncoder rightEncoder(PIDControllerR);
 ///////////////////////////////////
 
 
-long  commTimeoutMs = 500;
+int32_t  commTimeoutMs = 500;
 bool  commEstablished = false;
 bool  waitingForBrakeRelease = false;
 
@@ -349,6 +349,8 @@ bool setMotorSpeeds(int left, int right)
   
   if (motorHeartbeatTimer.fire() || lastLeft != left || lastRight != right) {
     hindbrain.sendCmdBB('M', left, right);
+    lastLeft = left;
+    lastRight = right;
     drawArrows(left, right);  
     return true;
   }
@@ -422,8 +424,8 @@ bool processCommands()
 
   char c1;
   char c2;
-  int  v1;
-  int  v2;
+  int32_t  v1;
+  int32_t  v2;
 
   switch (host.cmd()) {
     case 'D': // tank mode
@@ -432,6 +434,7 @@ bool processCommands()
       host.getParam(c2);
       tankDriveLeft  = c1;
       tankDriveRight = c2;
+      host.sendCmdBB('I',c1, c2);
       break;
     case 'R': // reset
       beginDraw();
@@ -496,8 +499,8 @@ void loop()
   bool encodersChanged = false;
 
   if (hindbrain.readCmd()) {
-    int v1;
-    int v2;
+    int32_t v1;
+    int32_t v2;
     switch (hindbrain.cmd()) {
       case 'C': // encoder count
         hindbrain.getParam(v1);

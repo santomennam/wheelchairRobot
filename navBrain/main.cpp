@@ -67,7 +67,7 @@ void graphicsMain(Graphics& g)
 
     BotConnection bot(&botMonitor);
 
-    bot.setDebug(true);
+    //bot.setDebug(true);
 
     botSerial.connect("COM9");
 

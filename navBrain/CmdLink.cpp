@@ -178,7 +178,7 @@ void CmdLink::sendCmdBB(char cmd, char v1, char v2)
 {
   builder.begin(cmd);
   builder.pushData(v1);
-  builder.pushData(v1);
+  builder.pushData(v2);
   send();
 }
 
@@ -186,7 +186,7 @@ void CmdLink::sendCmdBI(char cmd, char v1, int32_t v2)
 {
   builder.begin(cmd);
   builder.pushData(v1);
-  builder.pushData(v1);
+  builder.pushData(v2);
   send();
 }
 
@@ -194,7 +194,7 @@ void CmdLink::sendCmdII(char cmd, int32_t v1, int32_t v2)
 {
   builder.begin(cmd);
   builder.pushData(v1);
-  builder.pushData(v1);
+  builder.pushData(v2);
   send();
 }
 
