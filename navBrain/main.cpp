@@ -103,6 +103,9 @@ void graphicsMain(Graphics& g)
         }
     }
 
+
+
+
     world.worldScale = 0.04;
     world.view.pan(Vec2d{g.width()/2, g.height()/2});
 
@@ -351,6 +354,17 @@ void graphicsMain(Graphics& g)
                 case 'D':
                    // world.diagnostics = !world.diagnostics;
                     bot.toggleLogging();
+                    break;
+                case 'U':
+                    world.masterNav({600,800},g);
+                     world.findEncPath(world.path);
+                     for(int i = 0; i < world.targets.size(); i++)
+                     {
+                         if(i > 1){
+                             cout<<"Pos "<<world.targets[i-1].pos<<" and ";
+                         }
+                         cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
+                     }
                     break;
                 case 'X':
                 {
