@@ -151,9 +151,9 @@ void BotConnection::onBotCommPacket(std::string data)
         case 'I':
           //  cout << "Got Info: " << endl;
             receivedResponse = "Info: " + cmdLink->getStr();
-            if (receivedResponse != "Info: Ping") {
-                cout << receivedResponse << endl;
-            }
+//            if (receivedResponse != "Info: Ping") {
+//                cout << receivedResponse << endl;
+//            }
             break;
         case 'K':
             // Ack: Acknowledge
