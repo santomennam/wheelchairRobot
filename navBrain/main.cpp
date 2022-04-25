@@ -35,7 +35,7 @@ void resetDestination(BotConnection& bot, World& world, Vec2d destination)
     cout << "resetDestination calling resetBot" << endl;
 
     bot.resetBot();
-   // bot.setDebugMode();
+    // bot.setDebugMode();
     //setDebugMode(g,boardPluginID);
     world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
     world.findEncPath(world.path);
@@ -53,6 +53,8 @@ void resetDestination(BotConnection& bot, World& world, Vec2d destination)
 void graphicsMain(Graphics& g)
 {
     Vec2d destination = {0,0};
+
+    bool targetMode = false;
 
     bool drawAdj = false;
 
@@ -74,7 +76,7 @@ void graphicsMain(Graphics& g)
     ofstream file;
     ifstream input;
     bool playback = false;
-   // std::chrono::time_point<std::chrono::steady_clock> queriedTime;
+    // std::chrono::time_point<std::chrono::steady_clock> queriedTime;
     Vec2d trackingPair;
     bool clicked = false;
     Vec2d point;
@@ -159,12 +161,12 @@ void graphicsMain(Graphics& g)
             g.text({10,textY -= 25}, 20, "ERROR:    " + bot.getReceivedError(), RED);
         }
 
-//        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
-//        if(diff.count() >= 1)
-//        {
-//            g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,RED,RED);
-//            g.text(g.width()/2-g.width()*0.04,g.height()*0.05,10,"TIMED OUT",WHITE);
-//        }
+        //        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
+        //        if(diff.count() >= 1)
+        //        {
+        //            g.rect(g.width()/2-g.width()*0.04,g.height()*0.05,60,10,RED,RED);
+        //            g.text(g.width()/2-g.width()*0.04,g.height()*0.05,10,"TIMED OUT",WHITE);
+        //        }
 
 
 
@@ -283,7 +285,7 @@ void graphicsMain(Graphics& g)
             switch (e.evtType)
             {
             default:
-               // cout << e << endl;
+                // cout << e << endl;
                 break;
             case EvtType::MousePress:
                 if(e.arg == 1)
@@ -352,19 +354,23 @@ void graphicsMain(Graphics& g)
                     //  resetDestination(g, world, {-10, 0},boardPluginID);
                     break;
                 case 'D':
-                   // world.diagnostics = !world.diagnostics;
+                    // world.diagnostics = !world.diagnostics;
                     bot.toggleLogging();
                     break;
                 case 'U':
-                    world.masterNav({600,800},g);
-                     world.findEncPath(world.path);
-                     for(int i = 0; i < world.targets.size(); i++)
-                     {
-                         if(i > 1){
-                             cout<<"Pos "<<world.targets[i-1].pos<<" and ";
-                         }
-                         cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
-                     }
+                    targetMode = !targetMode;
+                    if(targetMode)
+                    {
+                        world.masterNav({600,800},g);
+                        world.findEncPath(world.path);
+                        for(int i = 0; i < world.targets.size(); i++)
+                        {
+                            if(i > 1){
+                                cout<<"Pos "<<world.targets[i-1].pos<<" and ";
+                            }
+                            cout<<"dest "<<world.targets[i].pos<<" with angle "<<to_string(world.targets[i].angle*(180/M_PI)) <<" degrees and enc readings "<<world.targets[i].encoderReadings <<". this is " << (world.targets[i].turn ? "a turn." : "not a turn.") <<endl;
+                        }
+                    }
                     break;
                 case 'X':
                 {
