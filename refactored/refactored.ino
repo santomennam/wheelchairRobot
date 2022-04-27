@@ -1,4 +1,5 @@
 
+
 #include <string.h>
 #include <ArduPID.h>
 #include <Encoder.h>
@@ -8,6 +9,16 @@
 #include "Adafruit_LEDBackpack.h"
 #include <CmdLink.h>
 
+
+
+enum class BotState {
+  tank,
+  target,
+  idle,
+  sleep
+};
+
+
 Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 
 ArduPID PIDControllerL;
@@ -15,20 +26,11 @@ ArduPID PIDControllerR;
 
 int32_t encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
-int brakeReleaseTime = 250;    // time in ms from "wake" to when the brakes should be released and we can begin giving motor commands
-int motorHeartbeatTime = 200;  // resend motor values at least this often, even if motor values are unchanged (to keep hindbrain awake)
+int heartbeatTime = 200;  // ping or send motor updates to hindbrain at this rate to keep it awake
+int commTimeoutTime = 5000;
 
-FireTimer brakeReleaseTimer;
-FireTimer motorHeartbeatTimer;
+FireTimer heartbeatTimer;
 FireTimer commTimeout;
-
-// brakeReleaseTimer.begin(brakeReleaseTime);
-
-//Encoder black(2, 3); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
-//Encoder red(18, 19); // black right red left
-
-//   avoid using pins with LEDs attached for encoders
-
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
@@ -155,7 +157,7 @@ int readLidarDist()
   bool gotDataRight = false;
   while (!gotDataRight)
   {
-    checkEstop();
+   // checkEstop();
 
     if (Serial3.available())
     { // check if serial port has data input
@@ -215,9 +217,6 @@ class SmartEncoder {
       return count;
     }
     void setTarget(int32_t targ);
-    void setRelativeTarget(int32_t offset) {
-      setTarget(target + offset);
-    }
     void clearTarget();
     bool getHasTarget() { return hasTarget; }
     int32_t dist() {
@@ -255,7 +254,6 @@ void SmartEncoder::reset()
 {
   count = 0;
   prevCount = 0;
-  target = 0;
   clearTarget();
   disablePid();
 }
@@ -308,25 +306,11 @@ int SmartEncoder::computeMotorSpeed()
 SmartEncoder leftEncoder(PIDControllerL);
 SmartEncoder rightEncoder(PIDControllerR);
 
-//bool refreshEncoders()
-//{
-//  bool leftUpdated  = leftEncoder.refresh();
-//  bool rightUpdated = rightEncoder.refresh();
-//  return leftUpdated || rightUpdated;  // if you refactor this, be careful about short circuit evaluation... we want both refresh calls to happen!
-//}
-
-
-
-
-
 ///////////////////////////////////
 
 
-int32_t  commTimeoutMs = 500;
-bool  commEstablished = false;
-bool  waitingForBrakeRelease = false;
+BotState botState{BotState::sleep};
 
-bool  tankDriveMode = false;
 float tankDriveLeft = 0;
 float tankDriveRight = 0;
 
@@ -334,20 +318,13 @@ CmdLink host(Serial, 115200);
 CmdLink hindbrain(Serial2, 19200);
 
 
-void wakeWheelchair()
-{
-  hindbrain.sendCmd('W');
-  brakeReleaseTimer.begin(brakeReleaseTime);
-  motorHeartbeatTimer.begin(motorHeartbeatTime);
-  waitingForBrakeRelease = true;
-}
 
 bool setMotorSpeeds(int left, int right)
 {
   static int lastLeft  = 0;
   static int lastRight = 0;
   
-  if (motorHeartbeatTimer.fire() || lastLeft != left || lastRight != right) {
+  if (heartbeatTimer.fire() || lastLeft != left || lastRight != right) {
     hindbrain.sendCmdBB('M', left, right);
     lastLeft = left;
     lastRight = right;
@@ -363,110 +340,70 @@ void setMotorSpeedZero()
   hindbrain.sendCmdBB('M', 0, 0);
 }
 
-void wheelChairReset()
-{
-  setMotorSpeedZero();
-  wakeWheelchair();
-  leftEncoder.reset();
-  rightEncoder.reset();
-  tankDriveMode = false;
-}
+//void wheelChairReset()
+//{
+//  setMotorSpeedZero();
+//  wakeWheelchair();
+//  leftEncoder.reset();
+//  rightEncoder.reset();
+//  botState =  BotState::idle;
+//}
+//
+//void wheelChairStop()
+//{
+//  setMotorSpeedZero();
+//  leftEncoder.clearTarget();
+//  rightEncoder.clearTarget();
+//  botState =  BotState::idle;
+//  beginDraw();
+//  matrix.drawBitmap(4, 0, stop_bmp, 8, 8, LED_ON);
+//}
+//
+//void checkEstop()
+//{
+//  if (digitalRead(estop2) == HIGH)
+//  {
+//    botState =  BotState::idle;
+//    setMotorSpeeds(0, 0);
+//
+//    displayX(20,0,0);
+//    updateDisplay();
+//    
+//    while (true)
+//    {
+//      //in an e-stop holding pattern
+//      delay(100);
+//
+//      bool gotCmd = host.readCmd();
+//
+//      if (gotCmd)
+//      {
+//        if (host.cmd() == 'R') {
+//          host.sendInfo("Reset");
+//          wheelChairStop();
+//          host.sendCmd('K');
+//          return;
+//        }
+//        else {        
+//          host.sendCmdFmt('I', "Ign: %c", host.cmd());
+//          host.sendCmd('K'); // ack
+//        }
+//      }
+//    }
+//  }
+//}
 
-void wheelChairStop()
-{
-  setMotorSpeedZero();
-  leftEncoder.clearTarget();
-  rightEncoder.clearTarget();
-  tankDriveMode = false;
-  beginDraw();
-  matrix.drawBitmap(4, 0, stop_bmp, 8, 8, LED_ON);
-}
-
-void checkEstop()
-{
-  if (digitalRead(estop2) == HIGH)
-  {
-    tankDriveMode = false;
-    setMotorSpeeds(0, 0);
-
-    displayX(20,0,0);
-    updateDisplay();
-    
-    while (true)
-    {
-      //in an e-stop holding pattern
-      delay(100);
-
-      bool gotCmd = host.readCmd();
-
-      if (gotCmd)
-      {
-        if (host.cmd() == 'R') {
-          host.sendInfo("Reset");
-          wheelChairStop();
-          host.sendCmd('K');
-          return;
-        }
-        else {        
-          host.sendCmdFmt('I', "Ign: %c", host.cmd());
-          host.sendCmd('K'); // ack
-        }
-      }
-    }
-  }
-}
-
-bool processCommands()
-{
-  if (!host.readCmd()) {
-    return false;
-  }
-
-  char c1;
-  char c2;
-  int32_t  v1;
-  int32_t  v2;
-
-  switch (host.cmd()) {
-    case 'D': // tank mode
-      tankDriveMode = true;
-      host.getParam(c1);
-      host.getParam(c2);
-      tankDriveLeft  = c1;
-      tankDriveRight = c2;
-      host.sendCmdBB('I',c1, c2);
-      break;
-    case 'R': // reset
-      beginDraw();
-      matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
-      wheelChairReset();
-      host.sendInfo("Reset");
-      break;
-    case 'T': // target 
-      tankDriveMode = false;
-      host.getParam(v1);
-      host.getParam(v2);
-      leftEncoder.setTarget(v1);
-      rightEncoder.setTarget(v2);
-      host.sendCmdII('T', leftEncoder.getCount(), rightEncoder.getCount());
-      break;
-    case 'P': // ping
-      host.sendInfo("Ping");
-      break;
-    default:
-      host.sendCmdFmt('E', "Unk: %c", host.cmd());
-      break;     
-  }
-
-  return true;
-}
-
+bool needAck = false;
+bool invalidCmd = false;
 
 void setup()
 {
   pinMode(estop1, OUTPUT);
   digitalWrite(estop1, LOW);
   pinMode(estop2, INPUT_PULLUP);
+
+pinMode(13, OUTPUT);
+digitalWrite(13, LOW);
 
   matrix.begin(0x70); 
   matrix.setRotation(1);
@@ -482,21 +419,71 @@ void setup()
   delay(500);
 
   hindbrain.sendCmdBI('c','R',21);  
+  
   host.sendCmdStr('I',"Forebrain");
   
-  wheelChairReset();
+  heartbeatTimer.begin(heartbeatTime);
+  commTimeout.begin(commTimeoutTime);
 
   matrix.clear();
   matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
   matrix.writeDisplay();  // write the changes we just made to the display
 }
 
-
-void loop()
+BotState handleSleepState()
 {
-  //checkEstop();
+//  if (checkEnterEstop()) {
+//    return BotState::estop;
+//  }
+  if (hindbrain.readCmd()) {
+    int32_t v1;
+    int32_t v2;
+    switch (hindbrain.cmd()) {
+      case 'C': // encoder count
+        hindbrain.getParam(v1);
+        hindbrain.getParam(v2);
+        leftEncoder.refresh(v1);
+        rightEncoder.refresh(v2);
+        host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());        
+   //     encodersChanged = true;
+        break;
+      case 'S': // stopped/asleep
+        break;
+      case 'W': // awakened
+        host.sendCmdStr('W',"InSleep");   
+        heartbeatTimer.reset();
+        return BotState::idle;
+      default:
+        host.sendCmdFmt('I', "UnkS: %c", hindbrain.cmd());
+        break;
+     }
+  }
 
-  bool encodersChanged = false;
+  if (host.readCmd()) {
+    needAck = true;
+    switch (host.cmd()) {
+      case 'W': // wake request
+        hindbrain.sendCmd('W');
+        break;
+      case 'R': // reset request
+        hindbrain.sendCmd('S'); // stop
+        hindbrain.sendCmd('Z'); // reset encoders
+        break;    
+      default:
+        invalidCmd = true;
+        host.sendCmdFmt('I', "InvS: %c", host.cmd());
+        break;      
+    }
+  }
+  
+  return BotState::sleep;  
+}
+
+BotState handleTankState()
+{
+//  if (checkEnterEstop()) {
+//    return BotState::estop;
+//  }
 
   if (hindbrain.readCmd()) {
     int32_t v1;
@@ -507,70 +494,294 @@ void loop()
         hindbrain.getParam(v2);
         leftEncoder.refresh(v1);
         rightEncoder.refresh(v2);
-        encodersChanged = true;
+        host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());        
+   //     encodersChanged = true;
+        break;
+      case 'S': // stopped/asleep
+        host.sendCmdStr('S', "InTank");   
+        return BotState::sleep;
+      case 'W': // awakened
+        host.sendCmdStr('W', "InTank");   
+        heartbeatTimer.begin(heartbeatTime);
+        return BotState::idle;
+       default:
+        host.sendCmdFmt('I', "UnkD: %c", hindbrain.cmd());
+        break;       
+    }
+  }
+
+  char c1;
+  char c2;
+  int32_t  v1;
+  int32_t  v2;
+
+  if (host.readCmd()) {
+    needAck = true;
+    switch (host.cmd()) {
+      case 'P': // keepalive ping
+        commTimeout.begin(commTimeoutTime);
+        return BotState::idle;
+      case 'R': // reset request
+        hindbrain.sendCmd('S'); // stop
+        hindbrain.sendCmd('Z'); // reset encoders
+        return BotState::sleep;
+      case 'D': // tank mode
+        host.getParam(c1);
+        host.getParam(c2);
+        tankDriveLeft  = c1;
+        tankDriveRight = c2;
+        commTimeout.begin(commTimeoutTime);
+        return BotState::tank;
+      case 'T': // target 
+        botState =  BotState::target;
+        host.getParam(v1);
+        host.getParam(v2);
+        leftEncoder.setTarget(v1);
+        rightEncoder.setTarget(v2);
+        commTimeout.begin(commTimeoutTime);
+        return BotState::target;
+      default:
+        invalidCmd = true;
+        host.sendCmdFmt('I', "InvD: %c", host.cmd());
+        break;      
+    }
+  }
+
+  if (commTimeout.fire()) {
+     setMotorSpeeds(0, 0);
+     return BotState::idle;
+  }
+
+  int motorL = 25 * tankDriveLeft;
+  int motorR = 25 * tankDriveRight;
+  
+  setMotorSpeeds(motorL, motorR);
+
+  return BotState::tank;
+}
+
+BotState handleTargetState()
+{
+//  if (checkEnterEstop()) {
+//    return BotState::estop;
+//  }
+
+  if (hindbrain.readCmd()) {
+    int32_t v1;
+    int32_t v2;
+    switch (hindbrain.cmd()) {
+      case 'C': // encoder count
+        hindbrain.getParam(v1);
+        hindbrain.getParam(v2);
+        leftEncoder.refresh(v1);
+        rightEncoder.refresh(v2);
+        host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());        
+  //      encodersChanged = true;
+        break;
+      case 'S': // stopped/asleep
+        host.sendCmdStr('S',"InTarg");   
+        return BotState::sleep;
+      case 'W': // awakened
+        host.sendCmdStr('W',"InTarg");   
+        heartbeatTimer.begin(heartbeatTime);
+        return BotState::idle;
+      default:
+        host.sendCmdFmt('I', "UnkT: %c", hindbrain.cmd());
         break;
     }
   }
 
-  bool gotCommand = processCommands();
+  char c1;
+  char c2;
+  int32_t  v1;
+  int32_t  v2;
 
-  if (gotCommand) {
-     if (!commEstablished) {
-         // established connection to host!
-         commEstablished = true;
-         wakeWheelchair();
-         commTimeout.begin(commTimeoutMs);
-     }
-     else {
-         commTimeout.start();
-     }
+  if (host.readCmd()) {
+    needAck = true;
+    switch (host.cmd()) {
+      case 'P': // keepalive ping
+        commTimeout.begin(commTimeoutTime);
+        return BotState::idle;
+      case 'R': // reset request
+        hindbrain.sendCmd('S'); // stop
+        hindbrain.sendCmd('Z'); // reset encoders
+        return BotState::sleep;
+      case 'D': // tank mode
+        host.getParam(c1);
+        host.getParam(c2);
+        tankDriveLeft  = c1;
+        tankDriveRight = c2;
+        return BotState::tank;
+      case 'T': // target 
+        botState =  BotState::target;
+        host.getParam(v1);
+        host.getParam(v2);
+        leftEncoder.setTarget(v1);
+        rightEncoder.setTarget(v2);
+        break;
+      default:
+        invalidCmd = true;
+        host.sendCmdFmt('I', "InvT: %c", host.cmd());
+        break;      
+    }
   }
-  else if (commTimeout.fire()) {
-     // communication from host timed out!
-     commEstablished = false;
-     wheelChairStop();
+
+  if (commTimeout.fire()) {
+     setMotorSpeeds(0, 0);
+     heartbeatTimer.begin(heartbeatTime);
+     return BotState::idle;
   }
+
+  int motorL = leftEncoder.computeMotorSpeed();
+  int motorR = rightEncoder.computeMotorSpeed();
   
-  if (!commEstablished) {
-    updateDisplay();
-    if (gotCommand) {
-       host.sendInfo("Unexp");
-       host.sendCmd('K'); // ack
-    }
-    return;
-  }
-
-  if (waitingForBrakeRelease) {
-    if (brakeReleaseTimer.fire()) {
-      waitingForBrakeRelease = false;  
-      host.sendCmd('K'); // ack
-    }
-    else {
-      return; // still waiting for release
-    }
-  }
-  
-  int motorL = 0;
-  int motorR = 0;
-
-  if (tankDriveMode) {
-    motorL = 25 * tankDriveLeft;
-    motorR = 25 * tankDriveRight;
-  }
-  else {
-    motorL = leftEncoder.computeMotorSpeed();
-    motorR = rightEncoder.computeMotorSpeed();
-  }
-
   setMotorSpeeds(motorL, motorR);
+
+  return BotState::target;
+}
+
+
+BotState handleIdleState()
+{
+//  if (checkEnterEstop()) {
+//    return BotState::estop;
+//  }
+
+  if (hindbrain.readCmd()) {
+    int32_t v1;
+    int32_t v2;
+    switch (hindbrain.cmd()) {
+      case 'C': // encoder count
+        hindbrain.getParam(v1);
+        hindbrain.getParam(v2);
+        leftEncoder.refresh(v1);
+        rightEncoder.refresh(v2);
+        host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());        
+     //   encodersChanged = true;
+        break;
+      case 'S': // stopped/asleep
+        host.sendCmdStr('S',"InIdle");   
+        return BotState::sleep;
+      case 'W': // awakened
+        host.sendCmdStr('W',"InIdle");  
+        heartbeatTimer.begin(heartbeatTime);
+        return BotState::idle;
+      default:
+        host.sendCmdFmt('I', "UnkI: %c", hindbrain.cmd());
+        break;
+      }
+  }
+
+  char c1;
+  char c2;
+  int32_t  v1;
+  int32_t  v2;
+
+  if (host.readCmd()) {
+    needAck = true;
+    switch (host.cmd()) {
+      case 'P': // keepalive ping
+        commTimeout.begin(commTimeoutTime);
+        return BotState::idle;
+      case 'R': // reset request
+        hindbrain.sendCmd('S'); // stop
+        hindbrain.sendCmd('Z'); // reset encoders
+        return BotState::sleep;
+      case 'D': // tank mode
+        host.getParam(c1);
+        host.getParam(c2);
+        tankDriveLeft  = c1;
+        tankDriveRight = c2;
+        return BotState::tank;
+      case 'T': // target 
+        botState =  BotState::target;
+        host.getParam(v1);
+        host.getParam(v2);
+        leftEncoder.setTarget(v1);
+        rightEncoder.setTarget(v2);
+        return BotState::target;
+      default:
+        invalidCmd = true;
+        host.sendCmdFmt('I', "InvI: %c", host.cmd());
+        break;      
+    }
+  }
+
+  if (commTimeout.fire()) {
+    host.sendCmdStr('S',"IdleTime"); 
+    return BotState::sleep;
+  }
+
+  if (heartbeatTimer.fire()) {
+    hindbrain.sendCmd('P');
+    heartbeatTimer.begin(heartbeatTime);
+  }
+
+  return BotState::idle;
+}
+
+
+
+BotState lastbotState{BotState::idle};
+
+void loop()
+{
+ // checkEstop();
+
+  switch (botState) {
+    case BotState::sleep:
+
+      botState = handleSleepState();
+      break;
+    case BotState::tank:
+      botState = handleTankState();
+      break;
+    case BotState::target:
+      botState = handleTargetState();
+      break;
+    case BotState::idle:
+      botState = handleIdleState();
+      break;
+  }
+
+  if (lastbotState != botState) {
+    // bot state changed, update displays
+    
+    lastbotState =  botState;
+
+    beginDraw();
+    switch (botState) {
+    case BotState::sleep:
+      analogWrite(13, 0);
+      matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
+      host.sendInfo("->Sleep");
+      break;
+    case BotState::tank:
+      analogWrite(13, 255);
+      host.sendInfo("->Tank");
+      break;
+    case BotState::target:
+      analogWrite(13, 255);
+      host.sendInfo("->Target");
+      break;
+    case BotState::idle:
+      analogWrite(13, 20);
+      matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
+      host.sendInfo("->Idle");
+      break;
+    }
+  }
     
   updateDisplay();
 
-  if (gotCommand) {
-    if (encodersChanged || motorL != 0 || motorR != 0) {
-      host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());
-      host.sendCmdBB('M', motorL, motorR);
-    }    
-    host.sendCmd('K'); // ack
+  if (needAck) { 
+    needAck = false;
+    if (invalidCmd) {
+      invalidCmd = false;
+      host.sendCmdStr('k',"Nack"); // nack
+    }
+    else {
+      host.sendCmdStr('K',"Ack"); // ack
+    }
   }
 }

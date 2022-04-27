@@ -98,7 +98,7 @@ void BotConnection::postSend(bool wasPing)
 
 void BotConnection::resetBot()
 {
-    cmdLink->sendCmd('R'); // reset
+    cmdLink->sendCmd('W'); // reset
     postSend(false);
 }
 
@@ -122,10 +122,10 @@ void dumpAsHex(std::string data);
 
 void BotConnection::onBotCommPacket(std::string data)
 {
-    if (cmdLink->isDebug()) {
-        cout << "RawIncoming:\n";
-        dumpAsHex(data);
-    }
+//    if (cmdLink->isDebug()) {
+//        cout << "RawIncoming:\n";
+//        dumpAsHex(data);
+//    }
     incomingData += data;
 
    // cout << "IncomingData: '" << data << "'" << endl;
@@ -185,6 +185,12 @@ void BotConnection::onBotCommPacket(std::string data)
             receivedError = receivedResponse;
             break;
         case 'X': // EStop
+            break;
+        case 'S': // Stopped
+            cout << "Stopped<<<<<<<<<<<<<" << endl;
+            break;
+        case 'W': // Awake
+            cout << "Awakened>>>>>>>>>>>>>" << endl;
             break;
         default:
 
