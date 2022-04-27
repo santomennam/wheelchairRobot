@@ -322,6 +322,7 @@ void graphicsMain(Graphics& g)
             case EvtType::PluginMessage:
                 if(e.pluginId == botSerial.getPluginId())
                 {
+                    //cout << "RAWRAW: " << e.data << endl;
                     botSerial.handleRawData(e.data);
                 }
                 break;

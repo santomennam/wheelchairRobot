@@ -8,6 +8,8 @@
 #include <Adafruit_GFX.h>
 #include "Adafruit_LEDBackpack.h"
 #include <CmdLink.h>
+#include <Adafruit_NeoPixel.h>
+
 
 
 
@@ -18,6 +20,13 @@ enum class BotState {
   sleep
 };
 
+Adafruit_NeoPixel statePixel(1, 10, NEO_GRB + NEO_KHZ800);
+
+void setStateColor(int r, int g, int b)
+{
+  statePixel.setPixelColor(0, statePixel.Color(r/2, g/2, b/2));
+  statePixel.show();
+}
 
 Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 
@@ -415,7 +424,10 @@ digitalWrite(13, LOW);
 
   host.start();
   hindbrain.start();
-  
+
+    statePixel.begin();
+
+    
   delay(500);
 
   hindbrain.sendCmdBI('c','R',21);  
@@ -452,6 +464,7 @@ BotState handleSleepState()
       case 'W': // awakened
         host.sendCmdStr('W',"InSleep");   
         heartbeatTimer.reset();
+        commTimeout.begin(commTimeoutTime);
         return BotState::idle;
       default:
         host.sendCmdFmt('I', "UnkS: %c", hindbrain.cmd());
@@ -466,7 +479,7 @@ BotState handleSleepState()
         hindbrain.sendCmd('W');
         break;
       case 'R': // reset request
-        hindbrain.sendCmd('S'); // stop
+        hindbrain.sendCmd('S'); // stop (Redundant?)
         hindbrain.sendCmd('Z'); // reset encoders
         break;    
       default:
@@ -750,22 +763,25 @@ void loop()
     lastbotState =  botState;
 
     beginDraw();
+
+
+    
     switch (botState) {
     case BotState::sleep:
-      analogWrite(13, 0);
+      setStateColor(0,0,255);
       matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
       host.sendInfo("->Sleep");
       break;
     case BotState::tank:
-      analogWrite(13, 255);
+      setStateColor(255,255,0);
       host.sendInfo("->Tank");
       break;
     case BotState::target:
-      analogWrite(13, 255);
+      setStateColor(255,0,255);
       host.sendInfo("->Target");
       break;
     case BotState::idle:
-      analogWrite(13, 20);
+      setStateColor(0,255,0);
       matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
       host.sendInfo("->Idle");
       break;

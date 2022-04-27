@@ -128,7 +128,7 @@ void BotConnection::onBotCommPacket(std::string data)
 //    }
     incomingData += data;
 
-   // cout << "IncomingData: '" << data << "'" << endl;
+   //cout << "IncomingData: '" << data << "'" << endl;
 
     while (cmdLink->readCmd()) {
         char cmd = cmdLink->cmd();
