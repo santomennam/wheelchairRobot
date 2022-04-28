@@ -17,7 +17,8 @@ enum class BotState {
   tank,
   target,
   idle,
-  sleep
+  sleep,
+  noConnect
 };
 
 Adafruit_NeoPixel statePixel(1, 10, NEO_GRB + NEO_KHZ800);
@@ -330,7 +331,7 @@ SmartEncoder rightEncoder(PIDControllerR);
 ///////////////////////////////////
 
 
-BotState botState{BotState::sleep};
+BotState botState{BotState::noConnect};
 
 float tankDriveLeft = 0;
 float tankDriveRight = 0;
@@ -393,9 +394,10 @@ void setup()
   
   heartbeatTimer.begin(heartbeatTime);
   commTimeout.begin(commTimeoutTime);
-
+  sleepingPulse.begin(sleepPulseTimeout);
+  
   matrix.clear();
-  matrix.drawBitmap(4, 0, sleep_bmp, 8, 8, LED_ON);
+  matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
   matrix.writeDisplay(); 
 }
 
@@ -422,38 +424,29 @@ void reportUnexpectedHostCmd(char c)
   host.sendCmdFmt('I', "Unex: %c", c);
   host.sendCmdStr('I', "FromHost");
 }
-//
-//// handle 'D'  'T'  'I' cmds from host for the three "awake" states
-//BotState handleHostDTI(char c)
-//{
-//  char c1;
-//  char c2;
-//  int32_t  v1;
-//  int32_t  v2;
-//  
-//  switch (c) {
-//  case 'I': // go to idle
-//    return BotState::idle;
-//  case 'D': // tank mode
-//    host.getParam(c1);
-//    host.getParam(c2);
-//    tankDriveLeft  = c1;
-//    tankDriveRight = c2;
-//    commTimeout.begin(commTimeoutTime);
-//    return BotState::tank;
-//  case 'T': // target 
-//    botState =  BotState::target;
-//    host.getParam(v1);
-//    host.getParam(v2);
-//    leftEncoder.setTarget(v1);
-//    rightEncoder.setTarget(v2);
-//    commTimeout.begin(commTimeoutTime);
-//    return BotState::target;
-//  }
-//  return BotState::idle;
-//}
 
-bool lostHindbrainConnection = false;
+
+
+BotState handleDisconnectState()
+{
+//  if (checkEnterEstop()) {
+//    return BotState::estop;
+//  }
+  if (hindbrain.readCmd()) {
+    switch (hindbrain.cmd()) {
+      case 'S': // stopped/asleep
+        sleepingPulse.begin(sleepPulseTimeout);
+        return BotState::sleep;
+     }
+  }
+
+  if (host.readCmd()) {
+    needAck = true;
+    host.sendCmdStr('I',"NoConnect");
+  }
+  
+  return BotState::noConnect;  
+}
 
 BotState handleSleepState()
 {
@@ -461,15 +454,16 @@ BotState handleSleepState()
 //    return BotState::estop;
 //  }
   if (hindbrain.readCmd()) {
-    lostHindbrainConnection = false;
-    sleepingPulse.begin(sleepPulseTimeout);
+
     switch (hindbrain.cmd()) {
-      case 'P':        
-        break;
       case 'C': 
         forwardEncodersToHost();      
         break;
       case 'S': // stopped/asleep
+        sleepingPulse.begin(sleepPulseTimeout);
+        break;
+      case 'w': // waking
+      case 's': // stopping
         break;
       case 'W': // awakened   
         return BotState::idle;
@@ -497,8 +491,8 @@ BotState handleSleepState()
   }
 
   if (sleepingPulse.fire()) {
-    // connection to hindbrain lost???
-    lostHindbrainConnection = true;
+    // connection to hindbrain lost
+    return BotState::noConnect;
   }
   
   return BotState::sleep;  
@@ -518,6 +512,7 @@ BotState handleTankState()
         forwardEncodersToHost();      
         break;
       case 'S': // stopped/asleep
+      case 's': // stopping
         return BotState::sleep;
       default:
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -584,7 +579,8 @@ BotState handleTargetState()
       case 'C': // encoder count
         forwardEncodersToHost();      
         break;
-      case 'S': // stopped/asleep 
+      case 'S': // stopped/asleep
+      case 's': // stopping
         return BotState::sleep;
       default:
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -654,7 +650,10 @@ BotState handleIdleState()
         forwardEncodersToHost();      
         break;
       case 'S': // stopped/asleep
+      case 's': // stopping
         return BotState::sleep;
+      case 'w': // waking
+        break;
       default:
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
         break;
@@ -670,8 +669,6 @@ BotState handleIdleState()
     needAck = true;
     commTimeout.begin(commTimeoutTime);
     switch (host.cmd()) {
-      case 'P': // keepalive ping
-        break;
       case 'I': // go idle
         break;
       case 'Z': // reset encoders
@@ -722,6 +719,9 @@ void loop()
  // checkEstop();
 
   switch (botState) {
+    case BotState::noConnect:
+      botState = handleDisconnectState();
+      break;
     case BotState::sleep:
       botState = handleSleepState();
       break;
@@ -744,16 +744,17 @@ void loop()
     beginDraw();
 
     switch (botState) {
+    case BotState::noConnect:
+      matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);      
+      setStateColor(50,0,0);
+      host.sendInfo("->NoConn");
+      break;
     case BotState::sleep:
       setMotorSpeeds(0,0);
+      matrix.drawBitmap(4, 0, sleep_bmp, 8, 8, LED_ON);
       setStateColor(0,0,255);
-      if (lostHindbrainConnection) {
-        matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);      
-      }
-      else {
-        matrix.drawBitmap(4, 0, sleep_bmp, 8, 8, LED_ON);
-      }
       host.sendCmdStr('S',"->Sleep");
+      sleepingPulse.begin(sleepPulseTimeout);
       break;
     case BotState::tank:
       setStateColor(255,255,0);
