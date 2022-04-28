@@ -32,11 +32,6 @@ using namespace mssm;
 
 void resetDestination(BotConnection& bot, World& world, Vec2d destination)
 {
-    cout << "resetDestination calling resetBot" << endl;
-
-    bot.resetBot();
-    // bot.setDebugMode();
-    //setDebugMode(g,boardPluginID);
     world.path = vector<Vec2d>{destination};//,{100,-50},{0,0}};
     world.findEncPath(world.path);
     for(int i = 0; i < world.targets.size(); i++)
@@ -69,9 +64,9 @@ void graphicsMain(Graphics& g)
 
     BotConnection bot(&botMonitor);
 
-    bot.setDebug(true);
 
-    botSerial.connect("COM5");
+
+    botSerial.connect("COM9");
 
     ofstream file;
     ifstream input;
@@ -113,7 +108,7 @@ void graphicsMain(Graphics& g)
 
     string lastLine;
 
-    resetDestination(bot, world, {0, 0});
+    //resetDestination(bot, world, {0, 0});
 
     bool arrowPressed = false;
     bool resetRequested = false;
@@ -141,14 +136,16 @@ void graphicsMain(Graphics& g)
 
         int textY = g.height();
 
-        if (bot.readyForNextCommand()) {
-            g.text({10,textY -= 25}, 20, "Ready", GREEN);
-        }
-        else if (bot.elapsedSinceLastResponse() > 1) {
-            g.text({10,textY -= 25}, 20, "Waiting", RED);
-        }
-        else {
-            g.text({10,textY -= 25}, 20, "Waiting", YELLOW);
+        if (bot.inDriveableState()) {
+            if (bot.readyForNextCommand()) {
+                g.text({10,textY -= 25}, 20, "Ready", GREEN);
+            }
+            else if (bot.elapsedSinceLastResponse() > 1) {
+                g.text({10,textY -= 25}, 20, "Waiting", RED);
+            }
+            else {
+                g.text({10,textY -= 25}, 20, "Waiting", YELLOW);
+            }
         }
 
         //g.text({10,textY -= 25}, 20, "incomingResponse: " + world.incomingData, GREEN);
@@ -169,7 +166,7 @@ void graphicsMain(Graphics& g)
         //        }
 
 
-
+        g.text({300,g.height()-30}, 20, bot.stateStr());
 
 
         if(drawAdj)
@@ -222,11 +219,11 @@ void graphicsMain(Graphics& g)
                 g.text(g.width()-200,g.height()-(40+20*i),20,world.targets[i].pos.toIntString());
             }
 
-            g.text(10,10,20, "Scale: "+to_string(world.view.scale));
+            //g.text(10,10,20, "Scale: "+to_string(world.view.scale));
 
-            g.text(10,155,20,"Target encoder counts: "+trackingPair.toIntString());
+            //g.text(10,155,20,"Target encoder counts: "+trackingPair.toIntString());
 
-            g.text(g.width() - 400, 105, 20, "Velocities: " + to_string(world.vel1) +" " + to_string(world.vel2));
+            //g.text(g.width() - 400, 105, 20, "Velocities: " + to_string(world.vel1) +" " + to_string(world.vel2));
 
         }
 
@@ -247,7 +244,11 @@ void graphicsMain(Graphics& g)
         if (arrows) {
             arrowPressed = true;
 
-            if (bot.readyForNextCommand()) {
+            if (!bot.inDriveableState()) {
+                g.text({300,g.height()-80}, 20, "Cannot Drive in this mode!", RED);
+            }
+
+            if (bot.inDriveableState() && bot.readyForNextCommand()) {
                 switch (arrows) {
                 case 0x01: // up only
                     bot.tankSteer(1,1);
@@ -356,7 +357,7 @@ void graphicsMain(Graphics& g)
                     break;
                 case 'D':
                     // world.diagnostics = !world.diagnostics;
-                    bot.toggleLogging();
+                    bot.setDebug(true);
                     break;
                 case 'U':
                     targetMode = !targetMode;
@@ -416,6 +417,10 @@ void graphicsMain(Graphics& g)
         else if(bot.elapsedSinceLastSend() >= 0.2 && bot.readyForNextCommand())
         {
             bot.keepBotAlive();
+        }
+
+        if (targetRequested && !bot.inDriveableState()) {
+            g.text({300,g.height()-55}, 20, "Cannot Target in this mode!", RED);
         }
     }
 

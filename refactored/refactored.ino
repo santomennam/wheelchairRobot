@@ -439,7 +439,14 @@ BotState handleDisconnectState()
 
   if (host.readCmd()) {
     needAck = true;
-    host.sendCmdStr('I',"NoConnect");
+    switch (host.cmd()) {
+        case 'Q':
+          reportState(botState);
+          break;
+        default:
+          host.sendCmdStr('I',"NoConnect");
+          break;
+    }
   }
   
   return BotState::noConnect;  
@@ -473,6 +480,9 @@ BotState handleSleepState()
   if (host.readCmd()) {
     needAck = true;
     switch (host.cmd()) {
+      case 'Q':
+        reportState(botState);
+        break;
       case 'P':
         break;
       case 'W': // wake request
@@ -533,6 +543,9 @@ BotState handleTankState()
   if (host.readCmd()) {
     needAck = true;
     switch (host.cmd()) {
+      case 'Q':
+        reportState(botState);
+        break;
       case 'P':
         break;
       case 'I': // go idle
@@ -610,6 +623,9 @@ BotState handleTargetState()
   if (host.readCmd()) {
     needAck = true;
     switch (host.cmd()) {
+      case 'Q':
+        reportState(botState);
+        break;
       case 'P':
         break;
       case 'I': // go idle
@@ -689,6 +705,9 @@ BotState handleIdleState()
   if (host.readCmd()) {
     needAck = true;
     switch (host.cmd()) {
+      case 'Q':
+        reportState(botState);
+        break;
       case 'P':
         break;
       case 'I': // go idle
@@ -735,6 +754,28 @@ BotState handleIdleState()
 
 BotState lastbotState{BotState::idle};
 
+void reportState(BotState state)
+{
+   switch (botState) {
+    case BotState::noConnect:
+      host.sendCmdStr('X',"ModeNC");
+      break;
+    case BotState::sleep:
+      host.sendCmdStr('S',"ModeSleep");
+      break;
+    case BotState::tank:
+      host.sendCmdStr('D',"ModeDrive");
+      break;
+    case BotState::target:
+      host.sendCmdStr('T',"ModeTgt");
+      break;
+    case BotState::idle:
+      host.sendCmdStr('W',"ModeIdle");
+      break;
+    }
+  
+}
+
 void loop()
 {
  // checkEstop();
@@ -764,31 +805,28 @@ void loop()
 
     beginDraw();
 
+    reportState(botState);
+
     switch (botState) {
     case BotState::noConnect:
       matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);      
       setStateColor(50,0,0);
-      host.sendInfo("->NoConn");
       break;
     case BotState::sleep:
       setMotorSpeeds(0,0);
       matrix.drawBitmap(4, 0, sleep_bmp, 8, 8, LED_ON);
       setStateColor(0,0,255);
-      host.sendCmdStr('S',"->Sleep");
       break;
     case BotState::tank:
       setStateColor(255,255,0);
-      host.sendInfo("->Tank");
       break;
     case BotState::target:
       setStateColor(255,0,255);
-      host.sendInfo("->Target");
       break;
     case BotState::idle:
       setMotorSpeeds(0,0);
       setStateColor(0,255,0);
       matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
-      host.sendCmdStr('W',"->Idle");
       break;
     }
   }

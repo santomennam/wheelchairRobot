@@ -8,32 +8,13 @@
 
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
-// protocol:
-
-// laptop/client sends a command, and does not send another command until the original has been acknowledged
-//
-// Bot can respond with multiple replies, but the last thing it sends should be an Ack (A) or Nack (N)
-// The Ack should contain the CRC of the command it is acknowledging
-//
-// Example:
-//  Laptop sends:    #BF:tank 1 1
-//  Bot sends:       #13:P 324 2223           <- encoder counts
-//                   #4E:I Some Information   <- debug information
-//                   #A3:M 25 25              <- motor values
-//                   #78:A BF                 <- ack for tank command
-//
-//  Laptop sends:    #E1:ping
-//  Bot sends:       #13:P 324 2223           <- encoder counts
-//                   #78:A E1                 <- ack for ping command
-//
-//  Laptop sends:    #E1:ping
-//  Bot sends:       #13:P 324 2223           <- encoder counts
-//                   #78:A E1                 <- ack for ping command
-//
-//  Laptop sends:    #E1:garbage
-//  Bot sends:       #13:E Unknown Command garbage
-//                   #78:N E1                 <- nack (unrecognized command)
-
+enum class BotState {
+  tank,
+  target,
+  idle,
+  sleep,
+  noConnect
+};
 
 class BotConnection : public BotCommClient {
 
@@ -41,12 +22,13 @@ class BotConnection : public BotCommClient {
 
     CmdLink* cmdLink;
 
+    BotState botState{BotState::noConnect};
+
     std::string lastCommandSent;
     tp    lastCommandTime;
     tp    lastResponseTime;
     bool  isWaitingForResponse{false};
 
-    int   logLevel{0};
     bool  lastCmdPing{false};
 
     Vec2d lastSentTarget;
@@ -78,15 +60,16 @@ public:
     void setOnEncoderUpdateHandler(std::function<void(Vec2d encoder)> onEncoderUpdate);
     void setOnMotorUpdateHandler(std::function<void(Vec2d motors)> onMotorUpdate);
 
+    bool inDriveableState() const;
     bool readyForNextCommand() { return !isWaitingForResponse; }
-    bool waitingForResponse() { return isWaitingForResponse; }
-
-    void toggleLogging() { logLevel = (logLevel + 1) % 4; }
+ //   bool waitingForResponse() { return isWaitingForResponse; }
 
     void resetBot();
     void setDebug(bool dbg) { cmdLink->setDebug(dbg); }
     void keepBotAlive();
     void sendTarget(Vec2d encoderTarget);
+
+    std::string stateStr();
 
     std::string lastCommand() const { return lastCommandSent; }
 
