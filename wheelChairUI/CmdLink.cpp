@@ -228,8 +228,11 @@ bool CmdLink::readCmd()
    while (canRead()) {
        if (buffer.push(readChar())) {
            if (debug) {
-               cout << "Received: \n";
-               dumpAsHex(buffer.currentCmdBuffer());
+               string msg = buffer.currentCmdBuffer();
+               if (msg != "#3KAck\n") {
+                   cout << "Received: \n";
+                   dumpAsHex(buffer.currentCmdBuffer());
+               }
            }
            return true;
        }
@@ -256,8 +259,11 @@ void CmdLink::send()
     sendTimer.begin(sendTimeoutMS);
 #else
     if (debug) {
-        cout << "Sending:\n";
-        dumpAsHex(string(sendbuffer, sendlen));
+        string msg = string(sendbuffer, sendlen);
+        if (msg != "#0P\n") {
+            cout << "Sending:\n";
+            dumpAsHex(string(sendbuffer, sendlen));
+        }
     }
     writer(sendbuffer, sendlen);
 #endif

@@ -235,12 +235,23 @@ void drawBot(Graphics& g, Vec2d botPos, double botAngle, double scale, Color col
     g.line(bp, bp + Vec2d{11*scale, 0}.rotated(-botAngle), color);
 }
 
+enum class BotState
+{
+  asleep,   // motors off, brakes engaged
+  waking,   // motors off, brakes releasing       transition to awake after brake timer expires
+  awake,    // brakes off, motors may be running
+  stopping, // motors off, brakes engaging        transition to asleep after brake timer expires
+  estop,    // estop was triggered, motors off, brakes engaged, can only be brought out of this mode by a reset command
+};
+
 int main()
 {
     Graphics g("Bot Emulator", 1024, 768);
 
     Vec2d botPos{0, 0};
     double botAngle{0};
+
+    BotState botState{BotState::asleep};
 
     int leftEncoderCount{0};
     int rightEncoderCount{0};
@@ -275,7 +286,33 @@ int main()
 
     while (g.draw()) {
 
+        string state;
+        Color stateColor;
 
+        switch (botState) {
+          case BotState::asleep:
+            state = "Asleep";
+            stateColor = BLUE;
+            break;
+          case BotState::waking:
+            state = "Waking";
+            stateColor = CYAN;
+            break;
+          case BotState::awake:
+            state = "Awake";
+            stateColor = GREEN;
+            break;
+          case BotState::stopping:
+            state = "Stopping";
+            stateColor = YELLOW;
+            break;
+          case BotState::estop:
+            state = "EStop";
+            stateColor = RED;
+            break;
+        }
+
+        g.text({250, 30}, 20, "State: " + state, stateColor);
 
 //        int leftEnc = m1.encoder();
 //        int rightEnc = m2.encoder();
@@ -293,6 +330,25 @@ int main()
                     m1.setVoltage(m1power/4);
                     m2.setVoltage(m2power/4);
                     break;
+                case 'I':
+                    g.cerr << hindbrain.getStr();
+                    break;
+                case 'w':
+                    botState = BotState::waking;
+                    break;
+                case 'W':
+                    botState = BotState::awake;
+                    break;
+                case 's':
+                    botState = BotState::stopping;
+                    break;
+                case 'S':
+                    botState = BotState::asleep;
+                    break;
+                case 'X':
+                    botState = BotState::estop;
+                    break;
+
                 default:
                     cout << "Some other msg from hindbrain: " << hindbrain.cmd() << endl;
                     break;
