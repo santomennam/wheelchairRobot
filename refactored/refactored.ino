@@ -36,13 +36,6 @@ ArduPID PIDControllerR;
 
 int32_t encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
-//int heartbeatTime = 200;  // ping or send motor updates to hindbrain at this rate to keep it awake
-int commTimeoutTime = 1000;
-int sleepPulseTimeout = 500;
-
-//FireTimer heartbeatTimer;
-FireTimer commTimeout;
-//FireTimer sleepingPulse;
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
@@ -388,11 +381,11 @@ void setup()
 
   delay(500);
 
-  hindbrain.sendCmdBI('c','R',21);  
-  
-  host.sendCmdStr('I',"Forebrain");
-  
-  commTimeout.begin(commTimeoutTime);
+  host.recvTimeoutMS = 1000;
+
+  hindbrain.sendCmdBI('c','R',21);    
+  host.sendCmdStr('I',"Forebrain");  
+
   
   matrix.clear();
   matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
@@ -471,7 +464,6 @@ BotState handleSleepState()
 
   if (host.readCmd()) {
     needAck = true;
-    commTimeout.begin(commTimeoutTime);
     switch (host.cmd()) {
       case 'W': // wake request
         hindbrain.sendCmd('W');
@@ -527,7 +519,6 @@ BotState handleTankState()
 
   if (host.readCmd()) {
     needAck = true;
-    commTimeout.begin(commTimeoutTime);
     switch (host.cmd()) {
       case 'I': // go idle
         return BotState::idle;
@@ -554,7 +545,7 @@ BotState handleTankState()
     }
   }
 
-  if (commTimeout.fire()) {
+  if (host.recvTimeout()) {
      return BotState::idle;
   }
 
@@ -565,6 +556,11 @@ BotState handleTankState()
 
   if (hindbrain.sendTimeout()) {
     hindbrain.sendCmd('P');
+  }
+
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    return BotState::noConnect;
   }
   
   return BotState::tank;
@@ -599,7 +595,6 @@ BotState handleTargetState()
 
   if (host.readCmd()) {
     needAck = true;
-    commTimeout.begin(commTimeoutTime);
     switch (host.cmd()) {
       case 'I': // go idle
         return BotState::idle;
@@ -626,7 +621,7 @@ BotState handleTargetState()
     }
   }
 
-  if (commTimeout.fire()) {
+  if (host.recvTimeout()) {
      return BotState::idle;
   }
 
@@ -637,6 +632,11 @@ BotState handleTargetState()
 
   if (hindbrain.sendTimeout()) {
     hindbrain.sendCmd('P');
+  }
+
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    return BotState::noConnect;
   }
   
   return BotState::target;
@@ -675,7 +675,6 @@ BotState handleIdleState()
 
   if (host.readCmd()) {
     needAck = true;
-    commTimeout.begin(commTimeoutTime);
     switch (host.cmd()) {
       case 'I': // go idle
         break;
@@ -705,7 +704,7 @@ BotState handleIdleState()
     }
   }
 
-  if (commTimeout.fire()) {
+  if (host.recvTimeout()) {
     host.sendCmdStr('S',"IdleTime"); 
     return BotState::sleep;
   }
@@ -714,10 +713,13 @@ BotState handleIdleState()
     hindbrain.sendCmd('P');
   }
 
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    return BotState::noConnect;
+  }
+
   return BotState::idle;
 }
-
-
 
 BotState lastbotState{BotState::idle};
 
@@ -775,7 +777,6 @@ void loop()
       setStateColor(0,255,0);
       matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
       host.sendCmdStr('W',"->Idle");
-      commTimeout.begin(commTimeoutTime);
       break;
     }
   }
