@@ -6,6 +6,8 @@
 #ifndef ARDUINO
 #include <functional>
 #include <string>
+#else
+#include <FireTimer.h>
 #endif
 
 // commands start with '#' followed by 4 bytes (command specific) followed by '\n'  6 bytes total
@@ -33,6 +35,7 @@ class CmdBuffer {
  public:
   bool push(char c);
   char cmd() const { return lastCmd; }
+  void eraseCmd();
   int  length() const { return numDataBytes; }
   void copyDataTo(char *dst, int count);
   template<typename T>
@@ -76,7 +79,9 @@ void CmdBuilder::pushData(const T& data)
 class CmdLink {
 #ifdef ARDUINO
   HardwareSerial&    stream;
-  uint32_t baudRate;
+  uint32_t           baudRate;
+  FireTimer          sendTimer;
+  FireTimer          recvTimer;
 #else
     std::function<void(const char* data, int len)> writer;
     std::function<bool()> canRead;
@@ -86,6 +91,8 @@ class CmdLink {
   CmdBuffer  buffer;
   CmdBuilder builder;
  public:
+  int                sendTimeoutMS{300};
+  int                recvTimeoutMS{400};
 
 #ifdef ARDUINO
   CmdLink(HardwareSerial& strm, uint32_t baud);
@@ -99,24 +106,27 @@ class CmdLink {
   void start();
 
   void sendCmd(char cmd);
-  void sendCmdStr(char cmd, char* str);
+  void sendCmdStr(char cmd, const char* str);
   template<typename T>
-  void sendCmdFmt(char cmd, char* fmt, T val);
+  void sendCmdFmt(char cmd, const char*fmt, T val);
   void sendCmdBB(char cmd, char v1, char v2);
   void sendCmdII(char cmd, int32_t v1, int32_t v2);
   void sendCmdI(char cmd, int32_t v1);
   void sendCmdBI(char cmd, char v1, int32_t v2);
-  void sendInfo(char* str)  { sendCmdStr('I', str); }
-  void sendError(char* str) { sendCmdStr('E', str); }
+  void sendInfo(const char* str)  { sendCmdStr('I', str); }
+  void sendError(const char* str) { sendCmdStr('E', str); }
 
   bool readCmd();
   char cmd() { return buffer.cmd(); }
+  void eraseCmd() { buffer.eraseCmd(); }
 
   template<typename T>
   void getParam(T& dst);
 
 #ifdef ARDUINO
   //String getStr();
+  bool recvTimeout() { return recvTimer.fire(); }
+  bool sendTimeout() { return sendTimer.fire(); }
 #else
   std::string getStr();
   void setDebug(bool dbg) { debug = dbg; }
@@ -128,7 +138,7 @@ private:
 };
 
 template<typename T>
-void CmdLink::sendCmdFmt(char cmd, char* fmt, T val)
+void CmdLink::sendCmdFmt(char cmd, const char* fmt, T val)
 {
   char buff[9];
   snprintf(buff, sizeof(buff), fmt, val);
