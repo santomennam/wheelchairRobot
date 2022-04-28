@@ -205,6 +205,7 @@ void calcBotDisplacement(double leftRot, double rightRot, double wheelRadius, do
     else {
         deltaX = -arcMid * ((1-cos(dangle)) / dangle);
         deltaY = arcMid * (sin(dangle)/dangle);
+        //cout << "Deltax: " << deltaX << endl;
     }
 
     displacement = { deltaX, deltaY };
@@ -269,7 +270,7 @@ int main()
     [&port]() { return port.readChar(); }
     );
 
-    hindbrain.setDebug(true);
+    //hindbrain.setDebug(true);
 
     bool portOpen = port.open("COM6", 115200);
 
