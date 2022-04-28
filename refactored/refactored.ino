@@ -36,13 +36,13 @@ ArduPID PIDControllerR;
 
 int32_t encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
-int heartbeatTime = 200;  // ping or send motor updates to hindbrain at this rate to keep it awake
+//int heartbeatTime = 200;  // ping or send motor updates to hindbrain at this rate to keep it awake
 int commTimeoutTime = 1000;
 int sleepPulseTimeout = 500;
 
-FireTimer heartbeatTimer;
+//FireTimer heartbeatTimer;
 FireTimer commTimeout;
-FireTimer sleepingPulse;
+//FireTimer sleepingPulse;
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
@@ -344,7 +344,7 @@ bool setMotorSpeeds(int left, int right)
   static int lastLeft  = 0;
   static int lastRight = 0;
   
-  if (heartbeatTimer.fire() || lastLeft != left || lastRight != right) {
+  if (lastLeft != left || lastRight != right) {
     hindbrain.sendCmdBB('M', left, right);
     lastLeft = left;
     lastRight = right;
@@ -392,9 +392,7 @@ void setup()
   
   host.sendCmdStr('I',"Forebrain");
   
-  heartbeatTimer.begin(heartbeatTime);
   commTimeout.begin(commTimeoutTime);
-  sleepingPulse.begin(sleepPulseTimeout);
   
   matrix.clear();
   matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);
@@ -435,7 +433,6 @@ BotState handleDisconnectState()
   if (hindbrain.readCmd()) {
     switch (hindbrain.cmd()) {
       case 'S': // stopped/asleep
-        sleepingPulse.begin(sleepPulseTimeout);
         return BotState::sleep;
      }
   }
@@ -460,7 +457,6 @@ BotState handleSleepState()
         forwardEncodersToHost();      
         break;
       case 'S': // stopped/asleep
-        sleepingPulse.begin(sleepPulseTimeout);
         break;
       case 'w': // waking
       case 's': // stopping
@@ -490,9 +486,13 @@ BotState handleSleepState()
     }
   }
 
-  if (sleepingPulse.fire()) {
+  if (hindbrain.recvTimeout()) {
     // connection to hindbrain lost
     return BotState::noConnect;
+  }
+
+  if (hindbrain.sendTimeout()) {
+    hindbrain.sendCmd('P');
   }
   
   return BotState::sleep;  
@@ -563,6 +563,10 @@ BotState handleTankState()
   
   setMotorSpeeds(motorL, motorR);
 
+  if (hindbrain.sendTimeout()) {
+    hindbrain.sendCmd('P');
+  }
+  
   return BotState::tank;
 }
 
@@ -623,7 +627,6 @@ BotState handleTargetState()
   }
 
   if (commTimeout.fire()) {
-     heartbeatTimer.begin(heartbeatTime);
      return BotState::idle;
   }
 
@@ -632,6 +635,10 @@ BotState handleTargetState()
   
   setMotorSpeeds(motorL, motorR);
 
+  if (hindbrain.sendTimeout()) {
+    hindbrain.sendCmd('P');
+  }
+  
   return BotState::target;
 }
 
@@ -653,6 +660,7 @@ BotState handleIdleState()
       case 's': // stopping
         return BotState::sleep;
       case 'w': // waking
+      case 'W': // awake ping
         break;
       default:
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -702,9 +710,8 @@ BotState handleIdleState()
     return BotState::sleep;
   }
 
-  if (heartbeatTimer.fire()) {
+  if (hindbrain.sendTimeout()) {
     hindbrain.sendCmd('P');
-    heartbeatTimer.begin(heartbeatTime);
   }
 
   return BotState::idle;
@@ -754,7 +761,6 @@ void loop()
       matrix.drawBitmap(4, 0, sleep_bmp, 8, 8, LED_ON);
       setStateColor(0,0,255);
       host.sendCmdStr('S',"->Sleep");
-      sleepingPulse.begin(sleepPulseTimeout);
       break;
     case BotState::tank:
       setStateColor(255,255,0);
@@ -769,7 +775,6 @@ void loop()
       setStateColor(0,255,0);
       matrix.drawBitmap(4, 0, smile_bmp, 8, 8, LED_ON);
       host.sendCmdStr('W',"->Idle");
-      heartbeatTimer.begin(heartbeatTime);
       commTimeout.begin(commTimeoutTime);
       break;
     }
