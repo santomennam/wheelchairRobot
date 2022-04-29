@@ -11,11 +11,6 @@ using namespace mssm;
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif
 
-// Note:  Mac Users who are using Qt Creator...
-//        if the program compiles and runs but a window doesn't open up
-//        try un-checking "run in terminal"
-
-
 // Here are some of the basic drawing commands:
 
 //void   line(Vec2d p1, Vec2d p2, Color c = WHITE);
@@ -30,8 +25,38 @@ using namespace mssm;
 
 
 
+#include "sl_lidar.h"
+#include "sl_lidar_driver.h"
+#include <rplidar.h>
+using namespace std;
+using namespace sl;
 int main()
 {
+    ///  Create a communication channel instance
+       IChannel* _channel;
+       Result<IChannel*> channel = createSerialPortChannel("COM8", 115200);
+       ///  Create a LIDAR driver instance
+       ILidarDriver * lidar = *createLidarDriver();
+       auto res = (lidar)->connect(*channel);
+       if(SL_IS_OK(res)){
+           sl_lidar_response_device_info_t deviceInfo;
+           res = (lidar)->getDeviceInfo(deviceInfo);
+           if(SL_IS_OK(res)){
+               printf("Model: %d, Firmware Version: %d.%d, Hardware Version: %d\n",
+               deviceInfo.model,
+               deviceInfo.firmware_version >> 8, deviceInfo.firmware_version & 0xffu,
+               deviceInfo.hardware_version);
+           }else{
+               fprintf(stdout, "Failed to get device information from LIDAR %08x\r\n", res);
+           }
+       }else{
+           fprintf(stdout, "Failed to connect to LIDAR %08x\r\n", res);
+       }
+       // TODO
+
+       /// Delete Lidar Driver and channel Instance
+       delete lidar;
+       delete *channel;
     Graphics g("MyProgram", 1024, 768);
 
 
@@ -40,31 +65,6 @@ int main()
             break;
         }
 
-//        if (g.isKeyPressed('Q')) {
-//            m1.setVoltage(10);
-//        }
-//        else if (g.isKeyPressed('A')) {
-//            m1.setVoltage(5);
-//        }
-//        else if (g.isKeyPressed('Z')) {
-//            m1.setVoltage(-5);
-//        }
-//        else {
-//            m1.setVoltage(0);
-//        }
-
-//        if (g.isKeyPressed('U')) {
-//            m2.setVoltage(10);
-//        }
-//        else if (g.isKeyPressed('J')) {
-//            m2.setVoltage(5);
-//        }
-//        else if (g.isKeyPressed('M')) {
-//            m2.setVoltage(-5);
-//        }
-//        else {
-//            m2.setVoltage(0);
-//        }
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
