@@ -5,6 +5,7 @@
 #include "serialport.h"
 #include "CmdLink.h"
 #include "robotmotion.h"
+#include "motorsim.h"
 
 using namespace std;
 using namespace mssm;
@@ -29,118 +30,6 @@ using namespace mssm;
 //void   polygon(std::vector<Vec2d> pts, Color border, Color fill = TRANSPARENT);
 //void   polyline(std::vector<Vec2d> pts, Color color);
 //void   text(Vec2d pos, double size, const std::string& str, Color textColor = WHITE, HAlign hAlign = HAlign::left, VAlign vAlign = VAlign::baseline);
-
-/*
-Torque Constant (Nm/A) 0.05918
-Voltage Constant (V/KRPM) 6.2
-Motor Inertia (Armature) (kg.mm²) 1386.1
-Motor Winding Resistance (Ohms) 0.16
-Motor Winding Inductance (μH) 79
-Motor Max Winding Temp (ºC) 155
-Motor Poles 4
-Motor Mass (kg) 6.26
-Gear Ratio 25:1
-*/
-
-// 1 radian/sec = 9.5493 RPM
-
-//    V/RPM (6.2/1000.0)    1rpm = 2*M_PI/60 radians/sec to Radians/Sec
-
-// 1 rpm == 0.10472 radians/sec
-
-constexpr double radiansPerSecToRPM(double rps) {
-    return rps * 9.5493;
-}
-
-constexpr double RPMtoRadiansPerSec(double rpm) {
-    return rpm * 0.10472;
-}
-
-constexpr double backEmf(double radiansPerSecond, double voltsPerKRPM)
-{
-    return (voltsPerKRPM/1000.0)*radiansPerSecToRPM(radiansPerSecond);
-}
-
-class MotorSim {
-public:
-    double angle{0};       // radians
-    double angleChange{0}; // amount angle changed this update
-    double angVel{0};      // radians/second
-    double inputVolts{0};  // volts
-    double current;        // amps
-
-    double gearRatio{25};
-
-    double torqueConst{0.05918};  // Nm/A
-    double backEmfConst{6.2};     // voltsPerKRPM
-    double resistance{0.16};
-    double rotationalInertia{1386.1 / (1000*1000)}; // kg*m^2
-    double constFricTorque{1};
-    double viscFricTorque{0};
-
-public:
-    void   setVoltage(double voltage);
-    void   update(double elapsedSec);
-    void   draw(Graphics& g, Vec2d pos, double radius);
-    double wheelAngle() { return angle / gearRatio; }
-    double wheelAngleChange() { return angleChange / gearRatio; }
-    double wheelRPM()   { return radiansPerSecToRPM(angVel / gearRatio); }
-public:
-    double backEmf() { return radiansPerSecToRPM(angVel)*backEmfConst/1000.0; }
-    double calcCurrent();
-    double getCurrent() { return current; }
-    double torque();
-
-};
-
-double MotorSim::calcCurrent()
-{
-    return (inputVolts - backEmf()) / resistance;
-}
-
-double MotorSim::torque()
-{
-    double motorT = calcCurrent() * torqueConst;
-
-//    if (angVel > 0) {
-//        double fricT = constFricTorque + viscFricTorque * angVel;
-//    }
-//    else if (angVel < 0) {
-//        double Frict = constFricTorque - viscFricTorque * angVel;
-//    }
-
-    return motorT;
-}
-
-void MotorSim::setVoltage(double v)
-{
-    inputVolts  = v;
-  //  cout << "Volts: " <<v << endl;
-}
-
-void MotorSim::update(double elapsedSec)
-{
-    current = calcCurrent();
-    if (fabs(current) < 0.001) {
-        current = 0;
-    }
-    double t = torque();
-    double a = t / rotationalInertia;
-    angVel += a * elapsedSec;
-    if (fabs(angVel) < 0.001) {
-        angVel = 0;
-    }
-    angleChange = angVel * elapsedSec;
-    angle += angleChange;
-}
-
-void MotorSim::draw(Graphics& g, Vec2d pos, double radius)
-{
-    pos = {pos.x, g.height()-pos.y};
-    double diam = radius*2;
-    g.ellipse(pos, diam, diam, GREEN);
-    g.line(pos, pos + Vec2d{diam/2, 0}.rotated(-wheelAngle()));
-}
 
 AbsolutePosTracker tracker;
 

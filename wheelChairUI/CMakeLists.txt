@@ -48,6 +48,8 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     CmdLink.cpp
     robotmotion.h
     robotmotion.cpp
+    motorsim.h
+    motorsim.cpp
 )
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 #set(THREADS_PREFER_PTHREAD_FLAG TRUE)
