@@ -42,10 +42,34 @@ endif()
 add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     # Hey!  Add additional c, cpp, h files here:
     main.cpp
-    absolutepostracker.h
-    absolutepostracker.cpp
     CmdLink.h
     CmdLink.cpp
+
+
+    third_party/rplidar_sdk/sdk/include/rplidar.h
+    third_party/rplidar_sdk/sdk/include/rplidar_cmd.h
+    third_party/rplidar_sdk/sdk/include/rplidar_driver.h
+    third_party/rplidar_sdk/sdk/include/rplidar_protocol.h
+    third_party/rplidar_sdk/sdk/include/rptypes.h
+    third_party/rplidar_sdk/sdk/include/sl_crc.h
+    third_party/rplidar_sdk/sdk/include/sl_lidar.h
+    third_party/rplidar_sdk/sdk/include/sl_lidar_cmd.h
+    third_party/rplidar_sdk/sdk/include/sl_lidar_driver.h
+    third_party/rplidar_sdk/sdk/include/sl_lidar_driver_impl.h
+    third_party/rplidar_sdk/sdk/include/sl_lidar_protocol.h
+    third_party/rplidar_sdk/sdk/include/sl_types.h
+
+    third_party/rplidar_sdk/sdk/src/sl_lidar_driver.cpp
+    third_party/rplidar_sdk/sdk/src/hal/thread.cpp
+    third_party/rplidar_sdk/sdk/src/sl_crc.cpp
+    third_party/rplidar_sdk/sdk/src/sl_serial_channel.cpp
+#    third_party/rplidar_sdk/sdk/src/sl_tcp_channel.cpp
+#    third_party/rplidar_sdk/sdk/src/sl_udp_channel.cpp
+
+    third_party/rplidar_sdk/sdk/src/arch/win32/net_serial.cpp
+#    third_party/rplidar_sdk/sdk/src/arch/win32/net_socket.cpp
+    third_party/rplidar_sdk/sdk/src/arch/win32/timer.cpp
+
 )
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 #set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -64,7 +88,10 @@ include_directories(
     third_party/glfw/include
     graphics
     utility
-)
+    third_party/rplidar_sdk/sdk/include
+    third_party/rplidar_sdk/sdk/src
+    third_party/rplidar_sdk/sdk/src/arch/win32
+    )
 
 set(ASSETS_SOURCE_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 

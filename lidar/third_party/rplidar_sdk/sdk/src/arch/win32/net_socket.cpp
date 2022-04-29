@@ -244,7 +244,7 @@ u_result SocketAddress::getAddressAsString(char * buffer, size_t buffersize) con
 
         break;
     }
-    return ans<=0?RESULT_OPERATION_FAIL:RESULT_OK;
+    return reinterpret_cast<long long>(ans)<=0?RESULT_OPERATION_FAIL:RESULT_OK;
 }
 
 
@@ -260,7 +260,7 @@ size_t SocketAddress::LoopUpHostName(const char * hostname, const char * sevicen
     hints.ai_flags = AI_PASSIVE;
 
     if (!performDNS) {
-        hints.ai_family |= AI_NUMERICSERV | AI_NUMERICHOST;
+        hints.ai_family |= 0x00000008 | AI_NUMERICHOST;
     
     }
 

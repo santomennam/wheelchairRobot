@@ -50,6 +50,7 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     robotmotion.cpp
     motorsim.h
     motorsim.cpp
+
 )
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 #set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -68,6 +69,7 @@ include_directories(
     third_party/glfw/include
     graphics
     utility
+    third_party/rplidar_sdk/sdk/include
 )
 
 set(ASSETS_SOURCE_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/assets")
