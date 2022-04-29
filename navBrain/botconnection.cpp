@@ -26,6 +26,8 @@ void BotConnection::update()
 
 void BotConnection::tankSteer(int left, int right)
 {
+    cout << "Tank: " << left << " " << right << endl;
+    lastCommandSent = "TankSteer";
     cmdLink->sendCmdBB('D', left, right); // drive
     postSend(false);
 }
@@ -43,6 +45,20 @@ void BotConnection::setOnEncoderUpdateHandler(std::function<void (Vec2d)> onEnco
 void BotConnection::setOnMotorUpdateHandler(std::function<void (Vec2d)> onMotorUpdate)
 {
     this->onMotorUpdate = onMotorUpdate;
+}
+
+bool BotConnection::inDriveableState() const
+{
+    switch (botState) {
+    case BotState::idle:
+    case BotState::tank:
+    case BotState::target:
+        return true;
+    case BotState::noConnect:
+    case BotState::sleep:
+        return false;
+    }
+    return false;
 }
 
 double BotConnection::elapsedSinceLastSend() const
@@ -91,14 +107,16 @@ void BotConnection::postSend(bool wasPing)
     if (isWaitingForResponse) {
         cout << ">>>>>>>>>>>>>>> sendCommand didn't wait for response <<<<<<<<<<<<<" << endl;
     }
-    //lastCommandSent = cmd;
     lastCommandTime = std::chrono::steady_clock::now();
     isWaitingForResponse = true;
 }
 
 void BotConnection::resetBot()
 {
-    cmdLink->sendCmd('R'); // reset
+    cout << "Sending Wake" << endl;
+    lastCommandSent = "Wake";
+
+    cmdLink->sendCmd('W'); // reset
     postSend(false);
 }
 
@@ -111,9 +129,28 @@ void BotConnection::keepBotAlive()
 
 void BotConnection::sendTarget(Vec2d encoderTarget)
 {
+    cout << "Sending Target: " << encoderTarget.x << " " << encoderTarget.y << endl;
+    lastCommandSent = "Target";
     lastSentTarget = encoderTarget;
     cmdLink->sendCmdII('T', encoderTarget.x, encoderTarget.y);
     postSend(false);
+}
+
+string BotConnection::stateStr()
+{
+    switch (botState) {
+    case BotState::idle:
+        return "Idle";
+    case BotState::noConnect:
+        return "No Connection";
+    case BotState::sleep:
+        return "Sleep";
+    case BotState::tank:
+        return "Tank/Drive";
+    case BotState::target:
+        return "Target";
+    }
+    return "UnknownState!";
 }
 
 
@@ -122,38 +159,57 @@ void dumpAsHex(std::string data);
 
 void BotConnection::onBotCommPacket(std::string data)
 {
-    if (cmdLink->isDebug()) {
-        cout << "RawIncoming:\n";
-        dumpAsHex(data);
-    }
+//    if (cmdLink->isDebug()) {
+//        cout << "RawIncoming:\n";
+//        dumpAsHex(data);
+//    }
     incomingData += data;
 
-   // cout << "IncomingData: '" << data << "'" << endl;
+   //cout << "IncomingData: '" << data << "'" << endl;
 
     while (cmdLink->readCmd()) {
         char cmd = cmdLink->cmd();
 
-        double a;
-        double b;
-
         double leftMotor;
         double rightMotor;
-
-        char buffer[10];
 
         int32_t leftCount;
         int32_t rightCount;
 
-        char leftM;
-        char rightM;
-
         switch (cmd) {
+        case 'X':
+            // no connection
+            receivedResponse = "NoConnect";
+            cout << "Mode: No Connection" << endl;
+            botState = BotState::noConnect;
+            break;
+        case 'S':
+            // modeSleep
+            receivedResponse = "SleepMode";
+            cout << "Mode: Sleep" << endl;
+            botState = BotState::sleep;
+            break;
+        case 'D':
+            // modeDrive
+            receivedResponse = "DriveMode";
+            cout << "Mode: Drive" << endl;
+            botState = BotState::tank;
+            break;
+        case 'T':
+            // modeTarget
+            receivedResponse = "TargetMode";
+            cout << "Mode: Target" << endl;
+            botState = BotState::target;
+            break;
+        case 'W':
+            // modeIdle
+            receivedResponse = "WakeMode";
+            cout << "Mode: Idle" << endl;
+            botState = BotState::idle;
+            break;
         case 'I':
-          //  cout << "Got Info: " << endl;
             receivedResponse = "Info: " + cmdLink->getStr();
-//            if (receivedResponse != "Info: Ping") {
-//                cout << receivedResponse << endl;
-//            }
+            cout << receivedResponse << endl;
             break;
         case 'K':
             // Ack: Acknowledge
@@ -167,28 +223,27 @@ void BotConnection::onBotCommPacket(std::string data)
             isWaitingForResponse = false;
             cout << "NACKNACKNACK" << endl;
             break;
-//        case 'T': // target ack
-//            //dataStream >> a >> b;
-//            updateTarget({a,b});
-//            break;
         case 'C': // encoder counts
             cmdLink->getParam(leftCount);
             cmdLink->getParam(rightCount);
-            cout << "Counts: " << leftCount << " " << rightCount << endl;
+            receivedResponse = "Encoders: " + to_string(leftCount) + " " + to_string(rightCount);
+            cout << receivedResponse << endl;
             updateEncoders({(double)leftCount, (double)rightCount});
+            break;
         case 'M': // motor values
             cmdLink->getParam(leftMotor);
             cmdLink->getParam(rightMotor);
             updateMotors({leftMotor, rightMotor});
+            receivedResponse = "Motors: " + to_string(leftMotor) + " " + to_string(rightMotor);
+            cout << receivedResponse << endl;
             break;
         case 'E': // Error
             receivedError = receivedResponse;
-            break;
-        case 'X': // EStop
+            cout << "Error: " << receivedError << endl;
             break;
         default:
-
             cout << "UNKNOWN RESPONSE: " << cmd << " " << data << endl;
+            receivedError = "UNKNOWN RESPONSE: " + string(1, cmd) + " " + data;
             break;
         }
     }

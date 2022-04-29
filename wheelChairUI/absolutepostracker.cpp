@@ -1,9 +1,10 @@
 #include "absolutepostracker.h"
 
+
 AbsolutePosTracker::AbsolutePosTracker()
 {
     start = std::chrono::steady_clock::now();
-    position = {300,300};
+    position = {0,0};
 }
 
 bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
@@ -16,7 +17,6 @@ bool AbsolutePosTracker::update(int leftEnc, int rightEnc)
     if(gotFirstReading) {
         double db = rightEnc-oldRightEnc;
         double da = leftEnc-oldLeftEnc;
-
 
         oldRightEnc = rightEnc;
         oldLeftEnc = leftEnc;

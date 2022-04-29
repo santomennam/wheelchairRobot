@@ -4,6 +4,7 @@
 #include "absolutepostracker.h"
 #include "serialport.h"
 #include "CmdLink.h"
+#include "robotmotion.h"
 
 using namespace std;
 using namespace mssm;
@@ -63,13 +64,12 @@ constexpr double backEmf(double radiansPerSecond, double voltsPerKRPM)
 class MotorSim {
 public:
     double angle{0};       // radians
+    double angleChange{0}; // amount angle changed this update
     double angVel{0};      // radians/second
     double inputVolts{0};  // volts
     double current;        // amps
 
-    double gearRatio{100};
-
-    int    countsPerRev{1200};
+    double gearRatio{25};
 
     double torqueConst{0.05918};  // Nm/A
     double backEmfConst{6.2};     // voltsPerKRPM
@@ -81,9 +81,9 @@ public:
 public:
     void   setVoltage(double voltage);
     void   update(double elapsedSec);
-    int    encoder();
-    void   draw(Graphics& g, Vec2d pos);
+    void   draw(Graphics& g, Vec2d pos, double radius);
     double wheelAngle() { return angle / gearRatio; }
+    double wheelAngleChange() { return angleChange / gearRatio; }
     double wheelRPM()   { return radiansPerSecToRPM(angVel / gearRatio); }
 public:
     double backEmf() { return radiansPerSecToRPM(angVel)*backEmfConst/1000.0; }
@@ -102,12 +102,12 @@ double MotorSim::torque()
 {
     double motorT = calcCurrent() * torqueConst;
 
-    if (angVel > 0) {
-        double fricT = constFricTorque + viscFricTorque * angVel;
-    }
-    else if (angVel < 0) {
-        double Frict = constFricTorque - viscFricTorque * angVel;
-    }
+//    if (angVel > 0) {
+//        double fricT = constFricTorque + viscFricTorque * angVel;
+//    }
+//    else if (angVel < 0) {
+//        double Frict = constFricTorque - viscFricTorque * angVel;
+//    }
 
     return motorT;
 }
@@ -115,29 +115,29 @@ double MotorSim::torque()
 void MotorSim::setVoltage(double v)
 {
     inputVolts  = v;
-    cout << "Volts: " <<v << endl;
+  //  cout << "Volts: " <<v << endl;
 }
 
 void MotorSim::update(double elapsedSec)
 {
     current = calcCurrent();
+    if (fabs(current) < 0.001) {
+        current = 0;
+    }
     double t = torque();
     double a = t / rotationalInertia;
     angVel += a * elapsedSec;
-    angle += angVel * elapsedSec;
+    if (fabs(angVel) < 0.001) {
+        angVel = 0;
+    }
+    angleChange = angVel * elapsedSec;
+    angle += angleChange;
 }
 
-
-
-int MotorSim::encoder()
-{
-    return angle * countsPerRev / (2.0*M_PI);
-}
-
-void MotorSim::draw(Graphics& g, Vec2d pos)
+void MotorSim::draw(Graphics& g, Vec2d pos, double radius)
 {
     pos = {pos.x, g.height()-pos.y};
-    double diam = 100;
+    double diam = radius*2;
     g.ellipse(pos, diam, diam, GREEN);
     g.line(pos, pos + Vec2d{diam/2, 0}.rotated(-wheelAngle()));
 }
@@ -147,122 +147,38 @@ AbsolutePosTracker tracker;
 MotorSim m1;
 MotorSim m2;
 
-void calcBotAngleArc(double leftRot, double rightRot, double wheelRadius, double wheelSep, double& dangle, double& arclen)
-{
-    double arcLeft  = wheelRadius*leftRot;
-    double arcRight = wheelRadius*rightRot;
+int fakeEncoderL = 0;
+int fakeEncoderR = 0;
 
-    dangle = (arcRight - arcLeft) / wheelSep;  // change in angle of the axle
-    arclen = (arcLeft + arcRight) / 2;  // arclength traveled by axle midpoint
+void drawBot(Graphics& g, Vec2d botPos, double botAngle, double scale, Color color)
+{
+    Vec2d bp = Vec2d{g.width()/2, g.height()/2} + Vec2d{botPos.x, -botPos.y} * scale;
+    g.ellipse(bp, 20*scale, 20*scale, color);
+    g.line(bp, bp + Vec2d{11*scale, 0}.rotated(-botAngle), color);
 }
 
-void calcBotLeftRightRot(double angle, double arclen, double wheelRadius, double wheelSep, double& leftRot, double& rightRot)
+enum class BotState
 {
-    double arcLeft  = arclen - angle*wheelSep/2.0;
-    double arcRight = arcLeft + angle*wheelSep;
-    leftRot = arcLeft / wheelRadius;
-    rightRot = arcRight / wheelRadius;
-}
-
-int angleToEncoder(double angle, int countsPerRev)
-{
-    return angle * countsPerRev / (M_PI*2);
-}
-
-double encoderToAngle(double encoder, int countsPerRev)
-{
-    return encoder * (M_PI*2) / countsPerRev;
-}
-
-
-// assume wheel axle is aligned with x axis, so "forward" displacement is positive Y
-void calcBotDisplacement(double leftRot, double rightRot, double wheelRadius, double wheelSep, Vec2d& displacement, double& dangle)
-{
-    double arcMid;
-
-    calcBotAngleArc(leftRot, rightRot, wheelRadius, wheelSep, dangle, arcMid);
-
-    // deltaY = forward, deltaX = left(-)/right(+)
-
-    // deltaY = arcMid * (sin(dangle)/dangle)        goes to arcMid as angle -> 0
-    // deltaX = arcMid * ((1-cos(dangle)) / dangle)  goes to 0 as angle -> 0
-
-    // because of the limits mentioned above,
-    //     if dangle < 0.001 we will assume deltaY = arcMid and deltaX = 0
-
-    double deltaX;
-    double deltaY;
-
-    if (abs(dangle) < 0.001) {
-        deltaX = 0;
-        deltaY = arcMid;
-    }
-    else {
-        deltaX = -arcMid * ((1-cos(dangle)) / dangle);
-        deltaY = arcMid * (sin(dangle)/dangle);
-    }
-
-    displacement = { deltaX, deltaY };
-}
-
-// displacement uses pos Y as "forward"
-void addDisplacement(Vec2d pos, double angle, Vec2d displacement, double angleChange, Vec2d& newPos, double& newAngle)
-{
-    displacement.rotate(angle-M_PI/2.0);
-    newPos = pos + displacement;
-    newAngle = angle + angleChange;
-}
-
+  asleep,   // motors off, brakes engaged
+  waking,   // motors off, brakes releasing       transition to awake after brake timer expires
+  awake,    // brakes off, motors may be running
+  stopping, // motors off, brakes engaging        transition to asleep after brake timer expires
+  estop,    // estop was triggered, motors off, brakes engaged, can only be brought out of this mode by a reset command
+};
 
 int main()
 {
-    Graphics g("MyProgram", 1024, 768);
+    Graphics g("Bot Emulator", 1024, 768);
 
-    double angle;
-    Vec2d  displacement;
+    Vec2d botPos{0, 0};
+    double botAngle{0};
 
-    calcBotDisplacement(3.141, 0, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
+    BotState botState{BotState::asleep};
 
+    int leftEncoderCount{0};
+    int rightEncoderCount{0};
 
-    calcBotDisplacement(0, 3.141, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
-
-    calcBotDisplacement(3.141, 3.141, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
-
-    calcBotDisplacement(-3.141, 3.141, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
-
-    calcBotDisplacement(3.141, -3.141, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
-
-    calcBotDisplacement(20*3.1415/5, 0, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
-
-    calcBotDisplacement(0, 20*3.1415/5, 5, 20, displacement, angle);
-    cout << displacement.x << " " << displacement.y << " " << angle << endl;
-
-
-    double arcLen;
-    calcBotAngleArc(1,0,5,20,angle,arcLen);
-    cout << "A: " << angle << " " << arcLen << endl;
-    double leftRot;
-    double rightRot;
-    calcBotLeftRightRot(angle, arcLen, 5, 20, leftRot, rightRot);
-    cout << "Left: " << leftRot << "  Right: " << rightRot << endl;
-
-
-    calcBotAngleArc(1,1,5,20,angle,arcLen);
-    cout << "A: " << angle << " " << arcLen << endl;
-    calcBotLeftRightRot(angle, arcLen, 5, 20, leftRot, rightRot);
-    cout << "Left: " << leftRot << "  Right: " << rightRot << endl;
-
-    calcBotAngleArc(1,-1,5,20,angle,arcLen);
-    cout << "A: " << angle << " " << arcLen << endl;
-    calcBotLeftRightRot(angle, arcLen, 5, 20, leftRot, rightRot);
-
-    cout << "Left: " << leftRot << "  Right: " << rightRot << endl;
+    Vec2d startPos = botPos;
 
     m1.setVoltage(0);
     m2.setVoltage(0);
@@ -275,7 +191,7 @@ int main()
     [&port]() { return port.readChar(); }
     );
 
-    hindbrain.setDebug(true);
+    //hindbrain.setDebug(true);
 
     bool portOpen = port.open("COM6", 115200);
 
@@ -287,26 +203,43 @@ int main()
         hindbrain.sendCmd('U'); // turn on emUlate mode
     }
 
-    int lastLeftEnc = m1.encoder();
-    int lastRightEnc = m2.encoder();
+    int lastLeftEnc = -1;
+    int lastRightEnc = -1;
 
     while (g.draw()) {
 
-        tracker.update(m1.encoder(), m2.encoder());
+        string state;
+        Color stateColor;
 
-        int leftEnc = m1.encoder();
-        int rightEnc = m2.encoder();
+        switch (botState) {
+          case BotState::asleep:
+            state = "Asleep";
+            stateColor = BLUE;
+            break;
+          case BotState::waking:
+            state = "Waking";
+            stateColor = CYAN;
+            break;
+          case BotState::awake:
+            state = "Awake";
+            stateColor = GREEN;
+            break;
+          case BotState::stopping:
+            state = "Stopping";
+            stateColor = YELLOW;
+            break;
+          case BotState::estop:
+            state = "EStop";
+            stateColor = RED;
+            break;
+        }
+
+        g.text({250, 30}, 20, "State: " + state, stateColor);
+
 
         if (portOpen) {
-            if (lastLeftEnc != leftEnc || lastRightEnc != rightEnc) {
-                cout << "Sending: " << leftEnc << " " << rightEnc << endl;
-                hindbrain.sendCmdII('C',leftEnc,rightEnc);
-                lastLeftEnc = leftEnc;
-                lastRightEnc = rightEnc;
-                // g.cerr << "Sent encoders" << endl;
-            }
 
-            if (hindbrain.readCmd()) {
+            while (hindbrain.readCmd()) {
                 char m1power;
                 char m2power;
 
@@ -316,6 +249,29 @@ int main()
                     hindbrain.getParam(m2power);
                     m1.setVoltage(m1power/4);
                     m2.setVoltage(m2power/4);
+                    break;
+                case 'I':
+                    g.cerr << hindbrain.getStr();
+                    break;
+                case 'w':
+                    botState = BotState::waking;
+                    break;
+                case 'W':
+                    botState = BotState::awake;
+                    break;
+                case 's':
+                    botState = BotState::stopping;
+                    break;
+                case 'S':
+                    botState = BotState::asleep;
+                    break;
+                case 'X':
+                    botState = BotState::estop;
+                    break;
+
+                default:
+                    cout << "Some other msg from hindbrain: " << hindbrain.cmd() << endl;
+                    break;
                 }
             }
         }
@@ -323,8 +279,77 @@ int main()
         m1.update(g.elapsedMs()/1000);
         m2.update(g.elapsedMs()/1000);
 
-        m1.draw(g, {150, 150});
-        m2.draw(g, {350, 150});
+        int leftEncoderDelta;
+        int rightEncoderDelta;
+
+        calcMotion(m1.wheelAngleChange(), m2.wheelAngleChange(),
+                   leftEncoderDelta, rightEncoderDelta,
+                   botAngle, botPos);
+
+//        double robotDeltaAngle;
+//        double robotArcLen;
+
+//        calcBotAngleArc(m1.wheelAngleChange(),
+//                        m2.wheelAngleChange(),
+//                        RobotParams::driveWheelRadius,
+//                        RobotParams::driveWheelSeparation,
+//                        robotDeltaAngle,
+//                        robotArcLen);
+
+//        double robotDeltaAngle2;
+//        Vec2d robotDisplacement;
+
+//        calcBotDisplacement(m1.wheelAngleChange(),
+//                        m2.wheelAngleChange(),
+//                        RobotParams::driveWheelRadius,
+//                        RobotParams::driveWheelSeparation,
+//                        robotDisplacement,
+//                        robotDeltaAngle2
+//                        );
+
+
+//        double leftEncoderAngleChange;
+//        double rightEncoderAngleChange;
+
+//        calcBotLeftRightRot(robotDeltaAngle,
+//                            robotArcLen,
+//                            RobotParams::encWheelRadius,
+//                            RobotParams::encSeparation,
+//                            leftEncoderAngleChange,
+//                            rightEncoderAngleChange);
+
+//        int leftEncoderDelta  = angleToEncoder(leftEncoderAngleChange,  RobotParams::countsPerRev);
+//        int rightEncoderDelta = angleToEncoder(rightEncoderAngleChange, RobotParams::countsPerRev);
+
+        leftEncoderCount += leftEncoderDelta;
+        rightEncoderCount += rightEncoderDelta;
+
+        tracker.update(leftEncoderCount, rightEncoderCount);
+
+        if (portOpen) {
+            if (lastLeftEnc != leftEncoderCount || lastRightEnc != rightEncoderCount) {
+                cout << "Sending: " << leftEncoderCount << " " << rightEncoderCount << endl;
+                hindbrain.sendCmdII('C', leftEncoderCount, rightEncoderCount);
+                lastLeftEnc  = leftEncoderCount;
+                lastRightEnc = rightEncoderCount;
+                // g.cerr << "Sent encoders" << endl;
+            }
+        }
+
+
+//        Vec2d newBotPos;
+//        double newBotAngle;
+
+//        addDisplacement(botPos, botAngle, robotDisplacement, robotDeltaAngle2, 1, newBotPos, newBotAngle);
+
+//        botPos = newBotPos;
+//        botAngle = newBotAngle;
+
+
+        double scale = 5;
+
+        m1.draw(g, {150, 150}, scale * RobotParams::driveWheelRadius);
+        m2.draw(g, {350, 150}, scale * RobotParams::driveWheelRadius);
 
         g.cout << "V        " << m1.inputVolts << endl;
         g.cout << "I        " << m1.getCurrent() << endl;
@@ -332,52 +357,70 @@ int main()
         g.cout << "M1 Rpm:  " << m1.wheelRPM() << endl;
         g.cout << "M2 Rpm:  " << m2.wheelRPM() << endl;
 
-        g.cout << "Angle: " << tracker.getAngle() << endl;
-        g.cout << "X: " << tracker.getPos().x << endl;
-        g.cout << "Y: " << tracker.getPos().y << endl;
-        g.cout << "E1: " << m1.encoder() << endl;
-        g.cout << "E2: " << m2.encoder() << endl;
+        g.cout << "Angle: " << botAngle << endl;
+        g.cout << "X: " << botPos.x << endl;
+        g.cout << "Y: " << botPos.y << endl;
 
-        Vec2d botPos = tracker.getPos();
+        g.cout << "LeftEnc:  " << leftEncoderCount << endl;
+        g.cout << "RightEnc: " << rightEncoderCount << endl;
 
-        botPos = { botPos.x, g.height()-botPos.y };
-
-        g.ellipse(botPos, 20, 20, GREEN);
-        g.line(botPos, botPos + Vec2d{20, 0}.rotated(-tracker.getAngle()), GREEN);
+        drawBot(g, botPos, botAngle, scale, GREEN);
+        drawBot(g, tracker.getPos(), tracker.getAngle(), scale, YELLOW);
 
         if (g.isKeyPressed(Key::ESC)) {
+
             break;
         }
 
-//        if (g.isKeyPressed('Q')) {
-//            m1.setVoltage(10);
-//        }
-//        else if (g.isKeyPressed('A')) {
-//            m1.setVoltage(5);
-//        }
-//        else if (g.isKeyPressed('Z')) {
-//            m1.setVoltage(-5);
-//        }
-//        else {
-//            m1.setVoltage(0);
-//        }
+        if (!portOpen) {
+            if (g.isKeyPressed('Q')) {
+                m1.setVoltage(10);
+            }
+            else if (g.isKeyPressed('A')) {
+                m1.setVoltage(5);
+            }
+            else if (g.isKeyPressed('Z')) {
+                m1.setVoltage(-5);
+            }
+            else {
+                m1.setVoltage(0);
+            }
 
-//        if (g.isKeyPressed('U')) {
-//            m2.setVoltage(10);
-//        }
-//        else if (g.isKeyPressed('J')) {
-//            m2.setVoltage(5);
-//        }
-//        else if (g.isKeyPressed('M')) {
-//            m2.setVoltage(-5);
-//        }
-//        else {
-//            m2.setVoltage(0);
-//        }
+            if (g.isKeyPressed('U')) {
+                m2.setVoltage(10);
+            }
+            else if (g.isKeyPressed('J')) {
+                m2.setVoltage(5);
+            }
+            else if (g.isKeyPressed('M')) {
+                m2.setVoltage(-5);
+            }
+            else {
+                m2.setVoltage(0);
+            }
+        }
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
             case EvtType::KeyPress:
+                switch (e.arg) {
+                case 'E':
+                    hindbrain.sendCmd('U');
+                    break;
+                case 'L':
+                    hindbrain.sendCmd('L');
+                    break;
+                case 'W':
+                    hindbrain.sendCmd('W');
+                    break;
+                case 'C':
+                    hindbrain.sendCmdII('C',1234567,8912345);
+                    break;
+                case 'F':
+                    hindbrain.sendCmdII('C',++fakeEncoderL,++fakeEncoderR);
+                    break;
+                }
+
                 break;
             case EvtType::KeyRelease:
                 break;

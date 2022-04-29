@@ -52,6 +52,14 @@ bool CmdBuffer::verify(int hIdx, int lfIdx)
   return false;
 }
 
+void CmdBuffer::eraseCmd()
+{
+  int idx = (dataIdx + MAX_CMD_SIZE - 3) % MAX_CMD_SIZE;
+  buffer[idx] = '%';
+  buffer[(idx+1)%MAX_CMD_SIZE] = '%';
+  buffer[(idx+2)%MAX_CMD_SIZE] = '%';
+}
+
 bool CmdBuffer::push(char c)
 {
   if (c == '#') {
@@ -145,6 +153,8 @@ CmdLink::CmdLink(HardwareSerial& strm, uint32_t baud)
   : stream{strm}
 {
   baudRate = baud;
+  sendTimer.begin(sendTimeoutMS);
+  recvTimer.begin(recvTimeoutMS);
 }
 
 void CmdLink::start()
@@ -167,7 +177,7 @@ void CmdLink::sendCmd(char cmd)
   send();
 }
 
-void CmdLink::sendCmdStr(char cmd, char* str)
+void CmdLink::sendCmdStr(char cmd, const char* str)
 {  
   builder.begin(cmd);
   builder.pushData(str, strlen(str));
@@ -210,6 +220,7 @@ bool CmdLink::readCmd()
 #ifdef ARDUINO
    while (stream.available() > 0) {
       if (buffer.push(stream.read())) {
+        recvTimer.begin(recvTimeoutMS);
         return true;
       }
    }
@@ -217,8 +228,11 @@ bool CmdLink::readCmd()
    while (canRead()) {
        if (buffer.push(readChar())) {
            if (debug) {
-               cout << "Received: \n";
-               dumpAsHex(buffer.currentCmdBuffer());
+               string msg = buffer.currentCmdBuffer();
+               if (msg != "#3KAck\n") {
+                   cout << "Received: \n";
+                   dumpAsHex(buffer.currentCmdBuffer());
+               }
            }
            return true;
        }
@@ -242,10 +256,14 @@ void CmdLink::send()
     int sendlen = builder.length();
 #ifdef ARDUINO
     stream.write(sendbuffer, sendlen);
+    sendTimer.begin(sendTimeoutMS);
 #else
     if (debug) {
-        cout << "Sending:\n";
-        dumpAsHex(string(sendbuffer, sendlen));
+        string msg = string(sendbuffer, sendlen);
+        if (msg != "#0P\n") {
+            cout << "Sending:\n";
+            dumpAsHex(string(sendbuffer, sendlen));
+        }
     }
     writer(sendbuffer, sendlen);
 #endif

@@ -46,6 +46,8 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     absolutepostracker.cpp
     CmdLink.h
     CmdLink.cpp
+    robotmotion.h
+    robotmotion.cpp
 )
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 #set(THREADS_PREFER_PTHREAD_FLAG TRUE)

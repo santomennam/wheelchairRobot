@@ -2,84 +2,9 @@
 #include <Encoder.h>
 #include <Sabertooth.h>
 #include <CmdLink.h>
-
-// 4/17/2022
-
-// host <=> hindbrain communications @115200
-//
-// commands are single char:
-//     M  enable mirror mode (all communication between hindbrain/forebrain are echoed to host
-//     N  disable mirror mode
-//     E  force E-Stop
-//     P  ping (just says Hi back)
-//   proposed
-//     D  disable motors/brakes (allows comms to continue, but nothing is sent to motor drivers)
-
-
-// forebrain <=> hindbrain communications  @19200
-// All commands from host are 4 bytes long with no delimiters or \n's   (except ramp command)
-//
-//      wake - used to transition from Asleep
-//      dbug - recognized but not used?
-//      m##x - send motor values (## are left/right motor values as signed bytes, not characters
-//      stop - stop motors and go to sleep
-//      estp - simulate estop
-//      ramp###\n     use this in sleep mode to set ramping (###) is decimal, not bytes like motor values
-//      maxp###\n     use this in sleep mode to set max motor power (###) is decimal, not bytes like motor values
-//      minp###\n     use this in sleep mode to set min motor power (deadband) (###) is decimal, not bytes like motor values
-//
-//      values for ramp are kind of odd:
-//      ramp1\n is 0.25 sec
-//      ramp2\n is 0.125 sec
-//      ramp14\n is 4 sec
-//      ramp18\n is 2 sec
-//      ramp21\n is 1.5 sec
-//      ramp26\n is 1 sec
-//      ramp31\n is 0.8 sec
-//      ramp43\n is 0.5 sec
-//      ramp77\n is 0.25 sec
-
-
-// Status messsages/responses are longer (x bytes max?) and have \n
-// Commands from host are ignored/discarded in certain circumstances
-//    - when asleep, only wake or dbug are
-// Status messages
-// On startup,
-//    Setup -> Zzzz...  (brake on)
-//
-// On "wake" command (when Zzzz...)
-//    Waking -> BrakeOff  (once BrakeOff is received, motor commands will be processed)
-//
-// On communication timeout from awake/ready state (BrakeOff)
-//    Timeout -> [Stopped] -> BrakeOn -> Hold -> Zzzz...    (Stopped is only sent if motors were on)
-//
-// On "stop" command (when awake/ready state (BrakeOff)
-//    Stop -> [Stopped] -> BrakeOn -> Hold -> Zzzz...
-//
-// On Bad Command
-//    Bad Cmd -> [Stopped] -> BrakeOn -> 'c ### e' -> '1 ### x' -> '2 ### a' -> 'x ### m' -> Hold -> Zzzz...
-//
-// On Motor command ( m##x )
-//   [ ### ###]   new motor values, but only if changed
-//
-// On real emergency stop signal
-//   E Stop -> [ Stopped ] -> BrakeOn -> E Stop 4 -> E Stop 3 -> E Stop 2 -> E Stop 1 -> Hold -> Zzzz...
-//
-// On "estp" command
-//   MEStop -> E Stop -> [ Stopped ] -> BrakeOn -> E Stop 4 -> E Stop 3 -> E Stop 2 -> E Stop 1 -> Hold -> Zzzz...
-//
-// on "ramp###\n" command
-//   Ramp ###   OR  Ramp Bad  (if out of range)
-//
-// on "maxp###\n" command
-//   MaxP ###   OR  MaxP Bad  (if out of range)
-//
-// on "minp###\n" command
-//   MinP ###   OR  MinP Bad  (if out of range)
+#include <Adafruit_NeoPixel.h>
 
 /*
-
-
    From https://www.dimensionengineering.com/datasheets/Sabertooth2x25v2.pdf
 
   About Ramp
@@ -97,12 +22,8 @@
 
 */
 
-
-
-
 CmdLink forebrain(Serial2, 19200);
 CmdLink host(Serial, 115200);
-CmdLink logger(Serial3, 19200);
 
 #define SerialSabertooth Serial1
 
@@ -126,8 +47,8 @@ CmdLink logger(Serial3, 19200);
 
   Serial1 18 TX1 - White wire to sabertooth
 
-  Serial2 17 RX2 - Blue (of RWB twist) to RJ45   Green                 <------ Control Hindbrain through this
-  Serial2 16 TX2 - Yellow to ?
+  Serial2 17 RX2 - Blue (of RWB twist) to RJ45   Green                 <------ Control from forebrain
+  Serial2 16 TX2 - Yellow to            to RJ4   Brown/White           ------> Data to forebrain
 
   Serial3 15 RX3 - White (of RWB twist) to RJ45  Orange                <------ future use
   Serial3 14 TX3 - Red (of RWB twist) to RJ45    White/Green           ------> future use
@@ -162,27 +83,70 @@ CmdLink logger(Serial3, 19200);
 int MIN_MOTOR_POWER = 5;   // must be in range 1-127                       // commanded power below this threshold is interpreted as a STOP
 int MAX_MOTOR_POWER = 40;  // must be in range 1-127 >= MIN_MOTOR_POWER    // commanded power above this threshold is limited to MAX_MOTOR_POWER
 
-long COMM_TIMEOUT = 1000;
-
-bool debugMode      = false;
-bool mirrorMode     = false;
-
-char tmp[12]; // logger.sendInfo buffer
-
-int         lastLeftPower = 0;
-int         lastRightPower = 0;
-
-
-Encoder encoderR(RIGHT_ENCODER_PIN1, RIGHT_ENCODER_PIN1); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
-Encoder encoderL(LEFT_ENCODER_PIN1,  LEFT_ENCODER_PIN2);  // black right red left
+const long COMM_TIMEOUT = 300;
+const long BRAKE_RELEASE_TIME = 200;  // time between brake release command and brake actually finished releasing
+const long BRAKE_ENGAGE_TIME =  200;  // time between brake engage command and brake actually finished engaging
 
 bool emulatorMode   = false;
+bool logToHost      = false;
+bool logToForebrain = false;
+bool softwareReset  = false;
 
-FireTimer   commTimeout;
+int lastLeftPower   = 0;
+int lastRightPower  = 0;
 
+bool forceEstop = false;
+
+int32_t lastEncLeft  = 0;
+int32_t lastEncRight = 0;
+
+enum class BotState
+{
+  asleep,   // motors off, brakes engaged             
+  waking,   // motors off, brakes releasing       transition to awake after brake timer expires
+  awake,    // brakes off, motors may be running
+  stopping, // motors off, brakes engaging        transition to asleep after brake timer expires
+  estop,    // estop was triggered, motors off, brakes engaged, can only be brought out of this mode by a reset command
+};
+
+BotState botState{BotState::asleep};
+
+Encoder encoderR(RIGHT_ENCODER_PIN1, RIGHT_ENCODER_PIN2); // these colors refer to the colors of the 3d printed wheels on the robot as of Feb 2022
+Encoder encoderL(LEFT_ENCODER_PIN2,  LEFT_ENCODER_PIN1);  // black right red left
+
+FireTimer   brakeTimer;
+FireTimer   commTimer;
 
 Sabertooth sabertooth(128, SerialSabertooth);
 
+Adafruit_NeoPixel statePixel(1, 10, NEO_GRB + NEO_KHZ800);
+
+void setStateColor(int r, int g, int b)
+{
+  statePixel.setPixelColor(0, statePixel.Color(r/2, g/2, b/2));
+  statePixel.show();
+}
+
+void logMessage(const char* msg)
+{
+  if (logToHost) {
+    host.sendCmdStr('I', msg);
+  }
+  if (logToForebrain) {
+   forebrain.sendCmdStr('I', msg);
+  }
+}
+
+template<typename T>
+void logMessage(const char* fmt, T value)
+{
+  if (logToHost) {
+    host.sendCmdFmt('I', fmt, value);
+  }
+  if (logToForebrain) {
+    forebrain.sendCmdFmt('I', fmt, value);
+  }  
+}
 
 void setMotors(int leftPower, int rightPower)
 {
@@ -198,8 +162,11 @@ void setMotors(int leftPower, int rightPower)
 void sendEncoders(int32_t leftEnc, int32_t rightEnc)
 {
   forebrain.sendCmdII('C', leftEnc, rightEnc);
-  if (mirrorMode) {
-    host.sendCmdII('C', leftEnc, rightEnc);
+
+  if (logToHost) {
+    host.sendCmdStr('I', "Encoders");
+    host.sendCmdFmt('I', "%d", leftEnc);
+    host.sendCmdFmt('I', "%d", rightEnc);
   }
 }
 
@@ -216,97 +183,45 @@ void setupSabertooth()
   setRamping(14);  // 4 second ramp time
 }
 
-
-////////////////////////////////////// Brake Management ///////////////////////////////
-
-enum class BrakeState {
-  engaged,
-  releasing,
-  released,
-  engaging
-};
-
-const long BRAKE_RELEASE_TIME = 200;  // time between brake release command and brake actually finished releasing
-const long BRAKE_ENGAGE_TIME =  200;  // time between brake engage command and brake actually finished engaging
-
-FireTimer   brakeTimer;
-BrakeState  brakeState = BrakeState::engaged;
-
 void brakeOff()
 {
   digitalWrite(BRAKE_ENABLE_1, HIGH);
   digitalWrite(BRAKE_ENABLE_2, HIGH);
-
-  switch (brakeState) {
-    case BrakeState::released:   // already released, do nothing
-    case BrakeState::releasing:  // already being released, do nothing
-      break;
-    case BrakeState::engaged:
-    case BrakeState::engaging:
-      brakeTimer.begin(BRAKE_RELEASE_TIME);
-      brakeState = BrakeState::releasing;
-      //logger.sendInfo("Release");
-      break;
-  }
+  digitalWrite(13, LOW);
 }
 
 void brakeOn()
 {
   digitalWrite(BRAKE_ENABLE_1, LOW);
   digitalWrite(BRAKE_ENABLE_2, LOW);
-
-  switch (brakeState) {
-    case BrakeState::released:
-    case BrakeState::releasing:
-      brakeTimer.begin(BRAKE_ENGAGE_TIME);
-      brakeState = BrakeState::engaging;
-      logger.sendInfo("BrakeOn");
-      break;
-    case BrakeState::engaged:
-    case BrakeState::engaging:
-      break;
-  }
+  digitalWrite(13, HIGH);
 }
 
-void updateBrakes()
+void resetGlobals()
 {
-  switch (brakeState) {
-    case BrakeState::engaged:
-      break;
-    case BrakeState::releasing:
-      if (brakeTimer.fire()) {
-        brakeState = BrakeState::released;
-        logger.sendInfo("BrakeOff");
-      }
-      break;
-    case BrakeState::released:
-      break;
-    case BrakeState::engaging:
-      if (brakeTimer.fire()) {
-        brakeState = BrakeState::engaged;
-        //logger.sendInfo("---engaged");
-      }
-      break;
-  }
+  emulatorMode = false;
+  logToHost = false;
+  logToForebrain = false;
+  lastLeftPower = 0;
+  lastRightPower = 0;
+  botState = BotState::asleep;
+  encoderR.write(0);
+  encoderL.write(0);
+  brakeOn();
+  setRamping(14);
+  sabertooth.motor(1,  0);
+  sabertooth.motor(2, 0);
+  softwareReset  = false;
+  forceEstop = false;
+  lastEncLeft  = 0;
+  lastEncRight = 0;
 }
 
 ///////////////////////////////////////////////////////////////
 
-
-void disableMotors()
-{
-    setMotors(0, 0);
-    digitalWrite(BRAKE_ENABLE_1, LOW);
-    digitalWrite(BRAKE_ENABLE_2, LOW);
-}
-
 void stopBoth()
 {
-    setMotors(0, 0);
-
-  if (lastLeftPower != 0 || lastRightPower != 0) {
-    logger.sendInfo("Stopped");
-  }
+  setMotors(0, 0);
   lastLeftPower  = 0;
   lastRightPower = 0;
 }
@@ -326,10 +241,6 @@ int limitPower(int power)
   }
 
   power = constrain(power, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
-
-  if (brakeState != BrakeState::released) {
-    power = 0;
-  }
 
   return power;
 }
@@ -361,37 +272,15 @@ bool setBothPower(int leftPower, int rightPower)
   return powerChanged;
 }
 
-
-
-void printChar(char prefix, int ch)
-{
-  if ((ch < 32) || (ch > 126)) {
-    sprintf(tmp, "%c %3d  ", prefix, ch, ch);
-  }
-  else {
-    sprintf(tmp, "%c %3d %c", prefix, ch, ch);
-  }
-  logger.sendInfo(tmp);
-}
-
-
-enum class ControlState
-{
-  asleep,
-  awake,
-  timeout,
-  estop,
-  badcmd
-};
-
-ControlState state = ControlState::asleep;
-
 void setup()
 {
-  host.start();
-  logger.start();
-  forebrain.start();
+  
+  statePixel.begin();
 
+  setStateColor(20,20,20);
+  
+  host.start();
+  forebrain.start();
   
   pinMode(BRAKE_ENABLE_1, LOW);
   pinMode(BRAKE_ENABLE_1, OUTPUT);
@@ -401,31 +290,25 @@ void setup()
 
   pinMode(SABER_EMERGENCY_STOP, INPUT);
 
-  logger.sendInfo("Setup");
-
-#ifdef USE_EMULATOR
-  setupEmulator();
-#else
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
+  
   setupSabertooth();
-#endif
+
+  setStateColor(50,50,50);
 
   sendEncoders(0, 0);
 
-  commTimeout.begin(COMM_TIMEOUT);
+  commTimer.begin(COMM_TIMEOUT);
 
-  brakeState = BrakeState::engaged;
-  state = ControlState::asleep;
-  logger.sendInfo("Zzzz...");
-  
   forebrain.sendInfo("Hindbrain");
   host.sendInfo("Hindbrain");
 
+  botState = BotState::asleep;
+
 }
 
-bool forceEstop = false;
 
-int32_t lastEncLeft  = 0;
-int32_t lastEncRight = 0;
 
 void updateEncoders(int32_t encLeft, int32_t encRight)
 {
@@ -434,42 +317,6 @@ void updateEncoders(int32_t encLeft, int32_t encRight)
     lastEncRight = encRight;
     sendEncoders(encLeft, encRight);
   }
-}
-
-
-
-
-bool processHostCmd()
-{
-  if (!host.readCmd()) {
-    return false;
-  }
-
-  int32_t v1;
-  int32_t v2;
-
-  switch (host.cmd()) {
-    case 'U': // emulator mode on
-      emulatorMode = true;
-      setMotors(0, 0);
-      host.sendInfo("emulate");
-      return true;
-    case 'I': // mirror mode on
-      mirrorMode = true;
-      host.sendInfo("mirror");
-      return true;
-    case 'S': // estop
-      forceEstop = true;
-      host.sendInfo("estop");
-      return true;
-    case 'C': // encoders
-      host.getParam(v1);
-      host.getParam(v2);
-      updateEncoders(v1, v2);
-      return true;
-  }
-  host.sendInfo("unknown");
-  return false;
 }
 
 void handleConfigCommand(char cmd, int value)
@@ -481,167 +328,419 @@ void handleConfigCommand(char cmd, int value)
     case 'M': // max power
       if (value >= MIN_MOTOR_POWER && value <= 127) {
         MAX_MOTOR_POWER = value;
-        logger.sendCmdFmt('I',"Max=%d",value);
+        logMessage("Max=%d",value);
       }
       break;
     case 'm': // min power
       if (value >= 0 && value <= MAX_MOTOR_POWER) {
         MIN_MOTOR_POWER = value;
-        logger.sendCmdFmt('I',"Min=%d",value);
+        logMessage("Min=%d",value);
       }
       break;
   }
 }
 
-/*
- s   stop
- S   estop
- W   wake
- M   motor (2 ints) 
- c   config (2 ints)
- */
-
-
-bool processForebrainCmd()
+bool checkEnterEstop()
 {
-  if (!forebrain.readCmd()) {
-    return false;
+  if (forceEstop) { // || digitalRead(SABER_EMERGENCY_STOP) == LOW) {
+    logMessage("E Stop");
+    stopBothAndBrake();
+    forceEstop = false;
+    forebrain.sendCmd('S');
+    return true;    
   }
 
-  if (state == ControlState::estop) {
-    return false;
+  return false;
+}
+
+
+BotState handleSleepState()
+{
+  if (checkEnterEstop()) {
+    return BotState::estop;
   }
 
   char subCmd;
   int32_t  v1;
-  int32_t  v2;
 
-  switch (forebrain.cmd()) {
-    case 's': // stop
-      logger.sendInfo("Stop");
-      stopBothAndBrake();
-      logger.sendInfo("Hold");
-      state = ControlState::timeout;
-      logger.sendInfo("stop");
-      return true;
-    case 'S': // estop
-      forceEstop = true;
-      return true;
-  }
-
-
-  if (state == ControlState::asleep) {
+  if (host.readCmd()) {
+    int32_t encLeft;
+    int32_t encRight;
     
-    switch (forebrain.cmd()) {
+    switch (host.cmd()) {
+       case 'Q': // query
+        host.sendCmdStr('I',"Sleeping");
+        break;
       case 'W': // wake
-        logger.sendInfo("Waking");
-        state = ControlState::awake;
-        brakeOff();
-        commTimeout.start();
-        return true;
-      case 'c': // config
-        forebrain.getParam(subCmd);
-        forebrain.getParam(v1);
-        handleConfigCommand(subCmd, v1);
-        return true;
+        return BotState::waking;
+      case 'R': // softwareReset
+        softwareReset = true;
+        return BotState::stopping;
+      case 'C':
+        if (emulatorMode) {
+          host.getParam(encLeft);
+          host.getParam(encRight);
+          sendEncoders(encLeft, encRight);          
+        }
+        break;
+      case 'U': // emulator mode on
+        emulatorMode = true;
+        host.sendInfo("emulate");
+        sabertooth.motor(1, 0);
+        sabertooth.motor(2, 0);
+        break;
+      case 'L': 
+        logToHost = true;
+        logMessage("LogHost");
+        break;
     }
+  }  
 
+  if (forebrain.readCmd()) {
+    switch (forebrain.cmd()) {
+    case 'Q': // query
+      forebrain.sendCmdStr('I',"Sleeping");
+      break;
+    case 'R': // softwareReset
+      softwareReset = true;
+      return BotState::stopping;
+    case 'W': // wake
+      return BotState::waking;
+    case 'c': // config
+      forebrain.getParam(subCmd);
+      forebrain.getParam(v1);
+      handleConfigCommand(subCmd, v1);
+      break;
+    case 'L': 
+      logToForebrain = true;
+      logMessage("LogFB");
+      break;
+    case 'Z':
+      encoderR.write(0);
+      encoderL.write(0);
+      updateEncoders(0,0);
+      break;    
+    }
   }
 
-  if (state == ControlState::awake) {
+  if (forebrain.sendTimeout())
+  { 
+     forebrain.sendCmd('S');
+     logMessage("Asleep");
+  }
 
+  return BotState::asleep;  
+}
+
+BotState handleWakingState()
+{
+  if (checkEnterEstop()) {
+    return BotState::estop;
+  }
+
+  while (forebrain.readCmd()) 
+  {
+    switch (forebrain.cmd()) {
+    case 'Q': // query
+      forebrain.sendCmdStr('I',"Waking");
+      break;
+    case 'R': // softwareReset
+      softwareReset = true;
+      return BotState::stopping;
+    case 'S': // abort! go back to sleep
+      return BotState::stopping;
+    case 'Z': // reset encoders
+      encoderR.write(0);
+      encoderL.write(0);
+      updateEncoders(0,0);
+      break;
+    case 'P': // ping
+      break;      
+    } 
+  }
+
+  if (host.readCmd()) {
+    int32_t encLeft;
+    int32_t encRight;
+    
+    switch (host.cmd()) {
+      case 'Q': // query
+        host.sendCmdStr('I',"Waking");
+        break;
+      case 'R': // softwareReset
+        softwareReset = true;
+        return BotState::stopping;
+      case 'S': // abort! go back to sleep
+        return BotState::stopping;
+      case 'C':
+        if (emulatorMode) {
+          host.getParam(encLeft);
+          host.getParam(encRight);
+          sendEncoders(encLeft, encRight);          
+        }
+        break;
+    }
+  }
+  
+  if (brakeTimer.fire()) {
+    return BotState::awake;
+  }
+
+  return BotState::waking;
+}
+
+BotState handleAwakeState()
+{
+  if (checkEnterEstop()) {
+    return BotState::estop;
+  }
+
+  if (forebrain.recvTimeout())
+  {
+    return BotState::stopping;
+  }
+
+  if (host.readCmd()) {
+    int32_t encLeft;
+    int32_t encRight;
+    
+    switch (host.cmd()) {
+      case 'Q': // query
+        host.sendCmdStr('I',"Awake");
+        break;
+      case 'R': // softwareReset
+        softwareReset = true;
+        return BotState::stopping;
+      case 'S': // 
+        return BotState::stopping;
+      case 'C':
+        if (emulatorMode) {
+          host.getParam(encLeft);
+          host.getParam(encRight);
+          sendEncoders(encLeft, encRight);          
+        }
+        break;
+      case 'U': // emulator mode on
+        emulatorMode = true;
+        host.sendInfo("emulate");
+        sabertooth.motor(1, 0);
+        sabertooth.motor(2, 0);
+        break;
+    }
+  }
+
+  if (forebrain.readCmd()) {
     char m1;
     char m2;
 
     switch (forebrain.cmd()) {
+      case 'Q': // query
+        forebrain.sendCmdStr('I',"Awake");
+        break;
+      case 'P': // keep awake ping
+        break;
+      case 'R': // softwareReset
+        softwareReset = true;
+        return BotState::stopping;
+      case 'S': 
+        return BotState::stopping;
       case 'M': // motor
         forebrain.getParam(m1);
         forebrain.getParam(m2);
-        if (setBothPower(m1, m2)) {
-          sprintf(tmp, "%4d%4d", (int)(char)lastLeftPower, (int)(char)lastRightPower);
-          if (tmp[0] == ' ') {
-            tmp[0] = 'M';
-          }
-          logger.sendInfo(tmp);
-        }
-        commTimeout.start();
-        return true;
-      case 'W': // wake
-        stopBoth();
-        logger.sendInfo("ReWake!");
-        commTimeout.start();
-        return true;
-    }    
+        setBothPower(m1, m2);
+        break;
+      case 'L': 
+        logToForebrain = true;
+        logMessage("LogFB");
+        break;
+      case 'Z':
+        encoderR.write(0);
+        encoderL.write(0);
+        updateEncoders(0,0);
+        logMessage("EncReset");
+        break; 
+     }     
   }
+
+  if (forebrain.sendTimeout())
+  { 
+     forebrain.sendCmd('W');
+     logMessage("Awake");
+  }
+
+  return BotState::awake;
 }
+
+BotState handleStoppingState()
+{
+  if (checkEnterEstop()) {
+    return BotState::estop;
+  }
+    
+  while (forebrain.readCmd()) 
+  {
+    switch (forebrain.cmd()) {
+    case 'Q': // query
+      forebrain.sendCmdStr('I',"Stopping");
+      break;
+    case 'R': // softwareReset
+      softwareReset = true;
+      break;
+    case 'Z': // reset encoders
+      encoderR.write(0);
+      encoderL.write(0);
+      updateEncoders(0,0);
+      break;   
+    } 
+  }
+
+  if (host.readCmd()) {
+    int32_t encLeft;
+    int32_t encRight;
+    
+    switch (host.cmd()) {
+      case 'Q': // query
+        host.sendCmdStr('I',"Stopping");
+        break;
+      case 'R': // softwareReset
+        softwareReset = true;
+        break;
+      case 'C':
+        if (emulatorMode) {
+          host.getParam(encLeft);
+          host.getParam(encRight);
+          sendEncoders(encLeft, encRight);          
+        }
+        break;
+    }
+  }
+
+  if (brakeTimer.fire()) {
+    return BotState::asleep;
+  }
+
+  return BotState::stopping;
+}
+
+BotState handleEstopState()
+{
+  while (host.readCmd()) 
+  {
+    switch (host.cmd()) {
+    case 'Q': // query
+      host.sendCmdStr('I',"Stopping");
+      break;
+    case 'R': // softwareReset
+      softwareReset = true;
+      break;
+    }
+  }
+  
+  while (forebrain.readCmd()) 
+  {
+    switch (forebrain.cmd()) {
+    case 'Q': // query
+      forebrain.sendCmdStr('I',"EStop");
+      break;
+    case 'R': // softwareReset
+      softwareReset = true;
+      break;
+    }
+  }
+  
+  if (commTimer.fire())
+  { 
+     commTimer.begin(COMM_TIMEOUT);          
+
+     if (digitalRead(SABER_EMERGENCY_STOP) != LOW) {
+        return BotState::stopping;       
+     }
+     
+     forebrain.sendCmdStr('E', "EStop");
+     logMessage("EStop");
+  }
+  
+  return BotState::estop;
+}
+
 
 void loop()
 {
-  static int estopCount = 0;
+  static BotState lastbotState = BotState::estop;
   
-  updateBrakes();
-
   if (!emulatorMode) {
     int32_t encLeft  = encoderL.read();
     int32_t encRight = encoderR.read();
     updateEncoders(encLeft, encRight);
   }
 
-  processHostCmd();
-  processForebrainCmd();
-
-  if (state != ControlState::estop && (forceEstop || digitalRead(SABER_EMERGENCY_STOP) == LOW))
-  {
-    logger.sendInfo("E Stop");
-    stopBothAndBrake();
-    state = ControlState::estop;
-    estopCount = 3;
-    commTimeout.start();
-    forceEstop = false;
-    return;
+  switch (botState) {
+    case BotState::asleep:
+      botState = handleSleepState();
+      break;
+    case BotState::waking:
+      botState = handleWakingState();
+      break;
+    case BotState::awake:
+      botState = handleAwakeState();
+      break;
+    case BotState::stopping:
+      botState = handleStoppingState();
+      break;
+    case BotState::estop:
+      botState = handleEstopState();
+      break;
   }
 
-  switch (state)
-  {
-    case ControlState::estop:
-      if (commTimeout.fire())
-      {
-        if (forceEstop || digitalRead(SABER_EMERGENCY_STOP) == LOW) {
-          logger.sendInfo("E Stop");
-          estopCount = 3;
-          commTimeout.start();          
-        }
-        else if (estopCount > 0) {
-          logger.sendInfo("E Stop");
-          estopCount--;
-          commTimeout.start();
-        }
-        else {
-          state = ControlState::asleep;
-          logger.sendInfo("Zzzz...");
-          commTimeout.start();
-        }
-      }
+  if (lastbotState != botState) {
+    lastbotState =  botState;
+
+    switch (botState) {
+    case BotState::asleep:
+      logMessage("Asleep");
+      forebrain.sendCmd('S');
+      host.sendCmd('S');
+      setStateColor(0,0,255);
+      brakeOn();
+      commTimer.begin(COMM_TIMEOUT);
       break;
-    case ControlState::timeout:
-    case ControlState::badcmd:
-      if (commTimeout.fire())
-      {
-        state = ControlState::asleep;
-        logger.sendInfo("Zzzz...");
-        commTimeout.start();
-      }
+    case BotState::waking:
+      logMessage("Waking");
+      forebrain.sendCmd('w');
+      host.sendCmd('w');
+      setStateColor(0,255,255);
+      brakeTimer.begin(BRAKE_RELEASE_TIME);
+      brakeOff();
       break;
-    case ControlState::asleep:
+    case BotState::awake:
+      logMessage("Awake");
+      forebrain.sendCmd('W');
+      host.sendCmd('W');
+      setStateColor(0,255,0);
+      commTimer.begin(COMM_TIMEOUT);
       break;
-    case ControlState::awake:
-      if (commTimeout.fire())
-      {
-        logger.sendInfo("TimeOut");
-        stopBothAndBrake();
-        logger.sendInfo("Hold");
-        state = ControlState::timeout;
-      }
+    case BotState::stopping:
+      logMessage("Stopping");
+      forebrain.sendCmd('s');
+      host.sendCmd('s');
+      setStateColor(255,255,0);
+      brakeTimer.begin(BRAKE_ENGAGE_TIME);
+      stopBoth();
       break;
+    case BotState::estop:
+      logMessage("Estop");
+      forebrain.sendCmd('X');
+      host.sendCmd('X');
+      setStateColor(255,0,0);
+      stopBoth();
+      break;
+    }
+  }
+
+  if (softwareReset && botState == BotState::asleep) {
+    resetGlobals();
+    softwareReset = false;
+    host.sendCmdStr('I',"Reset");
+    forebrain.sendCmdStr('I',"Reset");
   }
 }
