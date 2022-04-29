@@ -4,6 +4,7 @@
 #include "absolutepostracker.h"
 #include "serialport.h"
 #include "CmdLink.h"
+#include "robotmotion.h"
 
 using namespace std;
 using namespace mssm;
@@ -70,8 +71,6 @@ public:
 
     double gearRatio{25};
 
-    int    countsPerRev{1200};
-
     double torqueConst{0.05918};  // Nm/A
     double backEmfConst{6.2};     // voltsPerKRPM
     double resistance{0.16};
@@ -82,7 +81,6 @@ public:
 public:
     void   setVoltage(double voltage);
     void   update(double elapsedSec);
-    int    encoder();
     void   draw(Graphics& g, Vec2d pos, double radius);
     double wheelAngle() { return angle / gearRatio; }
     double wheelAngleChange() { return angleChange / gearRatio; }
@@ -104,12 +102,12 @@ double MotorSim::torque()
 {
     double motorT = calcCurrent() * torqueConst;
 
-    if (angVel > 0) {
-        double fricT = constFricTorque + viscFricTorque * angVel;
-    }
-    else if (angVel < 0) {
-        double Frict = constFricTorque - viscFricTorque * angVel;
-    }
+//    if (angVel > 0) {
+//        double fricT = constFricTorque + viscFricTorque * angVel;
+//    }
+//    else if (angVel < 0) {
+//        double Frict = constFricTorque - viscFricTorque * angVel;
+//    }
 
     return motorT;
 }
@@ -136,13 +134,6 @@ void MotorSim::update(double elapsedSec)
     angle += angleChange;
 }
 
-
-
-int MotorSim::encoder()
-{
-    return angle * countsPerRev / (2.0*M_PI);
-}
-
 void MotorSim::draw(Graphics& g, Vec2d pos, double radius)
 {
     pos = {pos.x, g.height()-pos.y};
@@ -150,76 +141,6 @@ void MotorSim::draw(Graphics& g, Vec2d pos, double radius)
     g.ellipse(pos, diam, diam, GREEN);
     g.line(pos, pos + Vec2d{diam/2, 0}.rotated(-wheelAngle()));
 }
-
-
-void calcBotAngleArc(double leftRot, double rightRot, double wheelRadius, double wheelSep, double& dangle, double& arclen)
-{
-    double arcLeft  = wheelRadius*leftRot;
-    double arcRight = wheelRadius*rightRot;
-
-    dangle = (arcRight - arcLeft) / wheelSep;  // change in angle of the axle
-    arclen = (arcLeft + arcRight) / 2;  // arclength traveled by axle midpoint
-}
-
-void calcBotLeftRightRot(double angle, double arclen, double wheelRadius, double wheelSep, double& leftRot, double& rightRot)
-{
-    double arcLeft  = arclen - angle*wheelSep/2.0;
-    double arcRight = arcLeft + angle*wheelSep;
-    leftRot = arcLeft / wheelRadius;
-    rightRot = arcRight / wheelRadius;
-}
-
-int angleToEncoder(double angle, int countsPerRev)
-{
-    return angle * countsPerRev / (M_PI*2);
-}
-
-double encoderToAngle(double encoder, int countsPerRev)
-{
-    return encoder * (M_PI*2) / countsPerRev;
-}
-
-
-// assume wheel axle is aligned with x axis, so "forward" displacement is positive Y
-void calcBotDisplacement(double leftRot, double rightRot, double wheelRadius, double wheelSep, Vec2d& displacement, double& dangle)
-{
-    double arcMid;
-
-    calcBotAngleArc(leftRot, rightRot, wheelRadius, wheelSep, dangle, arcMid);
-
-    // deltaY = forward, deltaX = left(-)/right(+)
-
-    // deltaY = arcMid * (sin(dangle)/dangle)        goes to arcMid as angle -> 0
-    // deltaX = arcMid * ((1-cos(dangle)) / dangle)  goes to 0 as angle -> 0
-
-    // because of the limits mentioned above,
-    //     if dangle < 0.001 we will assume deltaY = arcMid and deltaX = 0
-
-    double deltaX;
-    double deltaY;
-
-    if (std::abs(dangle) < 0.001) {
-        deltaX = 0;
-        deltaY = arcMid;
-    }
-    else {
-        deltaX = -arcMid * ((1-cos(dangle)) / dangle);
-        deltaY = arcMid * (sin(dangle)/dangle);
-        //cout << "Deltax: " << deltaX << endl;
-    }
-
-    displacement = { deltaX, deltaY };
-}
-
-// displacement uses pos Y as "forward"
-void addDisplacement(Vec2d pos, double angle, Vec2d displacement, double angleChange, double scale, Vec2d& newPos, double& newAngle)
-{
-    displacement.rotate(angle-M_PI/2.0);
-    newPos = pos + displacement * scale;
-    newAngle = angle + angleChange;
-}
-
-
 
 AbsolutePosTracker tracker;
 
@@ -282,8 +203,8 @@ int main()
         hindbrain.sendCmd('U'); // turn on emUlate mode
     }
 
-    int lastLeftEnc = m1.encoder();
-    int lastRightEnc = m2.encoder();
+    int lastLeftEnc = -1;
+    int lastRightEnc = -1;
 
     while (g.draw()) {
 
@@ -315,8 +236,6 @@ int main()
 
         g.text({250, 30}, 20, "State: " + state, stateColor);
 
-//        int leftEnc = m1.encoder();
-//        int rightEnc = m2.encoder();
 
         if (portOpen) {
 
@@ -360,40 +279,47 @@ int main()
         m1.update(g.elapsedMs()/1000);
         m2.update(g.elapsedMs()/1000);
 
-        double robotDeltaAngle;
-        double robotArcLen;
+        int leftEncoderDelta;
+        int rightEncoderDelta;
 
-        calcBotAngleArc(m1.wheelAngleChange(),
-                        m2.wheelAngleChange(),
-                        RobotParams::driveWheelRadius,
-                        RobotParams::driveWheelSeparation,
-                        robotDeltaAngle,
-                        robotArcLen);
+        calcMotion(m1.wheelAngleChange(), m2.wheelAngleChange(),
+                   leftEncoderDelta, rightEncoderDelta,
+                   botAngle, botPos);
 
-        double robotDeltaAngle2;
-        Vec2d robotDisplacement;
+//        double robotDeltaAngle;
+//        double robotArcLen;
 
-        calcBotDisplacement(m1.wheelAngleChange(),
-                        m2.wheelAngleChange(),
-                        RobotParams::driveWheelRadius,
-                        RobotParams::driveWheelSeparation,
-                        robotDisplacement,
-                        robotDeltaAngle2
-                        );
+//        calcBotAngleArc(m1.wheelAngleChange(),
+//                        m2.wheelAngleChange(),
+//                        RobotParams::driveWheelRadius,
+//                        RobotParams::driveWheelSeparation,
+//                        robotDeltaAngle,
+//                        robotArcLen);
+
+//        double robotDeltaAngle2;
+//        Vec2d robotDisplacement;
+
+//        calcBotDisplacement(m1.wheelAngleChange(),
+//                        m2.wheelAngleChange(),
+//                        RobotParams::driveWheelRadius,
+//                        RobotParams::driveWheelSeparation,
+//                        robotDisplacement,
+//                        robotDeltaAngle2
+//                        );
 
 
-        double leftEncoderAngleChange;
-        double rightEncoderAngleChange;
+//        double leftEncoderAngleChange;
+//        double rightEncoderAngleChange;
 
-        calcBotLeftRightRot(robotDeltaAngle,
-                            robotArcLen,
-                            RobotParams::encWheelRadius,
-                            RobotParams::encSeparation,
-                            leftEncoderAngleChange,
-                            rightEncoderAngleChange);
+//        calcBotLeftRightRot(robotDeltaAngle,
+//                            robotArcLen,
+//                            RobotParams::encWheelRadius,
+//                            RobotParams::encSeparation,
+//                            leftEncoderAngleChange,
+//                            rightEncoderAngleChange);
 
-        int leftEncoderDelta  = angleToEncoder(leftEncoderAngleChange,  RobotParams::countsPerRev);
-        int rightEncoderDelta = angleToEncoder(rightEncoderAngleChange, RobotParams::countsPerRev);
+//        int leftEncoderDelta  = angleToEncoder(leftEncoderAngleChange,  RobotParams::countsPerRev);
+//        int rightEncoderDelta = angleToEncoder(rightEncoderAngleChange, RobotParams::countsPerRev);
 
         leftEncoderCount += leftEncoderDelta;
         rightEncoderCount += rightEncoderDelta;
@@ -411,13 +337,13 @@ int main()
         }
 
 
-        Vec2d newBotPos;
-        double newBotAngle;
+//        Vec2d newBotPos;
+//        double newBotAngle;
 
-        addDisplacement(botPos, botAngle, robotDisplacement, robotDeltaAngle2, 1, newBotPos, newBotAngle);
+//        addDisplacement(botPos, botAngle, robotDisplacement, robotDeltaAngle2, 1, newBotPos, newBotAngle);
 
-        botPos = newBotPos;
-        botAngle = newBotAngle;
+//        botPos = newBotPos;
+//        botAngle = newBotAngle;
 
 
         double scale = 5;
