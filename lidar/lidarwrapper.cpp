@@ -9,6 +9,12 @@ LidarWrapper::LidarWrapper()
 
 }
 
+LidarWrapper::~LidarWrapper()
+{
+    delete lidar;
+    lidar = NULL;
+}
+
 void LidarWrapper::setMotorSpeed(int speed)
 {
     if(speed != -1)
@@ -65,6 +71,7 @@ int LidarWrapper::scan()
                            nodes[pos].quality >> SL_LIDAR_RESP_MEASUREMENT_QUALITY_SHIFT);
                     }
                 }
+                updatePoints();
                 return 1;
             }
     }
@@ -93,6 +100,7 @@ void LidarWrapper::updatePoints()
             polarData.push_back({dist,angle});
             Vec2d point = {dist,0};
             point = point.rotated(angle);
+            points.push_back(point);
         }
     }
 }

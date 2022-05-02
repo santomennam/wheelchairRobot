@@ -19,6 +19,7 @@ class LidarWrapper
 {
 public:
     LidarWrapper();
+    ~LidarWrapper();
     void setMotorSpeed(int speed = -1);
     bool checkLidarHealth(sl::ILidarDriver * drv);
     int scan();

@@ -17,13 +17,14 @@ using namespace sl;
 
 
 void draw(Graphics& g, LidarWrapper lidar){
-    g.clear();
+    cout<<"drawing"<<endl;
+    cout<<lidar.points.size()<<endl;
+   // g.clear();
     Vec2d center = {g.width()/2,g.width()};
     for (auto point : lidar.points)
     {
         g.point((point+center),WHITE);
     }
-    g.draw();
 }
 
 
@@ -35,7 +36,6 @@ void graphicsMain(Graphics& g)
         if (g.isKeyPressed(Key::ESC)) {
             break;
         }
-
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
