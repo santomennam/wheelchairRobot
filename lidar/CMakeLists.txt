@@ -44,7 +44,8 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     main.cpp
     CmdLink.h
     CmdLink.cpp
-
+    lidarwrapper.h
+    lidarwrapper.cpp
 
     third_party/rplidar_sdk/sdk/include/rplidar.h
     third_party/rplidar_sdk/sdk/include/rplidar_cmd.h
@@ -58,7 +59,7 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     third_party/rplidar_sdk/sdk/include/sl_lidar_driver_impl.h
     third_party/rplidar_sdk/sdk/include/sl_lidar_protocol.h
     third_party/rplidar_sdk/sdk/include/sl_types.h
-
+ 
     third_party/rplidar_sdk/sdk/src/sl_lidar_driver.cpp
     third_party/rplidar_sdk/sdk/src/hal/thread.cpp
     third_party/rplidar_sdk/sdk/src/sl_crc.cpp
