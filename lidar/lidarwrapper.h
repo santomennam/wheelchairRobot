@@ -25,6 +25,7 @@ public:
     int scan();
     std::vector<Vec2d> points;
     std::vector<Vec2d> polarData;
+    bool atDefaultSpeed = false;
 
 public:
     sl::IChannel* _channel;
@@ -32,6 +33,7 @@ public:
     sl::ILidarDriver * lidar = *sl::createLidarDriver();
     sl_result res = (lidar)->connect(*channel);
     sl_lidar_response_measurement_node_hq_t nodes[8192];
+    size_t nodeCount = 0;
     void updatePoints();
 };
 

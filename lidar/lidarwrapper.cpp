@@ -1,5 +1,5 @@
 #include "lidarwrapper.h"
-
+#include <iostream>
 using namespace sl;
 using namespace std;
 using namespace mssm; //oh yeah codependency moment
@@ -19,10 +19,14 @@ void LidarWrapper::setMotorSpeed(int speed)
 {
     if(speed != -1)
     {
+        atDefaultSpeed = false;
         lidar->setMotorSpeed(speed);
     }
     else{
-        lidar->setMotorSpeed();
+        if(!atDefaultSpeed){
+            atDefaultSpeed = true;
+            lidar->setMotorSpeed();
+        }
     }
 }
 
@@ -50,30 +54,19 @@ bool LidarWrapper::checkLidarHealth(sl::ILidarDriver *drv)
 
 int LidarWrapper::scan()
 {
-    fprintf(stdout, "Scanning", res);
     sl_result op_result;
-    if(SL_IS_OK(res)){
-        lidar->setMotorSpeed();
-        // start scan...
+    if(SL_IS_OK(res)){ 
+        setMotorSpeed();
         lidar->startScan(0,1);
         //originally a while true here
-            size_t count = _countof(nodes);
-            op_result = lidar->grabScanDataHq(nodes, count); //did operation succeed?
+        nodeCount = _countof(nodes);
+        op_result = lidar->grabScanDataHq(nodes, nodeCount); //did operation succeed? //use a promise?
 
-            if (SL_IS_OK(op_result)) {
-                lidar->ascendScanData(nodes, count);
-                for (int pos = 0; pos < (int)count ; ++pos) {
-                    if(nodes[pos].quality != 0){
-                    printf("%s theta: %03.2f Dist: %08.2f Q: %d \n",
-                           (nodes[pos].flag & SL_LIDAR_RESP_HQ_FLAG_SYNCBIT) ?"S ":"  ",
-                           (nodes[pos].angle_z_q14 * 90.f) / 16384.f,
-                           nodes[pos].dist_mm_q2/4.0f,
-                           nodes[pos].quality >> SL_LIDAR_RESP_MEASUREMENT_QUALITY_SHIFT);
-                    }
-                }
-                updatePoints();
-                return 1;
-            }
+        if (SL_IS_OK(op_result)) {
+//            lidar->ascendScanData(nodes, nodeCount);
+            updatePoints();
+            return 1;
+        }
     }
     else{
         fprintf(stdout, "Failed to connect to LIDAR %08x\r\n", res);
@@ -90,17 +83,19 @@ double mmToInch(double dist)
 
 void LidarWrapper::updatePoints()
 {
-    points = {};
-    polarData = {};
-    for(auto node: nodes){
-        if(node.quality != 0)
+    points.clear();
+    polarData.clear();
+    for(int i = 0; i < nodeCount; i++){
+        if(nodes[i].quality != 0)
         {
-            double dist = mmToInch(node.dist_mm_q2);
-            double angle = nvgDegToRad(node.angle_z_q14);
+            double dist = mmToInch(nodes[i].dist_mm_q2);
+            double angle = nvgDegToRad((nodes[i].angle_z_q14* 90.f) / 16384.f);
             polarData.push_back({dist,angle});
             Vec2d point = {dist,0};
-            point = point.rotated(angle);
+            point.rotate(angle);
             points.push_back(point);
         }
     }
 }
+
+

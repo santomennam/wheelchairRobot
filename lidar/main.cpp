@@ -16,11 +16,9 @@ using namespace std;
 using namespace sl;
 
 
-void draw(Graphics& g, LidarWrapper lidar){
-    cout<<"drawing"<<endl;
-    cout<<lidar.points.size()<<endl;
+void draw(Graphics& g, LidarWrapper &lidar){
    // g.clear();
-    Vec2d center = {g.width()/2,g.width()};
+    Vec2d center = {g.width()/2,g.height()/2};
     for (auto point : lidar.points)
     {
         g.point((point+center),WHITE);
@@ -36,6 +34,7 @@ void graphicsMain(Graphics& g)
         if (g.isKeyPressed(Key::ESC)) {
             break;
         }
+        draw(g,lidar);
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
@@ -43,9 +42,7 @@ void graphicsMain(Graphics& g)
                 switch(e.arg)
                 {
                     case 'S':
-                        if(lidar.scan()){
-                            draw(g,lidar);
-                        }
+                        lidar.scan();
                         break;
                     case 'K':
                         lidar.setMotorSpeed(0);
@@ -67,6 +64,7 @@ void graphicsMain(Graphics& g)
             }
         }
     }
+    lidar.setMotorSpeed(0);
 }
 
 int main()
