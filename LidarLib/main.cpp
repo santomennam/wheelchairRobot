@@ -34,22 +34,50 @@ int main()
 {
     Graphics g("LidarThing", 1024, 768);
 
+    vector<vector<Vec2d>> points;
+    vector<Vec2d> incomingPoints;
 
-
-    Lidar lidar("COM10", [&g](const std::vector<LidarData>& data) {
-        vector<Vec2d> pts;
-        for (auto& sp : data) {
-            Vec2d c{g.width()/2, g.height()/2};
-            Vec2d pt{sp.distance, 0};
-            pts.push_back(c+pt.rotated(sp.angle));
-
+    Lidar lidar("COM10", [&g, &points, &incomingPoints](bool startSweep, const LidarData& point) {
+        if (startSweep) {
+            points.push_back(std::move(incomingPoints));
+            incomingPoints.clear();
+            for (auto& p : points.back()) {
+                p = p + Vec2d{g.width()/2, g.height()/2};
+            }
+            if (points.size() > 10) {
+                points.erase(points.begin());
+            }
         }
-        g.points(pts, WHITE);
+        if (point.quality < 15) {
+            return;
+        }
+        if (point.distance < 10) {
+            return;
+        }
+
+        Vec2d pt{point.distance/3, 0};
+        incomingPoints.push_back(pt.rotated(M_PI * point.angle / 180.0));
     });
 
     while (g.draw()) {
 
         lidar.update();
+
+        Color c = YELLOW;
+
+        double color_h;
+        double color_s;
+        double color_v;
+
+        rgb2hsv(c, color_h, color_s, color_v);
+
+        color_v = 0.2;
+
+        for (const auto& pts : points) {
+            c = hsv2rgb(color_h, color_s, color_v);
+            g.points(pts, c);
+            color_v += 0.08;
+        }
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
@@ -59,13 +87,16 @@ int main()
                     lidar.cmdGetInfo();
                     break;
                 case 'M':
-                    lidar.cmdMotorSpeed(300);
+                    lidar.cmdMotorSpeed(600);
                     break;
                 case 'S':
                     lidar.cmdMotorSpeed(0);
                     break;
                 case 'G':
                     lidar.cmdBeginScan();
+                    break;
+                case 'R':
+                    lidar.cmdReset();
                     break;
                 case 'L':
                     break;

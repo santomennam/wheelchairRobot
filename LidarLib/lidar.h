@@ -99,7 +99,7 @@ private:
     std::vector<LidarData> data;
 public:
     template <typename I>
-    bool parse(I& start, const I end, std::function<void(const std::vector<LidarData>& values)> transmit);
+    bool parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler);
 };
 
 class Lidar
@@ -154,13 +154,14 @@ private:
     bool expectSent{false};
     bool expectResponse{false};
     bool isScanning{false};
+    bool inStartup{true};
 
-    std::function<void(const std::vector<LidarData>& data)> handler;
+    std::function<void(bool startSweep, const LidarData& point)> handler;
 
     std::chrono::milliseconds::rep lastTime;
     std::string bufferedData;
 public:
-    Lidar(const std::string& portName, std::function<void(const std::vector<LidarData>& data)> handler);
+    Lidar(const std::string& portName, std::function<void(bool startSweep, const LidarData& point)> handler);
     virtual ~Lidar();
 public:
     void updateTime(std::chrono::milliseconds::rep currentTime);
@@ -173,8 +174,6 @@ public:
     void updateState(ModeUpdate reason);
 
     void processResponse(const ResponseParser::Descriptor& desc, const ResponseParser::RespData& data);
-
-    void transmit(const std::vector<LidarData>& data);
 
     void cmdMotorSpeed(int speed);
     void cmdReset();

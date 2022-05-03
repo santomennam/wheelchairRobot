@@ -8,7 +8,7 @@
 #include <array>
 #include "bitrange.h"
 
-constexpr bool verbose = true;
+constexpr bool verbose = false;
 
 using namespace std;
 using namespace mssm;
@@ -250,7 +250,7 @@ ResponseParser::ParseResult ResponseParser::parseDataSampleRate(I& start)
 }
 
 template<class _RanIt>
-bool rplidarParseScan(_RanIt& _First, const _RanIt _Last, int& quality, double& angle, double& distance, bool& hasMoreData)
+bool rplidarParseScan(_RanIt& _First, const _RanIt _Last, int& quality, double& angle, double& distance, bool& is360start)
 {
     using value_type = typename std::iterator_traits<_RanIt>::value_type;
     static_assert (sizeof(value_type) == 1, "input iterator value_type must be have sizeof == 1");
@@ -268,14 +268,14 @@ bool rplidarParseScan(_RanIt& _First, const _RanIt _Last, int& quality, double& 
         cout << "Checksum failure 1" << endl;
         return false;
     case 1:
-        // new scan
-        if (verbose) cout << "New Scan: ";
-        hasMoreData = true;
+        // First reading from a 360 scan
+       // if (verbose) cout << "New Scan: ";
+        is360start = true;
         break;
     case 2:
-        // continued scan
-        if (verbose) cout << "Continued Scan: ";
-        hasMoreData = false;
+        // additional data for a 360 scan
+//        if (verbose) cout << "Continued Scan: ";
+        is360start = false;
         break;
     }
 
@@ -362,7 +362,7 @@ std::string rawString(uint16_t value)
     return string(reinterpret_cast<char*>(&value), sizeof(value));
 }
 
-Lidar::Lidar(const std::string& portName, std::function<void (const std::vector<LidarData> &)> handler)
+Lidar::Lidar(const std::string& portName, std::function<void (bool startSweep, const LidarData&)> handler)
     : handler{handler}
 {
     port.open(portName, 115200);
@@ -380,6 +380,11 @@ Lidar::~Lidar()
 void Lidar::update()
 {
     auto currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+    if (inStartup) {
+        cmdReset();
+        inStartup = false;
+    }
 
     if (expectSent && !port.stillWriting()) {
         if (verbose) cout << "Serial port reports cmd sent" << endl;
@@ -640,7 +645,7 @@ double angleDiff(double a, double a1)
 }
 
 template <typename I>
-bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(const std::vector<LidarData>& values)> transmit)
+bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler)
 {
     size_t prevPacketIdx = nextPacketIdx ? 0 : 1;
     size_t currPacketIdx = nextPacketIdx;
@@ -659,6 +664,8 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(const
         cout << "Can't process new packet" << endl;
         return true;
     }
+
+    bool wasScanStart = isNew[prevPacketIdx];
 
     bool prevPacketValid = packetValid[prevPacketIdx];
 
@@ -689,14 +696,10 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(const
         }
         double distance = prevPacket[i].distance;
         int quality = distance > 0 ? 1 : 0;
-        if (!data.empty() && data.back().angle > 350 && angle < 10) {
-            transmit(data);
-            data.clear();
-        }
-        data.push_back(LidarData{quality, angle, distance});
-        //        if (prevPacket[i].distance != 0) {
-        //            cout << angle << " " << prevPacket[i].distance << endl;
-        //        }
+
+        handler(wasScanStart, LidarData{quality, angle, distance});
+
+        wasScanStart = false;
     }
 
     return true;
@@ -706,7 +709,8 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(const
 void Lidar::parse(const std::string &str)
 {
     if (bufferedData.size() > 0) {
-        cout << "Appending to existing data" << endl;
+        //cout << "Appending to existing data" << endl;
+
     }
     bufferedData.append(str);
 
@@ -744,27 +748,29 @@ void Lidar::parse(const std::string &str)
             int quality;
             double angle;
             double distance;
-            bool moreData;
+            bool is360Start;
             //cout << "Parsing: " << endl;
 
-            if (!rplidarParseScan(i, bufferedData.end(), quality, angle, distance, moreData)) {
+            if (!rplidarParseScan(i, bufferedData.end(), quality, angle, distance, is360Start)) {
                 cout << "Parse Failed" << endl;
             }
             else {
-                cout << "FIX THIS" << endl;
-                //                data.push_back(LidarData{quality, angle, distance});
+                handler(is360Start, LidarData{quality, angle, distance});
             }
             break;
         case 84:
-            if (!expressScanProcessor.parse(i, bufferedData.end(), [this](std::vector<LidarData> data) { transmit(data); }))
+            if (!expressScanProcessor.parse(i, bufferedData.end(), [this](bool startSweep, const LidarData& point) { handler(startSweep, point); }))
             {
                 cout << "Error scanning: flush data" << endl;
                 i = bufferedData.end();
             }
             break;
         default:
+            displayHex(bufferedData);
+            bufferedData.clear();
+
             cout << "Unexpected response size: " << responseParser.descriptor.size << endl;
-            break; // what to do... what to do...
+            return; // what to do... what to do...
 
         }
 
@@ -776,10 +782,6 @@ void Lidar::parse(const std::string &str)
     }
 }
 
-void Lidar::transmit(const std::vector<LidarData>& data)
-{
-    handler(data);
-}
 
 
 void Lidar::cmdMotorSpeed(int speed) {
