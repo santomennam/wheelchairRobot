@@ -398,7 +398,8 @@ void graphicsMain(Graphics& g)
                     world.showBeam = !world.showBeam;
                     break;
                 case 'O':
-                    world.createObstacles(g);
+                    world.placeObstaclesFromList({{0,0},{1,0},{0,1},{1,1}});
+                   // world.createRandomObstacles(g);
                     break;
                 }
                 break;

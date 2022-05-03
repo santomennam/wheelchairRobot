@@ -183,12 +183,13 @@ void World::draw(Graphics &g)
     }
 
     robot.update();
-    if(robot.moved)
-    {
-        sensorCoords();
-        makeNewArea();
-        robot.moved = false;
-    }
+    sensorCoords();
+    makeNewArea();
+//    if(robot.moved)
+//    {
+
+//        robot.moved = false;
+//    }
 
     vector<Vec2d> tempPoints = robot.pointsToDraw;
     for (Vec2d& temp:tempPoints)
@@ -250,23 +251,29 @@ void World::draw(Graphics &g)
 
 void World::sensorCoords()
 {
-    if(robot.measureStep2(obstacles) > 0) // was >=
+    for(auto& point : newlyDetected)
     {
-        //  cout<<"yes"<<endl;
-        Vec2d point(robot.position);
-        Vec2d offset{robot.measureStep2(obstacles)*10,0};
-        offset.rotate(robot.angle);
-        cout<<"offset: "<<offset.magnitude()<<endl;
-        point = robot.position + offset;
-        //        point.rotate(robot.angle);
+        point.rotate(posTracker.getAngle());
+        point = point + posTracker.getPos(); // take the lidar points, centered around the origin, and center them about the robot
         sensedCoords.push_back(point);
-        newlyDetected.push_back(point);
-
-        // cout << "ND: " << newlyDetected.size() << endl;
     }
+//    if(robot.measureStep2(obstacles) > 0) // was >=
+//    {
+//        //  cout<<"yes"<<endl;
+//        Vec2d point(robot.position);
+//        Vec2d offset{robot.measureStep2(obstacles)*10,0};
+//        offset.rotate(robot.angle);
+//        cout<<"offset: "<<offset.magnitude()<<endl;
+//        point = robot.position + offset;
+//        //        point.rotate(robot.angle);
+//        sensedCoords.push_back(point);
+//        newlyDetected.push_back(point);
+
+//        // cout << "ND: " << newlyDetected.size() << endl;
+//    }
 }
 
-void World::createObstacles(Graphics &g)
+void World::createRandomObstacles(Graphics &g)
 {
     int q = g.randomInt(3,10);
     for(int i = 0; i <q;i++)
@@ -278,6 +285,19 @@ void World::createObstacles(Graphics &g)
 
     }
 
+}
+
+void World::placeObstacle(Vec2d point)
+{
+    Obstacle obstacle({point});
+    obstacles.push_back(obstacle);
+}
+
+void World::placeObstaclesFromList(std::vector<Vec2d> points)
+{
+    for(auto point : points){
+        placeObstacle(point);
+    }
 }
 
 void World::makeNewArea()

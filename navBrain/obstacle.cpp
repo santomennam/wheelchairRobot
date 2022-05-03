@@ -1,4 +1,5 @@
 #include "obstacle.h"
+#include <iostream>
 using namespace std;
 Obstacle::Obstacle(vector<Vec2d> points)
     :pts{points}
@@ -8,6 +9,7 @@ Obstacle::Obstacle(vector<Vec2d> points)
 
 void Obstacle::interpolate()
 {
+    cout<<"placing points"<<endl;
     vector<Vec2d> tempPoints;
     for(int i =0; i<pts.size()-1;i++) //ISSUE
     {
@@ -19,6 +21,7 @@ void Obstacle::interpolate()
             double t = j/numPoints;
             Vec2d point((pts[i]+distances*(t)));
             tempPoints.push_back(point);
+            cout<<"placed "<<point<<" as a point"<<endl;
             //how do i pushback and maintain order? help
         }
     }
