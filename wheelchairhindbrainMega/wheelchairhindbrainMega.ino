@@ -342,7 +342,7 @@ void handleConfigCommand(char cmd, int value)
 
 bool checkEnterEstop()
 {
-  if (forceEstop) { // || digitalRead(SABER_EMERGENCY_STOP) == LOW) {
+  if (forceEstop || digitalRead(SABER_EMERGENCY_STOP) == LOW) {
     logMessage("E Stop");
     stopBothAndBrake();
     forceEstop = false;
@@ -628,7 +628,7 @@ BotState handleEstopState()
   {
     switch (host.cmd()) {
     case 'Q': // query
-      host.sendCmdStr('I',"Stopping");
+      host.sendCmdStr('I',"EStop");
       break;
     case 'R': // softwareReset
       softwareReset = true;

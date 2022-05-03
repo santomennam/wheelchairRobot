@@ -18,7 +18,8 @@ enum class BotState {
   target,
   idle,
   sleep,
-  noConnect
+  noConnect,
+  estop
 };
 
 Adafruit_NeoPixel statePixel(1, 10, NEO_GRB + NEO_KHZ800);
@@ -423,7 +424,22 @@ void reportUnexpectedHostCmd(char c)
   host.sendCmdStr('I', "FromHost");
 }
 
-
+BotState handleEStopState()
+{
+//  if (checkEnterEstop()) {
+//    return BotState::estop;
+//  }
+  if (hindbrain.readCmd()) {
+    switch (hindbrain.cmd()) {
+      case 'S': // stopped/asleep
+        return BotState::sleep;
+      case 'E': // estop
+        return BotState::estop;
+     }
+  }
+  
+  return BotState::estop;  
+}
 
 BotState handleDisconnectState()
 {
@@ -434,6 +450,8 @@ BotState handleDisconnectState()
     switch (hindbrain.cmd()) {
       case 'S': // stopped/asleep
         return BotState::sleep;
+      case 'E': // estop
+        return BotState::estop;
      }
   }
 
@@ -470,6 +488,8 @@ BotState handleSleepState()
         break;
       case 'W': // awakened   
         return BotState::idle;
+      case 'E': // estop
+        return BotState::estop;
       default:
         host.sendCmdStr('I',"WTF1");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -528,6 +548,8 @@ BotState handleTankState()
         return BotState::sleep;
       case 'W':
         break;
+      case 'E': // estop
+        return BotState::estop;
       default:
         host.sendCmdStr('I',"WTF2");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -608,6 +630,8 @@ BotState handleTargetState()
         return BotState::sleep;
       case 'W':
         break;
+      case 'E': // estop
+        return BotState::estop;
       default:
         host.sendCmdStr('I',"WTF3");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -690,6 +714,8 @@ BotState handleIdleState()
       case 'w': // waking
       case 'W': // awake ping
         break;
+      case 'E': // estop
+        return BotState::estop;
       default:
         host.sendCmdStr('I',"WTF4");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -781,6 +807,9 @@ void loop()
  // checkEstop();
 
   switch (botState) {
+    case BotState::estop:
+      botState = handleEStopState();
+      break;
     case BotState::noConnect:
       botState = handleDisconnectState();
       break;
@@ -808,6 +837,10 @@ void loop()
     reportState(botState);
 
     switch (botState) {
+    case BotState::estop:
+      matrix.drawBitmap(4, 0, stop_bmp, 8, 8, LED_ON);      
+      setStateColor(255,0,0);
+      break;
     case BotState::noConnect:
       matrix.drawBitmap(4, 0, frown_bmp, 8, 8, LED_ON);      
       setStateColor(50,0,0);
