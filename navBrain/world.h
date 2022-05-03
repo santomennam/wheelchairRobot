@@ -30,7 +30,7 @@ public:
 
     std::vector<Obstacle> obstacles;    
     bool paused = false;
-    bool showObstacle = false;
+    bool showObstacle = true;
     std::vector<Vec2d> sensedCoords;
     bool showBeam = false;
     std::vector<Vec2d> newlyDetected;
@@ -82,7 +82,9 @@ public:
     void draw(mssm::Graphics&g);
     void update();
     void sensorCoords();
-    void createObstacles(mssm::Graphics&g);
+    void createRandomObstacles(mssm::Graphics&g);
+    void placeObstacle(Vec2d point);
+    void placeObstaclesFromList(std::vector<Vec2d> list);
     void makeNewArea();
     bool followPath(mssm::Graphics&g);
     bool hasWorldChanged(); //implement this
