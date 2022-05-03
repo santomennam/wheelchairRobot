@@ -1,8 +1,9 @@
 #include <iostream>
 #include "graphics.h"
 #include <iomanip>
-#include "serialport.h"
 #include "CmdLink.h"
+#include <cmath>
+#include "lidarwrapper.h"
 
 using namespace std;
 using namespace mssm;
@@ -11,64 +12,44 @@ using namespace mssm;
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif
 
-// Note:  Mac Users who are using Qt Creator...
-//        if the program compiles and runs but a window doesn't open up
-//        try un-checking "run in terminal"
+using namespace std;
+using namespace sl;
 
 
-// Here are some of the basic drawing commands:
-
-//void   line(Vec2d p1, Vec2d p2, Color c = WHITE);
-//void   ellipse(Vec2d center, double w, double h, Color c = WHITE, Color f = TRANSPARENT);
-//void   arc(Vec2d center, double w, double h, double a, double alen, Color c = WHITE);
-//void   chord(Vec2d center, double w, double h, double a, double alen, Color c = WHITE, Color f = TRANSPARENT);
-//void   pie(Vec2d center, double w, double h, double a, double alen, Color c = WHITE, Color f = TRANSPARENT);
-//void   rect(Vec2d corner, double w, double h, Color c = WHITE, Color f = TRANSPARENT);
-//void   polygon(std::vector<Vec2d> pts, Color border, Color fill = TRANSPARENT);
-//void   polyline(std::vector<Vec2d> pts, Color color);
-//void   text(Vec2d pos, double size, const std::string& str, Color textColor = WHITE, HAlign hAlign = HAlign::left, VAlign vAlign = VAlign::baseline);
+void draw(Graphics& g, LidarWrapper &lidar){
+   // g.clear();
+    Vec2d center = {g.width()/2,g.height()/2};
+    for (auto point : lidar.points)
+    {
+        g.point((point+center),WHITE);
+    }
+}
 
 
-
-int main()
+void graphicsMain(Graphics& g)
 {
-    Graphics g("MyProgram", 1024, 768);
-
+    LidarWrapper lidar;
 
     while (g.draw()) {
         if (g.isKeyPressed(Key::ESC)) {
             break;
         }
-
-//        if (g.isKeyPressed('Q')) {
-//            m1.setVoltage(10);
-//        }
-//        else if (g.isKeyPressed('A')) {
-//            m1.setVoltage(5);
-//        }
-//        else if (g.isKeyPressed('Z')) {
-//            m1.setVoltage(-5);
-//        }
-//        else {
-//            m1.setVoltage(0);
-//        }
-
-//        if (g.isKeyPressed('U')) {
-//            m2.setVoltage(10);
-//        }
-//        else if (g.isKeyPressed('J')) {
-//            m2.setVoltage(5);
-//        }
-//        else if (g.isKeyPressed('M')) {
-//            m2.setVoltage(-5);
-//        }
-//        else {
-//            m2.setVoltage(0);
-//        }
+        draw(g,lidar);
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
             case EvtType::KeyPress:
+                switch(e.arg)
+                {
+                    case 'S':
+                        lidar.scan();
+                        break;
+                    case 'K':
+                        lidar.setMotorSpeed(0);
+                        break;
+                    default:
+                        break;
+                }
                 break;
             case EvtType::KeyRelease:
                 break;
@@ -83,8 +64,18 @@ int main()
             }
         }
     }
-
-    return 0;
+    lidar.setMotorSpeed(0);
 }
+
+int main()
+{
+    Graphics g("LIDAR", 800, 600,graphicsMain);
+}
+//
+
+
+
+
+
 
 
