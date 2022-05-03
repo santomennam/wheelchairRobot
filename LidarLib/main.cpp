@@ -4,6 +4,7 @@
 #include "serialport.h"
 #include "CmdLink.h"
 #include "lidar.h"
+#include <fstream>
 
 using namespace std;
 using namespace mssm;
@@ -29,34 +30,70 @@ using namespace mssm;
 //void   polyline(std::vector<Vec2d> pts, Color color);
 //void   text(Vec2d pos, double size, const std::string& str, Color textColor = WHITE, HAlign hAlign = HAlign::left, VAlign vAlign = VAlign::baseline);
 
+void write(ostream& strm, vector<Vec2d> pts)
+{
+    strm << "0, 0, 0" << endl;
+    for (auto& p : pts) {
+        strm << p.x << ", " << p.y << ", " << endl;
+    }
+}
+
+void write(ostream& strm, bool isStartScan, const LidarData& data)
+{
+    strm << (isStartScan ? 1 : 0) << ", " << data.quality << ", " << data.angle << ", " << data.distance << endl;
+}
+
 
 int main()
 {
-    Graphics g("LidarThing", 1024, 768);
+    Graphics g("LidarThing", 1000, 1000);
+
+    ofstream out_raw;
+    ofstream out_pts;
+
+    bool useImg = false;
+
+    double scale = 1.0;
+
+    Image img(g, 1000, 1000, BLACK, true);
 
     vector<vector<Vec2d>> points;
     vector<Vec2d> incomingPoints;
 
-    Lidar lidar("COM10", [&g, &points, &incomingPoints](bool startSweep, const LidarData& point) {
+    Lidar lidar("COM10", [&](bool startSweep, const LidarData& point) {
+
+        if (out_raw.is_open()) {
+            write(out_raw, startSweep, point);
+        }
+
         if (startSweep) {
+            if (out_pts.is_open()) {
+                write(out_pts, incomingPoints);
+            }
             points.push_back(std::move(incomingPoints));
             incomingPoints.clear();
-            for (auto& p : points.back()) {
-                p = p + Vec2d{g.width()/2, g.height()/2};
-            }
             if (points.size() > 10) {
                 points.erase(points.begin());
             }
         }
-        if (point.quality < 15) {
-            return;
-        }
-        if (point.distance < 10) {
+        if (point.quality < 5) {
             return;
         }
 
-        Vec2d pt{point.distance/3, 0};
-        incomingPoints.push_back(pt.rotated(M_PI * point.angle / 180.0));
+
+        Vec2d pt{point.distance, 0};
+        pt.rotate(M_PI * point.angle / 180.0);
+        incomingPoints.push_back(pt);
+
+        if (useImg) {
+
+            int x = incomingPoints.back().x* (1.0/scale)+img.width()/2;
+            int y = incomingPoints.back().y* (1.0/scale)+img.height()/2;
+            if (x >= 0 && x < img.width() && y >= 0 && y < img.height()) {
+                img.setPixel(x, y, YELLOW);
+            }
+        }
+
     });
 
     while (g.draw()) {
@@ -73,19 +110,31 @@ int main()
 
         color_v = 0.2;
 
-        for (const auto& pts : points) {
-            c = hsv2rgb(color_h, color_s, color_v);
-            g.points(pts, c);
-            color_v += 0.08;
+        if (useImg) {
+            img.updatePixels();
+            g.image({0,0}, img);
         }
+        else {
+            for (vector<Vec2d> pts : points) {
+                c = hsv2rgb(color_h, color_s, color_v);
+                for (auto& p : pts) {
+                    p = p * (1.0/scale);
+                    p = p + Vec2d{g.width()/2, g.height()/2};
+                }
+                g.points(pts, c);
+                color_v += 0.08;
+            }
+        }
+
+        //        g.ellipse({g.width()/2, g.height()/2}, 120/scale, 120/scale, GREEN, GREEN);
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
             case EvtType::KeyPress:
                 switch (e.arg) {
-                case 'I':
-                    lidar.cmdGetInfo();
-                    break;
+//                case 'I':
+//                    lidar.cmdGetInfo();
+//                    break;
                 case 'M':
                     lidar.cmdMotorSpeed(600);
                     break;
@@ -98,16 +147,35 @@ int main()
                 case 'R':
                     lidar.cmdReset();
                     break;
-                case 'L':
+                case 'I':
+                    useImg = !useImg;
+                    if (useImg) {
+                        img.set(g.width(), g.height(), BLACK, true);
+                    }
+                    else {
+                        img.set(10,10,BLACK,true);
+                    }
                     break;
                 case 'W':
                     break;
                 case 'C':
+                    out_raw.close();
+                    out_pts.close();
                     break;
                 case 'F':
+                    out_raw.open("Raw.csv");
+                    out_pts.open("Pts.csv");
                     break;
                 }
 
+                break;
+            case EvtType::MouseWheel:
+                if (e.arg > 0) {
+                    scale = std::min(20.0, scale + 1);
+                }
+                else {
+                    scale = std::max(1.0, scale - 1);
+                }
                 break;
             case EvtType::KeyRelease:
                 break;
