@@ -29,7 +29,7 @@ constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE2 = 0x5A;
 constexpr uint8_t RPLIDAR_RESP_INFO       = 0x04;
 constexpr uint8_t RPLIDAR_RESP_HEALTH     = 0x06;
 constexpr uint8_t RPLIDAR_RESP_SAMPLERATE = 0x15;
-
+constexpr uint8_t RPLIDAR_RESP_CONFIG     = 0x20;
 
 constexpr uint8_t RPLIDAR_CMD_STOP        = 0x25;
 constexpr uint8_t RPLIDAR_CMD_SCAN        = 0x20;
@@ -49,6 +49,13 @@ constexpr uint8_t RPLIDAR_CMD_EXPRESS_SCAN   = 0x82; //added in fw 1.17
 constexpr uint8_t RPLIDAR_CMD_HQ_SCAN        = 0x83; //added in fw 1.24
 constexpr uint8_t RPLIDAR_CMD_GET_LIDAR_CONF = 0x84; //added in fw 1.24
 constexpr uint8_t RPLIDAR_CMD_SET_LIDAR_CONF = 0x85; //added in fw 1.24
+
+constexpr int RPLIDAR_CONF_SCAN_MODE_COUNT = 0x70;
+constexpr int RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE = 0x71;
+constexpr int RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE = 0x74;
+constexpr int RPLIDAR_CONF_SCAN_MODE_ANS_TYPE = 0x75;
+constexpr int RPLIDAR_CONF_SCAN_MODE_TYPICAL = 0x7C;
+constexpr int RPLIDAR_CONF_SCAN_MODE_NAME = 0x7F;
 
 //add for A2 to set RPLIDAR motor pwm when using accessory board
 constexpr uint8_t RPLIDAR_CMD_SET_MOTOR_PWM      = 0xF0;
@@ -205,6 +212,8 @@ ResponseParser::ParseResult ResponseParser::parse(I& _First, const I _Last)
             return parseDataHealth(_First);
         case RPLIDAR_RESP_SAMPLERATE:
             return parseDataSampleRate(_First);
+        case RPLIDAR_RESP_CONFIG:
+            return parseConfigResp(_First);
         default:
             cout << "Unknown Descriptor Type: " << (int)descriptor.type << endl;
             return ParseResult::error;
@@ -246,6 +255,38 @@ ResponseParser::ParseResult ResponseParser::parseDataSampleRate(I& start)
     data.sampleRate.standard |= (static_cast<uint16_t>(*start++) << 8);
     data.sampleRate.express = static_cast<uint16_t>(*start++);
     data.sampleRate.express |= (static_cast<uint16_t>(*start++) << 8);
+    return ParseResult::complete;
+}
+
+template<typename I>
+ResponseParser::ParseResult ResponseParser::parseConfigResp(I &start)
+{
+    data.configInfo.type = static_cast<uint32_t>(*start++);
+    data.configInfo.type |= (static_cast<uint32_t>(*start++) << 8);
+    data.configInfo.type |= (static_cast<uint32_t>(*start++) << 16);
+    data.configInfo.type |= (static_cast<uint32_t>(*start++) << 24);
+
+    switch (data.configInfo.type) {
+    case RPLIDAR_CONF_SCAN_MODE_COUNT:
+    case RPLIDAR_CONF_SCAN_MODE_TYPICAL:
+        data.configInfo.data1 = static_cast<uint32_t>(*start++);
+        data.configInfo.data1 |= (static_cast<uint32_t>(*start++) << 8);
+        break;
+    case RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE:
+    case RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE:
+        data.configInfo.data1 = static_cast<uint32_t>(*start++) & 0xFF;
+        data.configInfo.data1 |= ((static_cast<uint32_t>(*start++) << 8) & 0xFF00);
+        data.configInfo.data1 |= ((static_cast<uint32_t>(*start++) << 16) & 0xFF0000);
+        data.configInfo.data1 |= ((static_cast<uint32_t>(*start++) << 24) & 0xFF000000);
+        break;
+    case RPLIDAR_CONF_SCAN_MODE_ANS_TYPE:
+        data.configInfo.data1 = static_cast<uint32_t>(*start++)& 0xFF;;
+        break;
+    case RPLIDAR_CONF_SCAN_MODE_NAME:
+        cout << "UNSUPPORTED: RPLIDAR_CONF_SCAN_MODE_NAME" << endl;
+        break;
+    }
+
     return ParseResult::complete;
 }
 
@@ -362,6 +403,56 @@ std::string rawString(uint16_t value)
     return string(reinterpret_cast<char*>(&value), sizeof(value));
 }
 
+std::string rawString(uint32_t value)
+{
+    return string(reinterpret_cast<char*>(&value), sizeof(value));
+}
+
+std::string getConfCmdString(int subCmd, uint16_t data)
+{
+    char buffer[6] = {0,0,0,0,0,0};
+    buffer[0] = reinterpret_cast<char*>(&subCmd)[0];  // lsb
+    buffer[4] = reinterpret_cast<char*>(&data)[0];
+    buffer[5] = reinterpret_cast<char*>(&data)[1];
+
+    int useLen = 6;
+
+    switch (subCmd) {
+    case RPLIDAR_CONF_SCAN_MODE_COUNT:
+    case RPLIDAR_CONF_SCAN_MODE_TYPICAL:
+        useLen = 4;
+        break;
+    case RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE:
+    case RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE:
+    case RPLIDAR_CONF_SCAN_MODE_ANS_TYPE:
+    case RPLIDAR_CONF_SCAN_MODE_NAME:
+        useLen = 6;
+        break;
+    }
+
+    return string(buffer, useLen);
+}
+
+int packConfCmdToArg1(int subCmd, uint16_t data)
+{
+    int arg1 = subCmd + (static_cast<int>(data) << 16);
+    return arg1;
+}
+
+void unpackConfCmdFromArg1(int arg1, int& subCmd, uint16_t& data)
+{
+    subCmd = arg1 & 0xFFFF;
+    data = arg1 >> 16;
+}
+
+std::string getConfCmdString(int packedCmd)
+{
+    int subCmd;
+    uint16_t data;
+    unpackConfCmdFromArg1(packedCmd, subCmd, data);
+    return getConfCmdString(subCmd, data);
+}
+
 Lidar::Lidar(const std::string& portName, std::function<void (bool startSweep, const LidarData&)> handler)
     : handler{handler}
 {
@@ -372,7 +463,7 @@ Lidar::Lidar(const std::string& portName, std::function<void (bool startSweep, c
 
 Lidar::~Lidar()
 {
-    send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(0), false);
+    send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString((uint16_t)0), false);
     send(RPLIDAR_CMD_STOP,"",false);
 }
 
@@ -452,6 +543,9 @@ void Lidar::update()
                 break;
             case LidarCommandId::none:
                 cout << "Shouldn't really happen" << endl;
+                break;
+            case LidarCommandId::getConfig:
+                send(RPLIDAR_CMD_GET_LIDAR_CONF, getConfCmdString(activeCommand.arg1), true);
                 break;
             }
         }
@@ -613,6 +707,9 @@ void Lidar::processResponse(const ResponseParser::Descriptor& desc, const Respon
         break;
     case RPLIDAR_RESP_SAMPLERATE:
         cout << "Sample Rates    Standard: " << data.sampleRate.standard << "  Express: " << data.sampleRate.express << endl;
+        break;
+    case RPLIDAR_RESP_CONFIG:
+        cout << "Config data: " << data.configInfo.data1 << " Hex: " << std::hex << data.configInfo.data1 << std::dec << endl;
         break;
     }
 }
@@ -826,6 +923,27 @@ void Lidar::cmdBeginExpressScan()
     commands.push_back(LidarCommand{LidarCommandId::beginExpressScan, 0, RESPONSE_TIMEOUT});
 }
 
+//constexpr int RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE = 0x74;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_TYPICAL = 0x7C;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_NAME = 0x7F;
+
+
+void Lidar::cmdReqConfModeCount()
+{
+    commands.push_back(LidarCommand{LidarCommandId::getConfig, packConfCmdToArg1(RPLIDAR_CONF_SCAN_MODE_COUNT, 0), RESPONSE_TIMEOUT});
+}
+
+void Lidar::cmdReqConfUsPerSample(int mode)
+{
+    commands.push_back(LidarCommand{LidarCommandId::getConfig, packConfCmdToArg1(RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE, mode), RESPONSE_TIMEOUT});
+}
+
+void Lidar::cmdReqConfAnsType(int mode)
+{
+    commands.push_back(LidarCommand{LidarCommandId::getConfig, packConfCmdToArg1(RPLIDAR_CONF_SCAN_MODE_ANS_TYPE, mode), RESPONSE_TIMEOUT});
+
+}
+
 
 
 //[distance_sync flags]
@@ -883,3 +1001,4 @@ typedef struct _rplidar_response_hq_capsule_measurement_nodes_t{
     rplidar_response_measurement_node_hq_t node_hq[16];
     uint32_t  crc32;
 } rplidar_response_hq_capsule_measurement_nodes_t;
+

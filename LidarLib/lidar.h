@@ -34,11 +34,17 @@ public:
         uint16_t express;
     };
 
+    struct RespConfigInfo {
+        uint32_t type;
+        uint32_t data1;
+    };
+
     //UNION!
     union RespData {
         RespDeviceInfo devInfo;
         RespDeviceHealth devHealth;
         RespSampleRate sampleRate;
+        RespConfigInfo configInfo;
     };
 
 private:
@@ -74,6 +80,7 @@ private:
     template <typename I> ParseResult parseDataInfo(I& start);
     template <typename I> ParseResult parseDataHealth(I& start);
     template <typename I> ParseResult parseDataSampleRate(I& start);
+    template <typename I> ParseResult parseConfigResp(I& start);
 };
 
 struct ExpressPoint {
@@ -116,6 +123,7 @@ class Lidar
         getHealth,
         getSampleRate,
         beginExpressScan,
+        getConfig
     };
 
     struct LidarCommand {
@@ -183,6 +191,10 @@ public:
     void cmdGetHealth();
     void cmdGetSampleRate();
     void cmdBeginExpressScan();
+    void cmdReqConfModeCount();
+    void cmdReqConfUsPerSample(int mode);
+    void cmdReqConfAnsType(int mode);
+
 };
 
 #endif // LIDAR_H

@@ -144,6 +144,9 @@ int main()
                 case 'G':
                     lidar.cmdBeginScan();
                     break;
+                case 'E':
+                    lidar.cmdBeginExpressScan();
+                    break;
                 case 'R':
                     lidar.cmdReset();
                     break;
@@ -166,6 +169,26 @@ int main()
                     out_raw.open("Raw.csv");
                     out_pts.open("Pts.csv");
                     break;
+                case '0':
+                    lidar.cmdReqConfModeCount();
+                    break;
+                case '1':
+                    lidar.cmdReqConfAnsType(0);
+                    lidar.cmdReqConfUsPerSample(0);
+                    break;
+                case '2':
+                    lidar.cmdReqConfAnsType(1);
+                    lidar.cmdReqConfUsPerSample(1);
+                    break;
+                case '3':
+                    lidar.cmdReqConfAnsType(2);
+                    lidar.cmdReqConfUsPerSample(2);
+                    break;
+                case '4':
+                    lidar.cmdReqConfAnsType(3);
+                    lidar.cmdReqConfUsPerSample(3);
+                    break;
+
                 }
 
                 break;
