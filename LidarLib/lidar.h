@@ -98,12 +98,12 @@ struct LidarData {
 
 class ExpressScanProcessor {
 private:
-    std::array<ExpressPoint,32> packet[2];
+    std::array<ExpressPoint,32> cabin[2];
     double startAngle[2];
     bool isNew[2];
     bool packetValid[2];
-    size_t nextPacketIdx{0};
-    std::vector<LidarData> data;
+    size_t nextCabinIdx{0};
+    int cabinNumber{-1};
 public:
     template <typename I>
     bool parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler);

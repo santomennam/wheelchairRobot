@@ -741,14 +741,77 @@ double angleDiff(double a, double a1)
     }
 }
 
+//template <typename I>
+//bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler)
+//{
+//    size_t prevPacketIdx = nextPacketIdx ? 0 : 1;
+//    size_t currPacketIdx = nextPacketIdx;
+//    nextPacketIdx = prevPacketIdx;
+
+//    if (!rplidarParseExpressScan(start, end, startAngle[currPacketIdx], isNew[currPacketIdx], packet[currPacketIdx])) {
+//        cout << "Error scanning: flush data" << endl;
+//        start = end;
+//        packetValid[currPacketIdx] = false;
+//        return false;
+//    }
+
+//    packetValid[currPacketIdx] = true;
+
+////    if (isNew[currPacketIdx]) {
+////        cout << "Can't process new packet" << endl;
+////        return true;
+////    }
+
+//    bool wasScanStart = isNew[prevPacketIdx];
+
+//    bool prevPacketValid = packetValid[prevPacketIdx];
+
+//    if (!prevPacketValid) {
+//        cout << "Prev Packet Invalid???   can't process this packet";
+//        return true;
+//    }
+
+//    std::array<ExpressPoint,32>& prevPacket = packet[prevPacketIdx];
+//    //std::array<ExpressPoint,32>& currPacket = packet[currPacketIdx];
+
+//    double prevStartAngle = startAngle[prevPacketIdx];
+//    double currStartAngle = startAngle[currPacketIdx];
+
+//    double da = angleDiff(prevStartAngle, currStartAngle);
+
+//    //  cout << "DA: " << da << endl;
+
+//    //  cout << "Angle: " << prevStartAngle << "           "  << currStartAngle << endl;
+
+
+//    for (size_t i = 0; i < 32; i++) {
+//        // cout << prevPacket[i].deltaAngle() << endl;
+
+//        double angle = prevStartAngle + (da/32.0)*i; // - prevPacket[i].deltaAngle();
+//        if (angle > 360.0) {
+//            angle -= 360.0;
+//        }
+//        double distance = prevPacket[i].distance;
+//        int quality = distance > 0 ? 1 : 0;
+
+//        handler(wasScanStart, LidarData{quality, angle, distance});
+
+//        wasScanStart = false;
+//    }
+
+//    return true;
+//}
+
 template <typename I>
 bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler)
 {
-    size_t prevPacketIdx = nextPacketIdx ? 0 : 1;
-    size_t currPacketIdx = nextPacketIdx;
-    nextPacketIdx = prevPacketIdx;
+    // we're just toggling between two indices here
+    // basically a ring buffer with two elements
+    size_t currPacketIdx = nextCabinIdx;
+    size_t prevPacketIdx = (nextCabinIdx+1)%2;
+    nextCabinIdx = prevPacketIdx;
 
-    if (!rplidarParseExpressScan(start, end, startAngle[currPacketIdx], isNew[currPacketIdx], packet[currPacketIdx])) {
+    if (!rplidarParseExpressScan(start, end, startAngle[currPacketIdx], isNew[currPacketIdx], cabin[currPacketIdx])) {
         cout << "Error scanning: flush data" << endl;
         start = end;
         packetValid[currPacketIdx] = false;
@@ -757,10 +820,13 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool 
 
     packetValid[currPacketIdx] = true;
 
-    if (isNew[currPacketIdx]) {
+    if (isNew[currPacketIdx] && cabinNumber < 0) {
+        cabinNumber = 0;
         cout << "Can't process new packet" << endl;
         return true;
     }
+
+    cabinNumber++;
 
     bool wasScanStart = isNew[prevPacketIdx];
 
@@ -771,7 +837,7 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool 
         return true;
     }
 
-    std::array<ExpressPoint,32>& prevPacket = packet[prevPacketIdx];
+    std::array<ExpressPoint,32>& prevPacket = cabin[prevPacketIdx];
     //std::array<ExpressPoint,32>& currPacket = packet[currPacketIdx];
 
     double prevStartAngle = startAngle[prevPacketIdx];
@@ -785,14 +851,14 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool 
 
 
     for (size_t i = 0; i < 32; i++) {
-        // cout << prevPacket[i].deltaAngle() << endl;
+        cout << prevPacket[i].deltaAngle() << endl;
 
-        double angle = prevStartAngle + (da/32.0)*i; // - prevPacket[i].deltaAngle();
+        double angle = prevStartAngle + (da/32.0)*i - prevPacket[i].deltaAngle();
         if (angle > 360.0) {
             angle -= 360.0;
         }
         double distance = prevPacket[i].distance;
-        int quality = distance > 0 ? 1 : 0;
+        int quality = distance > 0 ? 15 : 0;
 
         handler(wasScanStart, LidarData{quality, angle, distance});
 
