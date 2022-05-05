@@ -84,10 +84,10 @@ private:
 };
 
 struct ExpressPoint {
-    uint8_t angleComp; // in 1/8ths of a degree, high bit of 6 bit number is sign.  +- 32/8
+    uint8_t angleComp; // q3.2 format in 1/4ths of a degree, high bit of 6 bit number is sign.  +- 32/8
     uint16_t distance;
 
-    double deltaAngle() { return static_cast<int8_t>(angleComp << 2)/32.0; } //  return (angleComp & 0x20) ? (-static_cast<double>(angleComp & 0x1F)/8.0) : (static_cast<double>(angleComp & 0x1F)/8.0); }
+    double deltaAngle() { return (angleComp & 0x20) ? (-static_cast<double>(angleComp & 0x1F)/4.0) : (static_cast<double>(angleComp & 0x1F)/4.0); }
 };
 
 struct LidarData {
@@ -104,6 +104,7 @@ private:
     bool packetValid[2];
     size_t nextCabinIdx{0};
     int cabinNumber{-1};
+    double lastAngle{360};
 public:
     template <typename I>
     bool parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler);

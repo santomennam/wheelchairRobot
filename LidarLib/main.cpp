@@ -60,7 +60,7 @@ int main()
     vector<vector<Vec2d>> points;
     vector<Vec2d> incomingPoints;
 
-    Lidar lidar("COM10", [&](bool startSweep, const LidarData& point) {
+    Lidar lidar("COM7", [&](bool startSweep, const LidarData& point) {
 
         if (out_raw.is_open()) {
             write(out_raw, startSweep, point);

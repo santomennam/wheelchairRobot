@@ -8,6 +8,8 @@
 #include <array>
 #include "bitrange.h"
 
+#include "rplidar_cmd.h"
+
 constexpr bool verbose = false;
 
 using namespace std;
@@ -18,9 +20,9 @@ constexpr uint64_t COMM_IDLE_THRESHOLD = 75;
 constexpr int      RESPONSE_TIMEOUT = 100;
 constexpr int      SEND_TIMEOUT = 100;
 
-constexpr uint8_t RPLIDAR_CMD_SYNC_BYTE = 0xA5;
-constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE1 = 0xA5;
-constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE2 = 0x5A;
+//constexpr uint8_t RPLIDAR_CMD_SYNC_BYTE = 0xA5;
+//constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE1 = 0xA5;
+//constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE2 = 0x5A;
 
 //constexpr uint8_t RPLIDAR_CMDFLAG_HAS_PAYLOAD = 0x80;
 //constexpr uint8_t RPLIDAR_ANS_PKTFLAG_LOOP = 0x1;
@@ -31,39 +33,39 @@ constexpr uint8_t RPLIDAR_RESP_HEALTH     = 0x06;
 constexpr uint8_t RPLIDAR_RESP_SAMPLERATE = 0x15;
 constexpr uint8_t RPLIDAR_RESP_CONFIG     = 0x20;
 
-constexpr uint8_t RPLIDAR_CMD_STOP        = 0x25;
-constexpr uint8_t RPLIDAR_CMD_SCAN        = 0x20;
-constexpr uint8_t RPLIDAR_CMD_FORCE_SCAN  = 0x21;
-constexpr uint8_t RPLIDAR_CMD_RESET       = 0x40;
+//constexpr uint8_t RPLIDAR_CMD_STOP        = 0x25;
+//constexpr uint8_t RPLIDAR_CMD_SCAN        = 0x20;
+//constexpr uint8_t RPLIDAR_CMD_FORCE_SCAN  = 0x21;
+//constexpr uint8_t RPLIDAR_CMD_RESET       = 0x40;
 
 
 // Commands without payload but have response
-constexpr uint8_t RPLIDAR_CMD_GET_DEVICE_INFO     = 0x50;
-constexpr uint8_t RPLIDAR_CMD_GET_DEVICE_HEALTH   = 0x52;
-constexpr uint8_t RPLIDAR_CMD_GET_SAMPLERATE      = 0x59; //added in fw 1.17
+//constexpr uint8_t RPLIDAR_CMD_GET_DEVICE_INFO     = 0x50;
+//constexpr uint8_t RPLIDAR_CMD_GET_DEVICE_HEALTH   = 0x52;
+//constexpr uint8_t RPLIDAR_CMD_GET_SAMPLERATE      = 0x59; //added in fw 1.17
 
-constexpr uint8_t RPLIDAR_CMD_HQ_MOTOR_SPEED_CTRL = 0xA8;
+//constexpr uint8_t RPLIDAR_CMD_HQ_MOTOR_SPEED_CTRL = 0xA8;
 
 // Commands with payload and have response
-constexpr uint8_t RPLIDAR_CMD_EXPRESS_SCAN   = 0x82; //added in fw 1.17
-constexpr uint8_t RPLIDAR_CMD_HQ_SCAN        = 0x83; //added in fw 1.24
-constexpr uint8_t RPLIDAR_CMD_GET_LIDAR_CONF = 0x84; //added in fw 1.24
-constexpr uint8_t RPLIDAR_CMD_SET_LIDAR_CONF = 0x85; //added in fw 1.24
+//constexpr uint8_t RPLIDAR_CMD_EXPRESS_SCAN   = 0x82; //added in fw 1.17
+//constexpr uint8_t RPLIDAR_CMD_HQ_SCAN        = 0x83; //added in fw 1.24
+//constexpr uint8_t RPLIDAR_CMD_GET_LIDAR_CONF = 0x84; //added in fw 1.24
+//constexpr uint8_t RPLIDAR_CMD_SET_LIDAR_CONF = 0x85; //added in fw 1.24
 
-constexpr int RPLIDAR_CONF_SCAN_MODE_COUNT = 0x70;
-constexpr int RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE = 0x71;
-constexpr int RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE = 0x74;
-constexpr int RPLIDAR_CONF_SCAN_MODE_ANS_TYPE = 0x75;
-constexpr int RPLIDAR_CONF_SCAN_MODE_TYPICAL = 0x7C;
-constexpr int RPLIDAR_CONF_SCAN_MODE_NAME = 0x7F;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_COUNT = 0x70;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE = 0x71;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE = 0x74;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_ANS_TYPE = 0x75;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_TYPICAL = 0x7C;
+//constexpr int RPLIDAR_CONF_SCAN_MODE_NAME = 0x7F;
 
-//add for A2 to set RPLIDAR motor pwm when using accessory board
-constexpr uint8_t RPLIDAR_CMD_SET_MOTOR_PWM      = 0xF0;
-constexpr uint8_t RPLIDAR_CMD_GET_ACC_BOARD_FLAG = 0xFF;
+////add for A2 to set RPLIDAR motor pwm when using accessory board
+//constexpr uint8_t RPLIDAR_CMD_SET_MOTOR_PWM      = 0xF0;
+//constexpr uint8_t RPLIDAR_CMD_GET_ACC_BOARD_FLAG = 0xFF;
 
 
-#define RPLIDAR_ANS_HEADER_SIZE_MASK        0x3FFFFFFF
-#define RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT    (30)
+//#define RPLIDAR_ANS_HEADER_SIZE_MASK        0x3FFFFFFF
+//#define RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT    (30)
 
 void displayHex(string data)
 {
@@ -384,6 +386,8 @@ bool rplidarParseExpressScan(_RanIt& _First, const _RanIt _Last, double& startAn
         uint8_t c2 = static_cast<uint8_t>(*_First++);
         uint8_t c3 = static_cast<uint8_t>(*_First++);
         uint8_t c4 = static_cast<uint8_t>(*_First++);
+
+        // |000000|
 
         packet[i*2].angleComp =  static_cast<uint8_t>(((c0 & 0x03) << 4) | (c4 & 0x0F));
         packet[i*2].distance = static_cast<uint16_t>((c1 << 6) | (c0 >> 2));
@@ -828,7 +832,10 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool 
 
     cabinNumber++;
 
-    bool wasScanStart = isNew[prevPacketIdx];
+    if (isNew[prevPacketIdx]) {
+        cout << "Restart: " << cabinNumber << endl;
+        cabinNumber = 0;
+    }
 
     bool prevPacketValid = packetValid[prevPacketIdx];
 
@@ -838,31 +845,40 @@ bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool 
     }
 
     std::array<ExpressPoint,32>& prevPacket = cabin[prevPacketIdx];
-    //std::array<ExpressPoint,32>& currPacket = packet[currPacketIdx];
 
     double prevStartAngle = startAngle[prevPacketIdx];
     double currStartAngle = startAngle[currPacketIdx];
 
     double da = angleDiff(prevStartAngle, currStartAngle);
 
-    //  cout << "DA: " << da << endl;
+//     cout << "DA: " << da << endl;
 
-    //  cout << "Angle: " << prevStartAngle << "           "  << currStartAngle << endl;
+//    cout << "Angle: " << prevStartAngle << "           "  << currStartAngle << endl;
 
 
     for (size_t i = 0; i < 32; i++) {
-        cout << prevPacket[i].deltaAngle() << endl;
+        cout << "Inc: " << (da/32.0) << " Adj: " << prevPacket[i].deltaAngle() << " Angle: ";
 
         double angle = prevStartAngle + (da/32.0)*i - prevPacket[i].deltaAngle();
+
         if (angle > 360.0) {
             angle -= 360.0;
         }
+
+        cout << angle << endl;
+
+        bool isScanStart = lastAngle > 200 && angle < 100;  // did we wrap from 360 back around to 0?
+
+//        if (isScanStart) {
+//           cout << "Sweep complete" << endl;
+//        }
+
         double distance = prevPacket[i].distance;
         int quality = distance > 0 ? 15 : 0;
 
-        handler(wasScanStart, LidarData{quality, angle, distance});
+        handler(isScanStart, LidarData{quality, angle, distance});
 
-        wasScanStart = false;
+        lastAngle = angle;
     }
 
     return true;
@@ -1012,59 +1028,59 @@ void Lidar::cmdReqConfAnsType(int mode)
 
 
 
-//[distance_sync flags]
-#define RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK           (0x3)
-#define RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK        (0xFC)
+////[distance_sync flags]
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK           (0x3)
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK        (0xFC)
 
-typedef struct _rplidar_response_cabin_nodes_t {
-    uint16_t   distance_angle_1; // see [distance_sync flags]
-    uint16_t   distance_angle_2; // see [distance_sync flags]
-    uint8_t    offset_angles_q3;
-}  rplidar_response_cabin_nodes_t;
+//typedef struct _rplidar_response_cabin_nodes_t {
+//    uint16_t   distance_angle_1; // see [distance_sync flags]
+//    uint16_t   distance_angle_2; // see [distance_sync flags]
+//    uint8_t    offset_angles_q3;
+//}  rplidar_response_cabin_nodes_t;
 
 
-#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_1               0xA
-#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_2               0x5
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_1               0xA
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_2               0x5
 
-#define RPLIDAR_RESP_MEASUREMENT_HQ_SYNC                  0xA5
+//#define RPLIDAR_RESP_MEASUREMENT_HQ_SYNC                  0xA5
 
-#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT              (0x1<<15)
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT              (0x1<<15)
 
-typedef struct _rplidar_response_capsule_measurement_nodes_t {
-    uint8_t                             s_checksum_1; // see [s_checksum_1]
-    uint8_t                             s_checksum_2; // see [s_checksum_1]
-    uint16_t                            start_angle_sync_q6;
-    rplidar_response_cabin_nodes_t  cabins[16];
-}  rplidar_response_capsule_measurement_nodes_t;
-// ext1 : x2 boost mode
+//typedef struct _rplidar_response_capsule_measurement_nodes_t {
+//    uint8_t                             s_checksum_1; // see [s_checksum_1]
+//    uint8_t                             s_checksum_2; // see [s_checksum_1]
+//    uint16_t                            start_angle_sync_q6;
+//    rplidar_response_cabin_nodes_t  cabins[16];
+//}  rplidar_response_capsule_measurement_nodes_t;
+//// ext1 : x2 boost mode
 
-#define RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_MAJOR_BITS     12
-#define RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_PREDICT_BITS   10
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_MAJOR_BITS     12
+//#define RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_PREDICT_BITS   10
 
-typedef struct _rplidar_response_ultra_cabin_nodes_t {
-    // 31                                              0
-    // | predict2 10bit | predict1 10bit | major 12bit |
-    uint32_t combined_x3;
-}  rplidar_response_ultra_cabin_nodes_t;
+//typedef struct _rplidar_response_ultra_cabin_nodes_t {
+//    // 31                                              0
+//    // | predict2 10bit | predict1 10bit | major 12bit |
+//    uint32_t combined_x3;
+//}  rplidar_response_ultra_cabin_nodes_t;
 
-typedef struct _rplidar_response_ultra_capsule_measurement_nodes_t {
-    uint8_t                             s_checksum_1; // see [s_checksum_1]
-    uint8_t                             s_checksum_2; // see [s_checksum_1]
-    uint16_t                            start_angle_sync_q6;
-    rplidar_response_ultra_cabin_nodes_t  ultra_cabins[32];
-}  rplidar_response_ultra_capsule_measurement_nodes_t;
+//typedef struct _rplidar_response_ultra_capsule_measurement_nodes_t {
+//    uint8_t                             s_checksum_1; // see [s_checksum_1]
+//    uint8_t                             s_checksum_2; // see [s_checksum_1]
+//    uint16_t                            start_angle_sync_q6;
+//    rplidar_response_ultra_cabin_nodes_t  ultra_cabins[32];
+//}  rplidar_response_ultra_capsule_measurement_nodes_t;
 
-typedef struct rplidar_response_measurement_node_hq_t {
-    uint16_t   angle_z_q14;
-    uint32_t   dist_mm_q2;
-    uint8_t    quality;
-    uint8_t    flag;
-}  rplidar_response_measurement_node_hq_t;
+//typedef struct rplidar_response_measurement_node_hq_t {
+//    uint16_t   angle_z_q14;
+//    uint32_t   dist_mm_q2;
+//    uint8_t    quality;
+//    uint8_t    flag;
+//}  rplidar_response_measurement_node_hq_t;
 
-typedef struct _rplidar_response_hq_capsule_measurement_nodes_t{
-    uint8_t sync_byte;
-    uint64_t time_stamp;
-    rplidar_response_measurement_node_hq_t node_hq[16];
-    uint32_t  crc32;
-} rplidar_response_hq_capsule_measurement_nodes_t;
+//typedef struct _rplidar_response_hq_capsule_measurement_nodes_t{
+//    uint8_t sync_byte;
+//    uint64_t time_stamp;
+//    rplidar_response_measurement_node_hq_t node_hq[16];
+//    uint32_t  crc32;
+//} rplidar_response_hq_capsule_measurement_nodes_t;
 
