@@ -254,6 +254,7 @@ void World::sensorCoords()
   //  cout << "ND: " << newlyDetected.size() << endl;
     for(auto& point : newlyDetected)
     {
+        point = point*(1/25.4); //convert from mm to in
         point.rotate(posTracker.getAngle());
         point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
       //  sensedCoords.push_back(point);

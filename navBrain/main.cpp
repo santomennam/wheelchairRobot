@@ -91,7 +91,7 @@ void graphicsMain(Graphics& g)
     Vec2d trackingPair;
     bool clicked = false;
     Vec2d point;
-    vector<Vec2d> points;
+    vector<Vec2d> pathPoints;
     double width = 10000;
     double height = 10000;
 
@@ -213,7 +213,15 @@ void graphicsMain(Graphics& g)
 
         world.updateTargets();
 
-
+        if(pathPoints.size())
+        {
+            vector<Vec2d> tmp = pathPoints;
+            for(auto& n : tmp)
+            {
+                n=world.view.worldToScreen(n);
+            }
+            g.polyline(tmp,GREEN);
+        }
 
         if(world.targetsChanged && world.targets.size())
         {
@@ -313,7 +321,7 @@ void graphicsMain(Graphics& g)
                 if(e.arg == 1)
                 {
                     if(clicked){
-                        points = world.tree.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
+                        pathPoints = world.tree.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
                         clicked = false;
                     }
                     else{
