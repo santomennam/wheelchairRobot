@@ -36,6 +36,8 @@ public:
     std::vector<Vec2d> newlyDetected;
     std::vector<Vec2d> alreadyDetected;
 
+
+
 //    std::string incomingData;
 //    std::string receivedCommand;
 //    std::string receivedError;

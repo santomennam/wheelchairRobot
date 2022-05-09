@@ -44,6 +44,22 @@ void resetDestination(BotConnection& bot, World& world, Vec2d destination)
     cout<<"Initial target size: "<<to_string(world.targets.size())<<endl;
 }
 
+vector<Vec2d> parser(istream& file)
+{
+    vector<Vec2d> pts;
+    string line;
+    while(getline(file,line))
+    {
+        stringstream ss(line);
+        Vec2d pt;
+        ss>>pt.x;
+        ss.ignore(1);
+        ss>>pt.y;
+        pts.push_back(pt);
+    }
+    return pts;
+}
+
 
 void graphicsMain(Graphics& g)
 {
@@ -119,6 +135,9 @@ void graphicsMain(Graphics& g)
     vector<double> leftMotorSpeed;
     vector<double> rightMotorSpeed;
 
+    ifstream lidarSimPoints(R"(C:\Users\Marcello Santomenna\wheelchairRobot\navBrain\data\Pts.csv)");
+    vector<Vec2d> lidarPoints = parser(lidarSimPoints);
+
     while (g.draw()) {
         g.clear();
 
@@ -193,6 +212,8 @@ void graphicsMain(Graphics& g)
         }
 
         world.updateTargets();
+
+
 
         if(world.targetsChanged && world.targets.size())
         {
@@ -398,8 +419,9 @@ void graphicsMain(Graphics& g)
                     world.showBeam = !world.showBeam;
                     break;
                 case 'O':
-                    world.placeObstaclesFromList({{0,0},{1,0},{0,1},{1,1}});
-                   // world.createRandomObstacles(g);
+                    world.placeObstaclesFromList(vector<Vec2d>(lidarPoints.begin(),lidarPoints.begin()+50));
+                    lidarPoints.erase(lidarPoints.begin(),lidarPoints.begin()+50);
+//                   world.createRandomObstacles(g);
                     break;
                 }
                 break;

@@ -123,7 +123,7 @@ void Node::visitStuff(std::set<Node *> &visited,std::ostream &strm)
     {
         strm<<i<<" ";
     }
-    //beginning of combining 0x10e5d58 and 0x10e5d58 , this = 0x27d3f6a8
+
     strm<<" # "<<endl;
     for(Node* n : adjacents)
     {

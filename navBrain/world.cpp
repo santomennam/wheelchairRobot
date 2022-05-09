@@ -251,26 +251,15 @@ void World::draw(Graphics &g)
 
 void World::sensorCoords()
 {
+  //  cout << "ND: " << newlyDetected.size() << endl;
     for(auto& point : newlyDetected)
     {
         point.rotate(posTracker.getAngle());
-        point = point + posTracker.getPos(); // take the lidar points, centered around the origin, and center them about the robot
-        sensedCoords.push_back(point);
+        point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
+      //  sensedCoords.push_back(point);
     }
-//    if(robot.measureStep2(obstacles) > 0) // was >=
-//    {
-//        //  cout<<"yes"<<endl;
-//        Vec2d point(robot.position);
-//        Vec2d offset{robot.measureStep2(obstacles)*10,0};
-//        offset.rotate(robot.angle);
-//        cout<<"offset: "<<offset.magnitude()<<endl;
-//        point = robot.position + offset;
-//        //        point.rotate(robot.angle);
-//        sensedCoords.push_back(point);
-//        newlyDetected.push_back(point);
-
-//        // cout << "ND: " << newlyDetected.size() << endl;
-//    }
+   // cout << "Sensed: " << sensedCoords.size() << endl;
+    //clear newlyDetected?
 }
 
 void World::createRandomObstacles(Graphics &g)
@@ -278,10 +267,12 @@ void World::createRandomObstacles(Graphics &g)
     int q = g.randomInt(3,10);
     for(int i = 0; i <q;i++)
     {
-        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
-        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
-        obstacle.interpolate();
-        obstacles.push_back(obstacle);
+        newlyDetected.push_back({g.randomDouble(100,500),g.randomDouble(0,500)});
+
+//        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
+//        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
+//        obstacle.interpolate();
+//        obstacles.push_back(obstacle);
 
     }
 
@@ -295,9 +286,7 @@ void World::placeObstacle(Vec2d point)
 
 void World::placeObstaclesFromList(std::vector<Vec2d> points)
 {
-    for(auto point : points){
-        placeObstacle(point);
-    }
+    newlyDetected = points;
 }
 
 void World::makeNewArea()
@@ -317,11 +306,11 @@ void World::makeNewArea()
 
         }
         if(cont){
-            //cout<<"new points, making area"<<endl;
+            cout<<"new points, making area"<<endl;
             alreadyDetected.push_back(newlyDetected[0]);
             newlyDetected.erase(newlyDetected.begin());
-            cout<<"x: "<<alreadyDetected.back().x<< " y: "<<alreadyDetected.back().y<<endl;
-            cout<<"position x: "<<robot.position.x<<" position y: "<<robot.position.y<<endl;
+            cout<<" detected point at x: "<<alreadyDetected.back().x<< " y: "<<alreadyDetected.back().y<<endl;
+            cout<<"robot position x: "<<robot.position.x<<" position y: "<<robot.position.y<<endl;
             strm.close();
             strm.open("writeNode.txt");
             tree.visitStuff(strm);
