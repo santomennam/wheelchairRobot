@@ -46,6 +46,7 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     CmdLink.cpp
     lidar.cpp
     lidar.h
+    bitrange.h
 )
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 #set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -158,7 +159,7 @@ target_sources(${PROJECT_NAME} PUBLIC
     third_party/lidar_sdk/sl_lidar_driver.h
 
     third_party/lidar_sdk/sl_lidar_driver.cpp
-
+    third_party/lidar_sdk/sl_crc.cpp
 )
 
 if(INCLUDE_SOUND)

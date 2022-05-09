@@ -6,6 +6,7 @@
 #include <array>
 #include <functional>
 #include <chrono>
+#include <memory>
 
 class ResponseParser {
 public:
@@ -52,6 +53,7 @@ private:
         int  descriptorSize;
         bool needDescriptor;
         bool needData;
+        bool hasDescriptor{false};
     };
 
     ParseState state;
@@ -69,6 +71,7 @@ public:
     ResponseParser();
 
     void reset();
+    bool hasDescriptor() const { return state.hasDescriptor; }
 
     template <typename I>
     ParseResult parse(I& start, const I end);
@@ -110,9 +113,28 @@ public:
     bool parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler);
 };
 
+typedef uint32_t sl_result;
+
+class LidarProcessor {
+public:
+    virtual sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData) = 0;
+
+};
+
+class LidarDataProcessor {
+
+    std::unique_ptr<LidarProcessor> proc;
+public:
+    sl_result init(uint8_t scanAnsType, uint32_t header_size);
+    sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData);
+
+};
+
 class Lidar
 {
     SerialPort port;
+
+    LidarDataProcessor processor;
 
     enum class LidarCommandId {
         none,
@@ -197,5 +219,7 @@ public:
     void cmdReqConfAnsType(int mode);
 
 };
+
+
 
 #endif // LIDAR_H

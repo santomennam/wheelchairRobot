@@ -43,6 +43,8 @@ void write(ostream& strm, bool isStartScan, const LidarData& data)
     strm << (isStartScan ? 1 : 0) << ", " << data.quality << ", " << data.angle << ", " << data.distance << endl;
 }
 
+#include "bitrange.h"
+using namespace twiddle;
 
 int main()
 {

@@ -1,6 +1,8 @@
 #ifndef BITRANGE_H
 #define BITRANGE_H
 
+
+
 #include <limits>
 #include <bitset>
 #include <iostream>
@@ -98,7 +100,8 @@ namespace twiddle {
 
       constexpr T masked() const { return mask() & value; }
 
-      constexpr T val() const { return std::is_signed<T>::value ? (highBitExtended() >> LO_BIT) : (masked() >> LO_BIT); }
+      constexpr T val() const { return std::is_signed<T>::value ? ((highBitExtended() ) >> LO_BIT) : (masked() >> LO_BIT); }
+      constexpr T raw() const { return value; }
 
       constexpr explicit operator T() const { return val(); }
 
@@ -109,7 +112,8 @@ namespace twiddle {
         constexpr R shiftedToPosNotMasked() const
         { return (POS <= LO_BIT ? (static_cast<typename std::make_unsigned<R>::type>(value) >> (LO_BIT-POS)) : (static_cast<R>(value) << (POS-LO_BIT))) ; }
       constexpr bool hiBitSet() const { return value & (1 << HI_BIT); }
-      constexpr T highBitExtended() const { return hiBitSet() ? (twiddle::mask<bitCount<T>()-1, HI_BIT, T>() | value) : (twiddle::mask<HI_BIT, 0, T>() & value); }
+//      constexpr T highBitExtended() const { return hiBitSet() ? (twiddle::mask<bitCount<T>()-1, HI_BIT, T>() | value) : (twiddle::mask<HI_BIT, 0, T>() & value); }
+      constexpr T highBitExtended() const { return hiBitSet() ? (twiddle::mask<bitCount<T>()-1, HI_BIT, T>() | value) : value; }
 //      template <typename R>
 //      constexpr R get() const { return (bitCount<R>() <= numBits()) ? (static_cast<typename std::make_unsigned<R>::type>(value) >> LO_BIT) : (static_cast<typename std::make_unsigned<R>::type>(masked()) >> LO_BIT); }
 //      constexpr T getRaw() const { return value; }
