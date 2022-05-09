@@ -38,6 +38,7 @@ public:
     struct RespConfigInfo {
         uint32_t type;
         uint32_t data1;
+
     };
 
     //UNION!
@@ -48,6 +49,7 @@ public:
         RespConfigInfo configInfo;
     };
 
+    std::string respDataName;
 private:
     struct ParseState {
         int  descriptorSize;
@@ -117,16 +119,16 @@ typedef uint32_t sl_result;
 
 class LidarProcessor {
 public:
-    virtual sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData) = 0;
-
+    virtual sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData, std::function<void(bool startSweep, const LidarData& point)> handler) = 0;
+    void dispatch(double angle, double distance, int quality);
 };
 
 class LidarDataProcessor {
-
+private:
     std::unique_ptr<LidarProcessor> proc;
 public:
     sl_result init(uint8_t scanAnsType, uint32_t header_size);
-    sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData);
+    sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData, std::function<void(bool startSweep, const LidarData& point)> handler);
 
 };
 
@@ -213,11 +215,12 @@ public:
     void cmdGetInfo();
     void cmdGetHealth();
     void cmdGetSampleRate();
-    void cmdBeginExpressScan();
+    void cmdBeginExpressScan(int expressMode);
     void cmdReqConfModeCount();
     void cmdReqConfUsPerSample(int mode);
     void cmdReqConfAnsType(int mode);
-
+    void cmdReqConfName(int mode);
+    void cmdReqTypicalMode();
 };
 
 
