@@ -1297,8 +1297,6 @@ class StdProcessor : public LidarProcessor {
     bool _isScanning{false};
     sl_lidar_response_measurement_node_t node;
 
-    //    sl_lidar_response_measurement_node_t      local_buf[256];
-
     virtual sl_result processIncoming(int recvSize, uint8_t* recvData, int& remainData, std::function<void(bool startSweep, const LidarData& point)> handler) override;
     //  sl_result _waitScanData(int recvSize, uint8_t* recvData, int& remainData);
     sl_result _waitNode(int recvSize, uint8_t* recvData, int& remainData);
@@ -1387,13 +1385,7 @@ sl_result StdProcessor::_waitNode(int recvSize, uint8_t* recvData, int& remainDa
 
 sl_result StdProcessor::processIncoming(int recvSize, uint8_t* recvData, int& remainData, std::function<void(bool startSweep, const LidarData& point)> handler)
 {
-
-    //   sl_lidar_response_measurement_node_t      local_buf[256];
-    //   size_t                                   count = 256;
-    // sl_lidar_response_measurement_node_hq_t   local_scan[MAX_SCAN_NODES];
-    //  size_t                                   scan_count = 0;
-
-    sl_result ans = _waitNode(recvSize, recvData, remainData); // // always discard the first data since it may be incomplete
+    sl_result ans = _waitNode(recvSize, recvData, remainData);
 
     if (ans != SL_RESULT_OK) {
         return ans;
@@ -1404,53 +1396,24 @@ sl_result StdProcessor::processIncoming(int recvSize, uint8_t* recvData, int& re
     sl_lidar_response_measurement_node_hq_t nodeHq;
     convert(node, nodeHq);
 
-    bool syncBit2 = nodeHq.flag & 0x01;
-
-    if (syncBit != syncBit2) {
-        cout << "Huh" << endl;
-    }
-
     LidarData data;
     data.angle = getAngle(nodeHq);
-    data.distance = getDistanceQ2(nodeHq);
+    data.distance = getDistanceQ2(nodeHq)/4;
     data.quality = nodeHq.quality;
-    handler(nodeHq.flag & 0x01, data);
 
-
-    //    cout << count << " data in local_buf.  What to do with it?" << endl;
-
-
-
-
-    //    cout << "Actually need some data here1" << endl;
-    //    for (size_t pos = 0; pos < count; ++pos) {
-    //        if (local_buf[pos].sync_quality & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT) {
-    //            // only publish the data when it contains a full 360 degree scan
-
-    //            if ((local_scan[0].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT)) {
-    //                memcpy(_cached_scan_node_hq_buf, local_scan, scan_count * sizeof(sl_lidar_response_measurement_node_hq_t));
-    //                _cached_scan_node_hq_count = scan_count;
-    //            }
-    //            scan_count = 0;
-    //        }
-
-    //        sl_lidar_response_measurement_node_hq_t nodeHq;
-    //        sl::convert(local_buf[pos], nodeHq);
-    //        local_scan[scan_count++] = nodeHq;
-    //        if (scan_count == _countof(local_scan)) scan_count -= 1; // prevent overflow
-
-    //        //for interval retrieve
-    //        {
-    //            _cached_scan_node_hq_buf_for_interval_retrieve[_cached_scan_node_hq_count_for_interval_retrieve++] = nodeHq;
-    //            if (_cached_scan_node_hq_count_for_interval_retrieve == _countof(_cached_scan_node_hq_buf_for_interval_retrieve)) _cached_scan_node_hq_count_for_interval_retrieve -= 1; // prevent overflow
-    //        }
-    //    }
+    if (data.isOk() || (nodeHq.flag & 0x01)) {
+        handler(nodeHq.flag & 0x01, data);
+    }
 
     return SL_RESULT_OK;
 }
 
 
 class HQDataProcessor  : public LidarProcessor {
+    constexpr static size_t maxCount{256};
+    sl_lidar_response_measurement_node_hq_t  local_buf[maxCount];
+    size_t                                   count = maxCount;
+
     int  recvPos = 0;
 
     bool _isScanning{false};
@@ -1539,48 +1502,28 @@ sl_result HQDataProcessor::_waitHqNode(int recvSize, uint8_t* recvData, int& rem
 
 sl_result HQDataProcessor::processIncoming(int recvSize, uint8_t *recvData, int &remainData, std::function<void(bool startSweep, const LidarData& point)> handler)
 {
-    sl_lidar_response_measurement_node_hq_t  local_buf[256];
-    size_t                                   count = 256;
-    sl_lidar_response_measurement_node_hq_t  local_scan[MAX_SCAN_NODES];
-    size_t                                   scan_count = 0;
-
     sl_result ans = _waitHqNode(recvSize, recvData, remainData);
 
     if (ans != SL_RESULT_OK) {
+        count = 0;
         return ans;
     }
 
+    count = maxCount;
+
     _HqToNormal(hq_node, local_buf, count);
 
-    cout << count << " HQ: data in local_buf.  What to do with it?" << endl;
+    //cout << count << " HQ: data in local_buf.  What to do with it?" << endl;
 
     for (int i = 0; i < count; i++) {
         LidarData data;
         data.angle = getAngle(local_buf[i]);
-        data.distance = getDistanceQ2(local_buf[i]);
+        data.distance = getDistanceQ2(local_buf[i])/4;
         data.quality = local_buf[i].quality;
-        handler(local_buf[i].flag & 0x01, data);
+        if (data.isOk()  || (local_buf[i].flag & 0x01)) {
+            handler(local_buf[i].flag & 0x01, data);
+        }
     }
-
-    //        for (size_t pos = 0; pos < count; ++pos){
-    //            if (local_buf[pos].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT){
-    //                // only publish the data when it contains a full 360 degree scan
-    //                if ((local_scan[0].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT)) {
-    //                    memcpy(_cached_scan_node_hq_buf, local_scan, scan_count * sizeof(sl_lidar_response_measurement_node_hq_t));
-    //                    _cached_scan_node_hq_count = scan_count;
-    //                }
-    //                scan_count = 0;
-    //            }
-    //            local_scan[scan_count++] = local_buf[pos];
-    //            if (scan_count == _countof(local_scan)) scan_count -= 1; // prevent overflow
-    //            //for interval retrieve
-    //            {
-    //                _cached_scan_node_hq_buf_for_interval_retrieve[_cached_scan_node_hq_count_for_interval_retrieve++] = local_buf[pos];
-    //                if (_cached_scan_node_hq_count_for_interval_retrieve == _countof(_cached_scan_node_hq_buf_for_interval_retrieve)) _cached_scan_node_hq_count_for_interval_retrieve -= 1; // prevent overflow
-    //            }
-    //        }
-
-    //    }
 
     return SL_RESULT_OK;
 }
@@ -1599,6 +1542,10 @@ void HQDataProcessor::_HqToNormal(const sl_lidar_response_hq_capsule_measurement
 }
 
 class UltraCapsuleProcessor  : public LidarProcessor {
+    constexpr static size_t maxCount{256};
+    sl_lidar_response_measurement_node_hq_t  local_buf[maxCount];
+    size_t                                   count = maxCount;
+
     int  recvPos = 0;
     sl_lidar_response_ultra_capsule_measurement_nodes_t    ultra_capsule_node;
 
@@ -1696,10 +1643,9 @@ sl_result UltraCapsuleProcessor::_waitUltraCapsuledNode(int recvSize, uint8_t* r
 sl_result UltraCapsuleProcessor::processIncoming(int recvSize, uint8_t *recvData, int &remainData, std::function<void(bool startSweep, const LidarData& point)> handler)
 {
 
-    sl_lidar_response_measurement_node_hq_t   local_buf[256];
-    size_t                                   count = 256;
+
     //    sl_lidar_response_measurement_node_hq_t   local_scan[MAX_SCAN_NODES];
-    size_t                                   scan_count = 0;
+    //size_t                                   scan_count = 0;
     //    Result<nullptr_t>                        ans = SL_RESULT_OK;
     //    memset(local_scan, 0, sizeof(local_scan));
 
@@ -1709,40 +1655,21 @@ sl_result UltraCapsuleProcessor::processIncoming(int recvSize, uint8_t *recvData
         return ans;
     }
 
+    count = maxCount;
+
     _ultraCapsuleToNormal(ultra_capsule_node, local_buf, count);
 
-    cout << count << " Ultra data in local_buf.  What to do with it?" << endl;
+    //cout << count << " Ultra data in local_buf.  What to do with it?" << endl;
 
     for (int i = 0; i < count; i++) {
         LidarData data;
         data.angle = getAngle(local_buf[i]);
-        data.distance = getDistanceQ2(local_buf[i]);
+        data.distance = getDistanceQ2(local_buf[i])/4;
         data.quality = local_buf[i].quality;
-        handler(local_buf[i].flag & 0x01, data);
+        if (data.isOk() || (local_buf[i].flag & 0x01)) {
+            handler(local_buf[i].flag & 0x01, data);
+        }
     }
-
-    //        for (size_t pos = 0; pos < count; ++pos) {
-    //            if (local_buf[pos].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT) {
-    //                // only publish the data when it contains a full 360 degree scan
-
-    //                if ((local_scan[0].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT)) {
-    //                    memcpy(_cached_scan_node_hq_buf, local_scan, scan_count * sizeof(sl_lidar_response_measurement_node_hq_t));
-    //                    _cached_scan_node_hq_count = scan_count;
-    //                }
-    //                scan_count = 0;
-    //            }
-    //            local_scan[scan_count++] = local_buf[pos];
-    //            if (scan_count == _countof(local_scan)) scan_count -= 1; // prevent overflow
-
-    //            //for interval retrieve
-    //            {
-    //                _cached_scan_node_hq_buf_for_interval_retrieve[_cached_scan_node_hq_count_for_interval_retrieve++] = local_buf[pos];
-    //                if (_cached_scan_node_hq_count_for_interval_retrieve == _countof(_cached_scan_node_hq_buf_for_interval_retrieve)) _cached_scan_node_hq_count_for_interval_retrieve -= 1; // prevent overflow
-    //            }
-    //        }
-    //    }
-
-    //    _isScanning = false;
 
     return SL_RESULT_OK;
 }
@@ -1861,6 +1788,8 @@ void UltraCapsuleProcessor::_ultraCapsuleToNormal(const sl_lidar_response_ultra_
 }
 
 class CapsuleProcessor  : public LidarProcessor {
+
+
 public:
     enum class CapsuleType {
         NORMAL_CAPSULE = 0,
@@ -1869,6 +1798,10 @@ public:
 
 
 private:
+    constexpr static size_t maxCount{256};
+    sl_lidar_response_measurement_node_hq_t  local_buf[maxCount];
+    size_t                                   count = maxCount;
+
     int  recvPos = 0;
     sl_lidar_response_capsule_measurement_nodes_t       capsule_node;
 
@@ -1892,18 +1825,14 @@ public:
 
 sl_result CapsuleProcessor::processIncoming(int recvSize, uint8_t *recvData, int &remainData, std::function<void(bool startSweep, const LidarData& point)> handler)
 {
-    sl_lidar_response_measurement_node_hq_t          local_buf[256];
-    size_t                                           count = 256;
-    //  sl_lidar_response_measurement_node_hq_t          local_scan[MAX_SCAN_NODES];
-    //   size_t                                           scan_count = 0;
-
-    //   memset(local_scan, 0, sizeof(local_scan));
-
     sl_result ans = _waitCapsuledNode(recvSize, recvData, remainData); // // always discard the first data since it may be incomplete
 
     if (ans != SL_RESULT_OK) {
+        count = 0;
         return ans;
     }
+
+    count = maxCount;
 
     switch (_cached_capsule_flag) {
     case CapsuleType::NORMAL_CAPSULE:
@@ -1914,37 +1843,17 @@ sl_result CapsuleProcessor::processIncoming(int recvSize, uint8_t *recvData, int
         break;
     }
 
-    cout << count << " Capule: data in local_buf.  What to do with it?" << endl;
+    //cout << count << " Capule: data in local_buf.  What to do with it?" << endl;
 
     for (int i = 0; i < count; i++) {
         LidarData data;
         data.angle = getAngle(local_buf[i]);
-        data.distance = getDistanceQ2(local_buf[i]);
+        data.distance = getDistanceQ2(local_buf[i])/4;
         data.quality = local_buf[i].quality;
-        handler(local_buf[i].flag & 0x01, data);
+        if (data.isOk() || (local_buf[i].flag & 0x01)) {
+            handler(local_buf[i].flag & 0x01, data);
+        }
     }
-
-    //        for (size_t pos = 0; pos < count; ++pos) {
-    //            if (local_buf[pos].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT) {
-    //                // only publish the data when it contains a full 360 degree scan
-
-    //                if ((local_scan[0].flag & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT)) {
-    //                    memcpy(_cached_scan_node_hq_buf, local_scan, scan_count * sizeof(sl_lidar_response_measurement_node_hq_t));
-    //                    _cached_scan_node_hq_count = scan_count;
-    //                }
-    //                scan_count = 0;
-    //            }
-    //            local_scan[scan_count++] = local_buf[pos];
-    //            if (scan_count == _countof(local_scan)) scan_count -= 1; // prevent overflow
-
-    //            //for interval retrieve
-    //            {
-    //                _cached_scan_node_hq_buf_for_interval_retrieve[_cached_scan_node_hq_count_for_interval_retrieve++] = local_buf[pos];
-    //                if (_cached_scan_node_hq_count_for_interval_retrieve == _countof(_cached_scan_node_hq_buf_for_interval_retrieve)) _cached_scan_node_hq_count_for_interval_retrieve -= 1; // prevent overflow
-    //            }
-    //        }
-    //    }
-    //    _isScanning = false;
 
     return SL_RESULT_OK;
 }
@@ -2142,29 +2051,8 @@ void CapsuleProcessor::_dense_capsuleToNormal(const sl_lidar_response_capsule_me
     _is_previous_capsuledataRdy = true;
 }
 
-
-
-
-
 sl_result LidarDataProcessor::init(uint8_t scanAnsType, uint32_t header_size)
 {
-    //uint32_t header_size = (response_header.size_q30_subtype & SL_LIDAR_ANS_HEADER_SIZE_MASK);
-
-
-    //                if (response_header.type != SL_LIDAR_ANS_TYPE_MEASUREMENT) {
-    //                    return SL_RESULT_INVALID_DATA;
-    //                }
-
-    //                uint32_t header_size = (response_header.size_q30_subtype & SL_LIDAR_ANS_HEADER_SIZE_MASK);
-    //                if (header_size < sizeof(sl_lidar_response_measurement_node_t)) {
-    //                    return SL_RESULT_INVALID_DATA;
-    //                }
-    //                _isScanning = true;
-    //                _cachethread = CLASS_THREAD(SlamtecLidarDriver, _cacheScanData);
-    //                if (_cachethread.getHandle() == 0) {
-    //                    return SL_RESULT_OPERATION_FAIL;
-    //                }
-
     if (scanAnsType == SL_LIDAR_ANS_TYPE_MEASUREMENT) {
         if (header_size < sizeof(sl_lidar_response_measurement_node_t)) {
             return SL_RESULT_INVALID_DATA;

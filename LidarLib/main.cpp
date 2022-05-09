@@ -82,7 +82,6 @@ int main()
             return;
         }
 
-
         Vec2d pt{point.distance, 0};
         pt.rotate(M_PI * point.angle / 180.0);
         incomingPoints.push_back(pt);
@@ -128,7 +127,7 @@ int main()
             }
         }
 
-        //        g.ellipse({g.width()/2, g.height()/2}, 120/scale, 120/scale, GREEN, GREEN);
+        g.ellipse({g.width()/2, g.height()/2}, 75/scale, 75/scale, GREEN, GREEN);
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
@@ -147,7 +146,7 @@ int main()
                     lidar.cmdBeginScan();
                     break;
                 case 'E':
-                    lidar.cmdBeginExpressScan(2);
+                    lidar.cmdBeginExpressScan(3);
                     break;
                 case 'R':
                     lidar.cmdReset();

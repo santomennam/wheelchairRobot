@@ -99,6 +99,7 @@ struct LidarData {
     int quality;
     double angle;
     double distance;
+    bool isOk() { return distance > 0 && quality > 5; }
 };
 
 class ExpressScanProcessor {
