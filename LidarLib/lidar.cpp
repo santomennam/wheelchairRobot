@@ -17,7 +17,7 @@ using namespace std;
 using namespace mssm;
 
 constexpr int      RESET_TIMEOUT = 1000;
-constexpr uint64_t COMM_IDLE_THRESHOLD = 75;
+constexpr uint64_t COMM_IDLE_THRESHOLD = 1000;
 constexpr int      RESPONSE_TIMEOUT = 100;
 constexpr int      SEND_TIMEOUT = 100;
 
@@ -236,6 +236,12 @@ ResponseParser::ParseResult ResponseParser::parseConfigResp(I &start)
     data.configInfo.type |= (static_cast<uint32_t>(*start++) << 24);
 
     switch (data.configInfo.type) {
+    case RPLIDAR_CONF_DESIRED_ROT_FREQ:
+        data.configInfo.data1 = static_cast<uint32_t>(*start++) & 0xFF;
+        data.configInfo.data1 |= ((static_cast<uint32_t>(*start++) << 8) & 0xFF00);
+        data.configInfo.data1 |= ((static_cast<uint32_t>(*start++) << 16) & 0xFF0000);
+        data.configInfo.data1 |= ((static_cast<uint32_t>(*start++) << 24) & 0xFF000000);
+        break;
     case RPLIDAR_CONF_SCAN_MODE_COUNT:
     case RPLIDAR_CONF_SCAN_MODE_TYPICAL:
         data.configInfo.data1 = static_cast<uint32_t>(*start++);
@@ -399,6 +405,9 @@ std::string getConfCmdString(int subCmd, uint16_t data)
     int useLen = 6;
 
     switch (subCmd) {
+    case RPLIDAR_CONF_DESIRED_ROT_FREQ:
+        useLen = 4;
+        break;
     case RPLIDAR_CONF_SCAN_MODE_COUNT:
     case RPLIDAR_CONF_SCAN_MODE_TYPICAL:
         useLen = 4;
@@ -434,14 +443,14 @@ std::string getConfCmdString(int packedCmd)
     return getConfCmdString(subCmd, data);
 }
 
-Lidar::Lidar(const std::string& portName, std::function<void (bool startSweep, const LidarData&)> handler)
-    : handler{handler}
+Lidar::Lidar(const std::string& portName, std::function<void (bool startSweep, const LidarData&)> handler, bool autoStartScan)
+    : handler{handler}, autoStartScan{autoStartScan}
 {
     port.open(portName, 115200);
     //setState(LidarMode::connect);
     prevTime = std::chrono::steady_clock::now();
     currTime = prevTime;
-    lastTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    //lastTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 Lidar::~Lidar()
@@ -518,6 +527,7 @@ void Lidar::update()
             cmdMotorSpeed(0);
             cmdGetHealth();
             cmdGetInfo();
+            cmdReqRotFreq();
             cmdReqTypicalMode();
         }
         break;
@@ -528,17 +538,23 @@ void Lidar::update()
         }
         break;
     case LidarState::stopped:
+        if (autoStartScan) {
+            cout << "Auto Start Motor" << endl;
+            setMotorUpdateState(desiredRotFreq);
+        }
         break;
     case LidarState::waitingForSpin:
         if (updateAndCheckTimeout(elapsedMs.count())) {
             cout << "Hopefully spinning now" << endl;
             state = LidarState::spinning;
         }
-        else {
-            cout << timeoutTime << endl;
-        }
         break;
     case LidarState::spinning:
+        if (autoStartScan) {
+            cout << "Auto Start Scan" << endl;
+            cmdBeginExpressScan(typicalScanMode);
+            state = LidarState::scanning;
+        }
         break;
     case LidarState::scanning:
         if (updateAndCheckCommIdle(elapsedMs.count())) {
@@ -646,11 +662,18 @@ void Lidar::processResponse(const ResponseParser::Descriptor& desc, const Respon
                 cout << "Got req mode: entering state stopped" << endl;
             }
             break;
+        case RPLIDAR_CONF_DESIRED_ROT_FREQ:
+        {
+            int rpm = (data.configInfo.data1 & 0xFFFF);
+            int pwm = ((data.configInfo.data1 >> 16) & 0xFFFF);
+            desiredRotFreq = rpm;
+            desiredRotPwm = pwm;
         }
-        break;
-    default:
-  //      cout << "Resp: " << std::hex << (int)desc.type << std::dec << endl;
-        break;
+            break;
+        default:
+            //      cout << "Resp: " << std::hex << (int)desc.type << std::dec << endl;
+            break;
+        }
     }
 }
 
@@ -689,8 +712,6 @@ void Lidar::setMotorUpdateState(int speed)
         send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(speed)), false);
         if (speed > 0) {
             state = LidarState::waitingForSpin;
-            timeoutTime = 1000;
-            cout << "Timeout set to 1000" << endl;
         }
         break;
     case LidarState::spinning:
@@ -706,8 +727,12 @@ void Lidar::setMotorUpdateState(int speed)
         }
         break;
     default:
-        cout << "Ignoring motor command: invalid state2" << endl;
- //       send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(speed)), false);
+        if (speed == 0) {
+            send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(0)), false);
+        }
+        else {
+            cout << "Ignoring motor command: invalid state2" << endl;
+        }
         break;
     }
 
@@ -799,12 +824,19 @@ void Lidar::parse(const std::string &str)
 void Lidar::cmdMotorSpeed(int speed) {
     switch (state) {
     case LidarState::stopped:
+        commands.push_back(LidarCommand{LidarCommandId::motorSpeed, speed, speed > 0 ? 2000 : 0 });
+        break;
     case LidarState::spinning:
     case LidarState::scanning:
         commands.push_back(LidarCommand{LidarCommandId::motorSpeed, speed, 0});
         break;
     default:
-        cout << "Ignoring motor command: invalid state: " << getStateString() << endl;
+        if (speed == 0) {
+            commands.push_back(LidarCommand{LidarCommandId::motorSpeed, speed, 0});
+        }
+        else {
+            cout << "Ignoring motor command: invalid state: " << getStateString() << endl;
+        }
         break;
     }
 }
@@ -877,6 +909,11 @@ void Lidar::cmdReqTypicalMode()
 {
     commands.push_back(LidarCommand{LidarCommandId::getConfig, packConfCmdToArg1(RPLIDAR_CONF_SCAN_MODE_TYPICAL, 0), RESPONSE_TIMEOUT});
 
+}
+
+void Lidar::cmdReqRotFreq()
+{
+    commands.push_back(LidarCommand{LidarCommandId::getConfig, packConfCmdToArg1(RPLIDAR_CONF_DESIRED_ROT_FREQ, 0), RESPONSE_TIMEOUT});
 }
 
 Lidar::LidarState Lidar::getState() const

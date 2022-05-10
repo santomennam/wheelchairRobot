@@ -161,6 +161,8 @@ class Lidar
     LidarDataProcessor processor;
 
     int typicalScanMode{0};
+    int desiredRotFreq{600};
+    int desiredRotPwm{600};
 
     enum class LidarCommandId {
         none,
@@ -208,10 +210,12 @@ private:
 
     std::function<void(bool startSweep, const LidarData& point)> handler;
 
-    std::chrono::milliseconds::rep lastTime;
+   // std::chrono::milliseconds::rep lastTime;
     std::string bufferedData;
+
+    bool autoStartScan{false};
 public:
-    Lidar(const std::string& portName, std::function<void(bool startSweep, const LidarData& point)> handler);
+    Lidar(const std::string& portName, std::function<void(bool startSweep, const LidarData& point)> handler, bool autoStartScan = true);
     virtual ~Lidar();
 public:
 
@@ -230,10 +234,13 @@ public:
     void cmdReqConfAnsType(int mode);
     void cmdReqConfName(int mode);
     void cmdReqTypicalMode();
+    void cmdReqRotFreq();
 
     LidarState getState() const;
     std::string getStateString() const;
-
+    int currentTimeoutVal() const { return timeoutTime; }
+    int desRotFreq() const { return desiredRotFreq; }
+    int currentIdleTime() const { return commIdleTime; }
 private:
 
     bool send(uint8_t cmd, const std::string& data, bool hasResponse);

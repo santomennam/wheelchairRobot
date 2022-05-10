@@ -46,12 +46,50 @@ void write(ostream& strm, bool isStartScan, const LidarData& data)
 #include "bitrange.h"
 using namespace twiddle;
 
+string chooseSerialPort(Graphics& g)
+{
+    string portName;
+
+    SerialPorts ports;
+
+    while (g.draw() && portName.empty()) {
+
+        g.cout << "Press a number key to choose the port: " << endl;
+        g.cout << "Escape to cancel" << endl << endl;
+        for (int i = 0; i < ports.size(); i++) {
+            g.cout << "Port " << i << ": " << ports[i] << endl;
+        }
+
+        for (const Event& e : g.events()) {
+            switch (e.evtType) {
+            case EvtType::KeyPress:
+                if (e.arg >= '0' && e.arg < '0'+ports.size()) {
+                    portName = ports[e.arg - '0'];
+                }
+                if (e.arg == static_cast<int>(Key::ESC)) {
+                    return "";
+                }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    return portName;
+
+}
+
+
 int main()
 {
     Graphics g("LidarThing", 1000, 1000);
 
     ofstream out_raw;
     ofstream out_pts;
+
+
+    string portName = chooseSerialPort(g);
 
     bool useImg = false;
 
@@ -62,7 +100,9 @@ int main()
     vector<vector<Vec2d>> points;
     vector<Vec2d> incomingPoints;
 
-    Lidar lidar("COM7", [&](bool startSweep, const LidarData& point) {
+    int scansToKeep = 10;
+
+    Lidar lidar(portName, [&](bool startSweep, const LidarData& point) {
 
         if (out_raw.is_open()) {
             write(out_raw, startSweep, point);
@@ -74,7 +114,7 @@ int main()
             }
             points.push_back(std::move(incomingPoints));
             incomingPoints.clear();
-            if (points.size() > 10) {
+            if (points.size() > scansToKeep) {
                 points.erase(points.begin());
             }
         }
@@ -102,6 +142,9 @@ int main()
         lidar.update();
 
         g.cout << lidar.getStateString() << endl;
+        g.cout << "Timeout: " << lidar.currentTimeoutVal() << endl;
+        g.cout << "RotFreq: " << lidar.desRotFreq() << endl;
+        g.cout << "IdleTime: " << lidar.currentIdleTime() << endl;
 
         Color c = YELLOW;
 
@@ -111,21 +154,21 @@ int main()
 
         rgb2hsv(c, color_h, color_s, color_v);
 
-        color_v = 0.2;
 
         if (useImg) {
             img.updatePixels();
             g.image({0,0}, img);
         }
         else {
-            for (vector<Vec2d> pts : points) {
+            for (int i = 0; i < points.size(); i++) {
+                vector<Vec2d> pts = points[i];
+                color_v = (1.0/points.size())*(i+1);
                 c = hsv2rgb(color_h, color_s, color_v);
                 for (auto& p : pts) {
                     p = p * (1.0/scale);
                     p = p + Vec2d{g.width()/2, g.height()/2};
                 }
                 g.points(pts, c);
-                color_v += 0.08;
             }
         }
 
@@ -139,7 +182,7 @@ int main()
 //                    lidar.cmdGetInfo();
 //                    break;
                 case 'M':
-                    lidar.cmdMotorSpeed(600);
+                    lidar.cmdMotorSpeed(lidar.desRotFreq());
                     break;
                 case 'S':
                     lidar.cmdMotorSpeed(0);
