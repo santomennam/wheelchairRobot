@@ -529,6 +529,15 @@ void Lidar::update()
         break;
     case LidarState::stopped:
         break;
+    case LidarState::waitingForSpin:
+        if (updateAndCheckTimeout(elapsedMs.count())) {
+            cout << "Hopefully spinning now" << endl;
+            state = LidarState::spinning;
+        }
+        else {
+            cout << timeoutTime << endl;
+        }
+        break;
     case LidarState::spinning:
         break;
     case LidarState::scanning:
@@ -552,7 +561,7 @@ void Lidar::update()
             commands.erase(commands.begin()); // TODO inefficient!  Use queue
             switch (activeCommand.id) {
             case LidarCommandId::motorSpeed:
-                send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(activeCommand.arg1)), false);
+                setMotorUpdateState(activeCommand.arg1);
                 break;
             case LidarCommandId::reset:
                 send(RPLIDAR_CMD_RESET, "", false);
@@ -651,7 +660,7 @@ bool Lidar::updateAndCheckTimeout(int elapsedMs)
         timeoutTime -= elapsedMs;
         if (timeoutTime <= 0) {
             timeoutTime = 0;
-            if (verbose) cout << "Timeout of some sort" << endl;
+            cout << "Timeout of some sort" << endl;
             return true;
         }
     }
@@ -671,6 +680,37 @@ bool Lidar::updateAndCheckCommIdle(int elapsedMs)
         return true;
     }
     return false;
+}
+
+void Lidar::setMotorUpdateState(int speed)
+{
+    switch (state) {
+    case LidarState::stopped:
+        send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(speed)), false);
+        if (speed > 0) {
+            state = LidarState::waitingForSpin;
+            timeoutTime = 1000;
+            cout << "Timeout set to 1000" << endl;
+        }
+        break;
+    case LidarState::spinning:
+        send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(speed)), false);
+        if (speed == 0) {
+            state = LidarState::stopped;
+        }
+        break;
+    case LidarState::scanning:
+        send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(speed)), false);
+        if (speed == 0) {
+            state = LidarState::stopped;
+        }
+        break;
+    default:
+        cout << "Ignoring motor command: invalid state2" << endl;
+ //       send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(speed)), false);
+        break;
+    }
+
 }
 
 bool Lidar::send(uint8_t cmd, const std::string& data, bool hasResponse)
@@ -757,7 +797,16 @@ void Lidar::parse(const std::string &str)
 }
 
 void Lidar::cmdMotorSpeed(int speed) {
-    commands.push_back(LidarCommand{LidarCommandId::motorSpeed, speed, 0});
+    switch (state) {
+    case LidarState::stopped:
+    case LidarState::spinning:
+    case LidarState::scanning:
+        commands.push_back(LidarCommand{LidarCommandId::motorSpeed, speed, 0});
+        break;
+    default:
+        cout << "Ignoring motor command: invalid state: " << getStateString() << endl;
+        break;
+    }
 }
 
 void Lidar::cmdReset()
@@ -843,8 +892,11 @@ string Lidar::getStateString() const
     case LidarState::waitingForIdle:    return "waitingForIdle";
     case LidarState::waitingOnModeReq:  return "waitingOnModeReq";
     case LidarState::stopped:           return "stopped";
+    case LidarState::waitingForSpin:    return "waitingOnSpin";
     case LidarState::spinning:          return "spinning";
     case LidarState::scanning:          return "scanning";
+    default:
+        return "UNKNOWNSTATE: FIXTHIS";
     }
 }
 

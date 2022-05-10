@@ -141,6 +141,7 @@ class Lidar
         waitingForIdle,
         waitingOnModeReq,
         stopped,
+        waitingForSpin,
         spinning,
         scanning
     };
@@ -242,6 +243,8 @@ private:
 
     bool updateAndCheckTimeout(int elapsedMs);
     bool updateAndCheckCommIdle(int elapsedMs);
+
+    void setMotorUpdateState(int speed);
 };
 
 
