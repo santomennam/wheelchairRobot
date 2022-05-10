@@ -21,52 +21,12 @@ constexpr uint64_t COMM_IDLE_THRESHOLD = 75;
 constexpr int      RESPONSE_TIMEOUT = 100;
 constexpr int      SEND_TIMEOUT = 100;
 
-//constexpr uint8_t RPLIDAR_CMD_SYNC_BYTE = 0xA5;
-//constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE1 = 0xA5;
-//constexpr uint8_t RPLIDAR_ANS_SYNC_BYTE2 = 0x5A;
-
-//constexpr uint8_t RPLIDAR_CMDFLAG_HAS_PAYLOAD = 0x80;
-//constexpr uint8_t RPLIDAR_ANS_PKTFLAG_LOOP = 0x1;
-
 // response types
 constexpr uint8_t RPLIDAR_RESP_INFO       = 0x04;
 constexpr uint8_t RPLIDAR_RESP_HEALTH     = 0x06;
 constexpr uint8_t RPLIDAR_RESP_SAMPLERATE = 0x15;
 constexpr uint8_t RPLIDAR_RESP_CONFIG     = 0x20;
 
-//constexpr uint8_t RPLIDAR_CMD_STOP        = 0x25;
-//constexpr uint8_t RPLIDAR_CMD_SCAN        = 0x20;
-//constexpr uint8_t RPLIDAR_CMD_FORCE_SCAN  = 0x21;
-//constexpr uint8_t RPLIDAR_CMD_RESET       = 0x40;
-
-
-// Commands without payload but have response
-//constexpr uint8_t RPLIDAR_CMD_GET_DEVICE_INFO     = 0x50;
-//constexpr uint8_t RPLIDAR_CMD_GET_DEVICE_HEALTH   = 0x52;
-//constexpr uint8_t RPLIDAR_CMD_GET_SAMPLERATE      = 0x59; //added in fw 1.17
-
-//constexpr uint8_t RPLIDAR_CMD_HQ_MOTOR_SPEED_CTRL = 0xA8;
-
-// Commands with payload and have response
-//constexpr uint8_t RPLIDAR_CMD_EXPRESS_SCAN   = 0x82; //added in fw 1.17
-//constexpr uint8_t RPLIDAR_CMD_HQ_SCAN        = 0x83; //added in fw 1.24
-//constexpr uint8_t RPLIDAR_CMD_GET_LIDAR_CONF = 0x84; //added in fw 1.24
-//constexpr uint8_t RPLIDAR_CMD_SET_LIDAR_CONF = 0x85; //added in fw 1.24
-
-//constexpr int RPLIDAR_CONF_SCAN_MODE_COUNT = 0x70;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_US_PER_SAMPLE = 0x71;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE = 0x74;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_ANS_TYPE = 0x75;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_TYPICAL = 0x7C;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_NAME = 0x7F;
-
-////add for A2 to set RPLIDAR motor pwm when using accessory board
-//constexpr uint8_t RPLIDAR_CMD_SET_MOTOR_PWM      = 0xF0;
-//constexpr uint8_t RPLIDAR_CMD_GET_ACC_BOARD_FLAG = 0xFF;
-
-
-//#define RPLIDAR_ANS_HEADER_SIZE_MASK        0x3FFFFFFF
-//#define RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT    (30)
 
 void displayHex(string data)
 {
@@ -479,6 +439,8 @@ Lidar::Lidar(const std::string& portName, std::function<void (bool startSweep, c
 {
     port.open(portName, 115200);
     //setState(LidarMode::connect);
+    prevTime = std::chrono::steady_clock::now();
+    currTime = prevTime;
     lastTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
@@ -491,30 +453,99 @@ Lidar::~Lidar()
 
 void Lidar::update()
 {
-    auto currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    currTime = std::chrono::steady_clock::now();
+    auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(currTime - prevTime);
+    prevTime = currTime;
 
-    if (inStartup) {
-        cmdReset();
-        inStartup = false;
+    if (port.stillWriting()) {
+        cout << "CheckTimeout here?" << endl;
+        // discard incoming data ('cause, why are we writing if we are still
+        // waiting on more data from a previous command
+        while (port.canRead()) {
+            port.read();
+        }
+        return;
     }
 
-    if (expectSent && !port.stillWriting()) {
-        if (verbose) cout << "Serial port reports cmd sent" << endl;
+    switch (cmdState) {
+    case CmdState::none:
+        break;
+    case CmdState::transmitting:
         commIdleTime = 0;
-        updateState(ModeUpdate::cmdSent);
+        timeoutTime = activeCommand.responseTimeout;
+        cmdState = CmdState::waitResponse;
+        cout << "Finished Cmd Transmit (wait response)" << endl;
+        break;
+    case CmdState::transmittingNR:
+        commIdleTime = 0;
+        timeoutTime = activeCommand.responseTimeout;
+        cmdState = CmdState::none;
+        cout << "Finished Cmd Transmit (no response expected)" << endl;
+        if (activeCommand.id != LidarCommandId::reset) {
+            activeCommand.id = LidarCommandId::none;
+        }
+        break;
+    case CmdState::waitResponse:
+        break;
+    }
+
+    switch (state) {
+    case LidarState::needReset:
+        cmdReset();
+        state = LidarState::waitingAfterReset;
+        cout << "needReset: Queued Reset Command" << endl;
+        break;
+    case LidarState::waitingAfterReset:
+        while (port.canRead()) {
+            port.read();
+        }
+        if (updateAndCheckTimeout(elapsedMs.count())) {
+            state = LidarState::waitingForIdle;
+            cout << "waitingForIdle" << endl;
+            timeoutTime = 20;
+            activeCommand.id = LidarCommandId::none;
+        }
+        break;
+    case LidarState::waitingForIdle:
+        if (port.canRead()) {
+            cout << "Consuming" << endl;
+            timeoutTime = 20; // let's wait 20 ms after last read to make sure there's no more incoming data
+            port.read();
+        }
+        else if (updateAndCheckTimeout(elapsedMs.count())) {
+            cout << "got idle, queue some more commands" << endl;
+            state = LidarState::waitingOnModeReq;
+            cmdMotorSpeed(0);
+            cmdGetHealth();
+            cmdGetInfo();
+            cmdReqTypicalMode();
+        }
+        break;
+    case LidarState::waitingOnModeReq:
+        if (updateAndCheckTimeout(elapsedMs.count())) {
+            cout << "Timeout!!  resetting" << endl;
+            state = LidarState::needReset;
+        }
+        break;
+    case LidarState::stopped:
+        break;
+    case LidarState::spinning:
+        break;
+    case LidarState::scanning:
+        if (updateAndCheckCommIdle(elapsedMs.count())) {
+            cout << "Gone idle while scanning.  Resetting" << endl;
+            state = LidarState::needReset;
+        }
+        break;
     }
 
     if (port.canRead()) {
         commIdleTime = 0;
         string data = port.read();
-        //        if (verbose) cout << "Parsing " << readData.length() << " bytes" << endl;
-        //displayHex(data);
         parse(data);
-        //        readData.clear();
     }
 
-    updateTime(currentTime);
-
+    // see if we need to initiate another command from the queue
     if (activeCommand.id == LidarCommandId::none) {
         if (commands.size() > 0) {
             activeCommand = commands[0];
@@ -524,19 +555,7 @@ void Lidar::update()
                 send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString(static_cast<uint16_t>(activeCommand.arg1)), false);
                 break;
             case LidarCommandId::reset:
-                if (isScanning) {
-                    cout << "Cannot reset while scanning!  (Stopping first)" << endl;
-                    activeCommand.id = LidarCommandId::none;
-
-                    LidarCommand resetCmd{LidarCommandId::reset, 0, RESET_TIMEOUT};
-                    LidarCommand stopCmd{LidarCommandId::endScan, 0, RESPONSE_TIMEOUT};
-
-                    commands.insert(commands.begin(), resetCmd);
-                    commands.insert(commands.begin(), stopCmd);
-                }
-                else {
-                    send(RPLIDAR_CMD_RESET, "", true);
-                }
+                send(RPLIDAR_CMD_RESET, "", false);
                 break;
             case LidarCommandId::beginScan:
                 if (isScanning) {
@@ -576,131 +595,7 @@ void Lidar::update()
     }
 }
 
-void Lidar::updateTime(std::chrono::milliseconds::rep currentTime)
-{
-    int ms = static_cast<int>(currentTime - lastTime);
-    if (ms < 0) {
-        ms = 0;
-    }
-    bool commIdle = commIdleTime > COMM_IDLE_THRESHOLD;
-    commIdleTime += static_cast<uint64_t>(ms);
-    if (!commIdle && (commIdleTime > COMM_IDLE_THRESHOLD))
-    {
-        if (verbose) cout << "Comm has gone idle" << endl;
-        updateState(ModeUpdate::commIdle);
-    }
 
-    lastTime = currentTime;
-    // cout << "MS: " << ms << endl;
-    if (timeoutTime > 0) {
-        if (verbose) cout << "TO: " << timeoutTime << endl;
-        timeoutTime -= ms;
-        if (timeoutTime <= 0) {
-            timeoutTime = 0;
-            if (verbose) cout << "updateTime sending timeout" << endl;
-            updateState(ModeUpdate::timeout);
-        }
-    }
-}
-
-void Lidar::updateState(ModeUpdate reason)
-{
-    ModeTransition transition;
-
-    switch (reason) {
-    case ModeUpdate::commIdle:
-        //        if (isScanning) {
-        switch (activeCommand.id) {
-        case LidarCommandId::endScan:
-            //            case LidarCommandId::reset:
-            isScanning = false;
-            responseParser.reset();
-            if (verbose) cout << "Scanning is really done" << endl;
-            timeoutTime = 0;
-            transition = ModeTransition::nextState;
-            break;
-        default:
-            // cout << "IS THIS OK???" << endl;
-            transition = ModeTransition::skip;
-            break;
-        }
-        //        }
-        //        else {
-        //            transition = ModeTransition::skip;
-        //        }
-        break;
-    case ModeUpdate::timeout:
-        if (expectSent) {
-            cout << "Timeout waiting for cmd sent" << endl;
-            transition = ModeTransition::error;
-        }
-        else if (expectResponse) {
-            cout << "Timeout waiting for cmd response " << lastTime << endl;
-            transition = ModeTransition::error;
-        }
-        else {
-            cout << "Timeout while in unknown state" << endl;
-            transition = ModeTransition::error;
-        }
-        break;
-    case ModeUpdate::cmdSent:
-        if (expectSent) {
-            if (verbose) cout << "We did expect cmdSent" << endl;
-            expectSent = false;
-            if (expectResponse) {
-                // now wait for a response
-                if (verbose) cout << "Now we should wait for a response" << endl;
-                timeoutTime = activeCommand.responseTimeout;
-                transition = ModeTransition::skip;
-            }
-            else {
-                timeoutTime = activeCommand.responseTimeout;
-                if (timeoutTime == 0) {
-                    transition = ModeTransition::nextState;
-                }
-                else {
-                    transition = ModeTransition::skip;
-                }
-            }
-        }
-        else {
-            cout << "Unexpected cmdSent" << endl;
-            transition = ModeTransition::error;
-        }
-        break;
-    case ModeUpdate::gotResponse:
-        if (expectSent) {
-            cout << "Unexpected gotResponse waiting for sent" << endl;
-            transition = ModeTransition::error;
-        }
-        else if (expectResponse) {
-            expectResponse = false;
-            timeoutTime = 0;
-            transition = ModeTransition::nextState;
-        }
-        else {
-            cout << "Unexpected gotResponse" << endl;
-            transition = ModeTransition::error;
-        }
-        break;
-    }
-
-    switch (transition) {
-    case ModeTransition::skip:
-        if (verbose) cout << "Transition: skip" << endl;
-        break;
-    case ModeTransition::error:
-        cout << "Transition: error" << endl;
-        activeCommand.id = LidarCommandId::none;
-        break;
-    case ModeTransition::nextState:
-        if (verbose) cout << "Command complete" << endl;
-        processResponse(responseParser.descriptor, responseParser.data);
-        activeCommand.id = LidarCommandId::none;
-        break;
-    }
-
-}
 
 void Lidar::processResponse(const ResponseParser::Descriptor& desc, const ResponseParser::RespData& data)
 {
@@ -734,27 +629,64 @@ void Lidar::processResponse(const ResponseParser::Descriptor& desc, const Respon
         break;
     case RPLIDAR_RESP_CONFIG:
         cout << "Config data: " << data.configInfo.data1 << " Hex: " << std::hex << data.configInfo.data1 << std::dec << endl;
+        switch (data.configInfo.type) {
+        case RPLIDAR_CONF_SCAN_MODE_TYPICAL:
+            typicalScanMode = data.configInfo.data1;
+            if (state == LidarState::waitingOnModeReq) {
+                state = LidarState::stopped;
+                cout << "Got req mode: entering state stopped" << endl;
+            }
+            break;
+        }
+        break;
+    default:
+  //      cout << "Resp: " << std::hex << (int)desc.type << std::dec << endl;
         break;
     }
 }
 
+bool Lidar::updateAndCheckTimeout(int elapsedMs)
+{
+    if (timeoutTime > 0) {
+        timeoutTime -= elapsedMs;
+        if (timeoutTime <= 0) {
+            timeoutTime = 0;
+            if (verbose) cout << "Timeout of some sort" << endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Lidar::updateAndCheckCommIdle(int elapsedMs)
+{
+    bool wasIdle = commIdleTime > COMM_IDLE_THRESHOLD;
+    if (wasIdle) {
+        return false;
+    }
+    commIdleTime += elapsedMs;
+    if (!wasIdle && (commIdleTime > COMM_IDLE_THRESHOLD))
+    {
+        if (verbose) cout << "Comm has gone idle" << endl;
+        return true;
+    }
+    return false;
+}
+
 bool Lidar::send(uint8_t cmd, const std::string& data, bool hasResponse)
 {
+    if (cmdState != CmdState::none) {
+        cout << "Sending Cmd when cmdState != None!!!" << endl;
+    }
     responseParser.reset();
     cout << "Sending CMD: " << hex << static_cast<int>(cmd) << dec << endl;
     string dataPacket = rplidarCommand(cmd, data);
     port.write(dataPacket);
     //serialPort.flush();
     timeoutTime = SEND_TIMEOUT;
-    expectResponse = hasResponse;
-    expectSent = true;
+    cmdState = hasResponse ? CmdState::transmitting : CmdState::transmittingNR;
     return true;
 }
-
-
-//std::array<ExpressPoint,32> packet1;
-//std::array<ExpressPoint,32> packet2;
-//bool parsePacket1{true};
 
 double angleDiff(double a, double a1)
 {
@@ -765,146 +697,6 @@ double angleDiff(double a, double a1)
         return 360.0+a1-a;
     }
 }
-
-//template <typename I>
-//bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler)
-//{
-//    size_t prevPacketIdx = nextPacketIdx ? 0 : 1;
-//    size_t currPacketIdx = nextPacketIdx;
-//    nextPacketIdx = prevPacketIdx;
-
-//    if (!rplidarParseExpressScan(start, end, startAngle[currPacketIdx], isNew[currPacketIdx], packet[currPacketIdx])) {
-//        cout << "Error scanning: flush data" << endl;
-//        start = end;
-//        packetValid[currPacketIdx] = false;
-//        return false;
-//    }
-
-//    packetValid[currPacketIdx] = true;
-
-////    if (isNew[currPacketIdx]) {
-////        cout << "Can't process new packet" << endl;
-////        return true;
-////    }
-
-//    bool wasScanStart = isNew[prevPacketIdx];
-
-//    bool prevPacketValid = packetValid[prevPacketIdx];
-
-//    if (!prevPacketValid) {
-//        cout << "Prev Packet Invalid???   can't process this packet";
-//        return true;
-//    }
-
-//    std::array<ExpressPoint,32>& prevPacket = packet[prevPacketIdx];
-//    //std::array<ExpressPoint,32>& currPacket = packet[currPacketIdx];
-
-//    double prevStartAngle = startAngle[prevPacketIdx];
-//    double currStartAngle = startAngle[currPacketIdx];
-
-//    double da = angleDiff(prevStartAngle, currStartAngle);
-
-//    //  cout << "DA: " << da << endl;
-
-//    //  cout << "Angle: " << prevStartAngle << "           "  << currStartAngle << endl;
-
-
-//    for (size_t i = 0; i < 32; i++) {
-//        // cout << prevPacket[i].deltaAngle() << endl;
-
-//        double angle = prevStartAngle + (da/32.0)*i; // - prevPacket[i].deltaAngle();
-//        if (angle > 360.0) {
-//            angle -= 360.0;
-//        }
-//        double distance = prevPacket[i].distance;
-//        int quality = distance > 0 ? 1 : 0;
-
-//        handler(wasScanStart, LidarData{quality, angle, distance});
-
-//        wasScanStart = false;
-//    }
-
-//    return true;
-//}
-
-template <typename I>
-bool ExpressScanProcessor::parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler)
-{
-    // we're just toggling between two indices here
-    // basically a ring buffer with two elements
-    size_t currPacketIdx = nextCabinIdx;
-    size_t prevPacketIdx = (nextCabinIdx+1)%2;
-    nextCabinIdx = prevPacketIdx;
-
-    if (!rplidarParseExpressScan(start, end, startAngle[currPacketIdx], isNew[currPacketIdx], cabin[currPacketIdx])) {
-        cout << "Error scanning: flush data" << endl;
-        start = end;
-        packetValid[currPacketIdx] = false;
-        return false;
-    }
-
-    packetValid[currPacketIdx] = true;
-
-    if (isNew[currPacketIdx] && cabinNumber < 0) {
-        cabinNumber = 0;
-        cout << "Can't process new packet" << endl;
-        return true;
-    }
-
-    cabinNumber++;
-
-    if (isNew[prevPacketIdx]) {
-        cout << "Restart: " << cabinNumber << endl;
-        cabinNumber = 0;
-    }
-
-    bool prevPacketValid = packetValid[prevPacketIdx];
-
-    if (!prevPacketValid) {
-        cout << "Prev Packet Invalid???   can't process this packet";
-        return true;
-    }
-
-    std::array<ExpressPoint,32>& prevPacket = cabin[prevPacketIdx];
-
-    double prevStartAngle = startAngle[prevPacketIdx];
-    double currStartAngle = startAngle[currPacketIdx];
-
-    double da = angleDiff(prevStartAngle, currStartAngle);
-
-    //     cout << "DA: " << da << endl;
-
-    //    cout << "Angle: " << prevStartAngle << "           "  << currStartAngle << endl;
-
-
-    for (size_t i = 0; i < 32; i++) {
-        cout << "Inc: " << (da/32.0) << " Adj: " << prevPacket[i].deltaAngle() << " Angle: ";
-
-        double angle = prevStartAngle + (da/32.0)*i - prevPacket[i].deltaAngle();
-
-        if (angle > 360.0) {
-            angle -= 360.0;
-        }
-
-        cout << angle << endl;
-
-        bool isScanStart = lastAngle > 200 && angle < 100;  // did we wrap from 360 back around to 0?
-
-        //        if (isScanStart) {
-        //           cout << "Sweep complete" << endl;
-        //        }
-
-        double distance = prevPacket[i].distance;
-        int quality = distance > 0 ? 15 : 0;
-
-        handler(isScanStart, LidarData{quality, angle, distance});
-
-        lastAngle = angle;
-    }
-
-    return true;
-}
-
 
 void Lidar::parse(const std::string &str)
 {
@@ -917,20 +709,22 @@ void Lidar::parse(const std::string &str)
     if (activeCommand.id == LidarCommandId::reset) {
         //sendEvent(0, 0, 0, bufferedData);
         bufferedData.clear();
-        updateState(ModeUpdate::gotResponse);
         return;
     }
 
-    if (expectResponse) {
+    if (cmdState == CmdState::waitResponse) {
         auto i = bufferedData.begin();
         switch (responseParser.parse(i, bufferedData.end())) {
         case ResponseParser::ParseResult::incomplete:
             cout << "Need a bit more data" << endl;
             break;
         case ResponseParser::ParseResult::complete:
-            updateState(ModeUpdate::gotResponse);
-
+            cout << "Received Response: processing it" << endl;
+            timeoutTime = 0;
+            processResponse(responseParser.descriptor, responseParser.data);
             isScanning = responseParser.descriptor.mode == 0x01; // multiple response mode
+            activeCommand.id = LidarCommandId::none;
+            cmdState = CmdState::none;
             break;
         case ResponseParser::ParseResult::error:
             cout << "Parse Failed!" << endl;
@@ -960,52 +754,7 @@ void Lidar::parse(const std::string &str)
         }
 
     } while (ans == SL_RESULT_OK && !bufferedData.empty());
-
-    /*    while (!bufferedData.empty() && bufferedData.size() >= responseParser.descriptor.size) {
-
-        auto i = bufferedData.begin();
-
-        switch (responseParser.descriptor.size) {
-        case 5:
-            int quality;
-            double angle;
-            double distance;
-            bool is360Start;
-            //cout << "Parsing: " << endl;
-
-            if (!rplidarParseScan(i, bufferedData.end(), quality, angle, distance, is360Start)) {
-                cout << "Parse Failed" << endl;
-            }
-            else {
-                handler(is360Start, LidarData{quality, angle, distance});
-            }
-            break;
-        case 84:
-            if (!expressScanProcessor.parse(i, bufferedData.end(), [this](bool startSweep, const LidarData& point) { handler(startSweep, point); }))
-            {
-                cout << "Error scanning: flush data" << endl;
-                i = bufferedData.end();
-            }
-            break;
-        default:
-            displayHex(bufferedData);
-            bufferedData.clear();
-
-            cout << "Unexpected response size: " << responseParser.descriptor.size << endl;
-            return; // what to do... what to do...
-
-        }
-
-        bufferedData.erase(bufferedData.begin(), i);  // get rid of what we used
-    }
-
-    if (bufferedData.size() > 0) {
-        if (verbose) cout << "Leaving " << bufferedData.size() << " in buffer... hope we get more data" << endl;
-    }
-    */
 }
-
-
 
 void Lidar::cmdMotorSpeed(int speed) {
     commands.push_back(LidarCommand{LidarCommandId::motorSpeed, speed, 0});
@@ -1014,6 +763,9 @@ void Lidar::cmdMotorSpeed(int speed) {
 void Lidar::cmdReset()
 {
     //if (verbose) cout << "Queueing reset Command" << endl;
+    isScanning = false;
+    activeCommand.id = LidarCommandId::none;
+    commands.clear();
     commands.push_back(LidarCommand{LidarCommandId::reset, 0, RESET_TIMEOUT});
 }
 
@@ -1049,10 +801,6 @@ void Lidar::cmdBeginExpressScan(int expressMode)
     commands.push_back(LidarCommand{LidarCommandId::beginExpressScan, expressMode, RESPONSE_TIMEOUT});
 }
 
-//constexpr int RPLIDAR_CONF_SCAN_MODE_MAX_DISTANCE = 0x74;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_TYPICAL = 0x7C;
-//constexpr int RPLIDAR_CONF_SCAN_MODE_NAME = 0x7F;
-
 
 void Lidar::cmdReqConfModeCount()
 {
@@ -1081,64 +829,6 @@ void Lidar::cmdReqTypicalMode()
     commands.push_back(LidarCommand{LidarCommandId::getConfig, packConfCmdToArg1(RPLIDAR_CONF_SCAN_MODE_TYPICAL, 0), RESPONSE_TIMEOUT});
 
 }
-
-
-
-////[distance_sync flags]
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK           (0x3)
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK        (0xFC)
-
-//typedef struct _rplidar_response_cabin_nodes_t {
-//    uint16_t   distance_angle_1; // see [distance_sync flags]
-//    uint16_t   distance_angle_2; // see [distance_sync flags]
-//    uint8_t    offset_angles_q3;
-//}  rplidar_response_cabin_nodes_t;
-
-
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_1               0xA
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_2               0x5
-
-//#define RPLIDAR_RESP_MEASUREMENT_HQ_SYNC                  0xA5
-
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT              (0x1<<15)
-
-//typedef struct _rplidar_response_capsule_measurement_nodes_t {
-//    uint8_t                             s_checksum_1; // see [s_checksum_1]
-//    uint8_t                             s_checksum_2; // see [s_checksum_1]
-//    uint16_t                            start_angle_sync_q6;
-//    rplidar_response_cabin_nodes_t  cabins[16];
-//}  rplidar_response_capsule_measurement_nodes_t;
-//// ext1 : x2 boost mode
-
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_MAJOR_BITS     12
-//#define RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_PREDICT_BITS   10
-
-//typedef struct _rplidar_response_ultra_cabin_nodes_t {
-//    // 31                                              0
-//    // | predict2 10bit | predict1 10bit | major 12bit |
-//    uint32_t combined_x3;
-//}  rplidar_response_ultra_cabin_nodes_t;
-
-//typedef struct _rplidar_response_ultra_capsule_measurement_nodes_t {
-//    uint8_t                             s_checksum_1; // see [s_checksum_1]
-//    uint8_t                             s_checksum_2; // see [s_checksum_1]
-//    uint16_t                            start_angle_sync_q6;
-//    rplidar_response_ultra_cabin_nodes_t  ultra_cabins[32];
-//}  rplidar_response_ultra_capsule_measurement_nodes_t;
-
-//typedef struct rplidar_response_measurement_node_hq_t {
-//    uint16_t   angle_z_q14;
-//    uint32_t   dist_mm_q2;
-//    uint8_t    quality;
-//    uint8_t    flag;
-//}  rplidar_response_measurement_node_hq_t;
-
-//typedef struct _rplidar_response_hq_capsule_measurement_nodes_t{
-//    uint8_t sync_byte;
-//    uint64_t time_stamp;
-//    rplidar_response_measurement_node_hq_t node_hq[16];
-//    uint32_t  crc32;
-//} rplidar_response_hq_capsule_measurement_nodes_t;
 
 
 
@@ -1391,7 +1081,7 @@ sl_result StdProcessor::processIncoming(int recvSize, uint8_t* recvData, int& re
         return ans;
     }
 
-    bool syncBit = node.sync_quality & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT;
+    //bool syncBit = node.sync_quality & SL_LIDAR_RESP_MEASUREMENT_SYNCBIT;
 
     sl_lidar_response_measurement_node_hq_t nodeHq;
     convert(node, nodeHq);

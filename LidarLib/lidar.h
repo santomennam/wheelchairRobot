@@ -102,19 +102,19 @@ struct LidarData {
     bool isOk() { return distance > 0 && quality > 5; }
 };
 
-class ExpressScanProcessor {
-private:
-    std::array<ExpressPoint,32> cabin[2];
-    double startAngle[2];
-    bool isNew[2];
-    bool packetValid[2];
-    size_t nextCabinIdx{0};
-    int cabinNumber{-1};
-    double lastAngle{360};
-public:
-    template <typename I>
-    bool parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler);
-};
+//class ExpressScanProcessor {
+//private:
+//    std::array<ExpressPoint,32> cabin[2];
+//    double startAngle[2];
+//    bool isNew[2];
+//    bool packetValid[2];
+//    size_t nextCabinIdx{0};
+//    int cabinNumber{-1};
+//    double lastAngle{360};
+//public:
+//    template <typename I>
+//    bool parse(I& start, const I end, std::function<void(bool startScan, const LidarData& point)> handler);
+//};
 
 typedef uint32_t sl_result;
 
@@ -135,9 +135,31 @@ public:
 
 class Lidar
 {
+    enum class LidarState {
+        needReset,
+        waitingAfterReset,
+        waitingForIdle,
+        waitingOnModeReq,
+        stopped,
+        spinning,
+        scanning
+    };
+
+    enum class CmdState {
+        none,            // no command in progress
+        transmitting,    // sending command, expect response
+        transmittingNR,  // sending command, no response expected
+        waitResponse     // command sent, waiting for response
+    };
+
+    LidarState state{LidarState::needReset};
+    CmdState   cmdState{CmdState::none};
+
     SerialPort port;
 
     LidarDataProcessor processor;
+
+    int typicalScanMode{0};
 
     enum class LidarCommandId {
         none,
@@ -160,13 +182,6 @@ class Lidar
 
 private:
 
-    enum class ModeUpdate {
-        commIdle,
-        timeout,
-        cmdSent,
-        gotResponse,
-    };
-
     enum class ModeTransition {
         skip,
         nextState,
@@ -176,19 +191,19 @@ private:
 private:
 
     ResponseParser responseParser;
-    ExpressScanProcessor expressScanProcessor;
+    //ExpressScanProcessor expressScanProcessor;
 
     std::vector<LidarCommand> commands;
 
     LidarCommand activeCommand{LidarCommandId::none, 0, 0};
 
-    uint64_t commIdleTime{0};
+    std::chrono::time_point<std::chrono::steady_clock> prevTime;
+    std::chrono::time_point<std::chrono::steady_clock> currTime;
+
+    int  commIdleTime{0};
     int  timeoutTime{0};
 
-    bool expectSent{false};
-    bool expectResponse{false};
     bool isScanning{false};
-    bool inStartup{true};
 
     std::function<void(bool startSweep, const LidarData& point)> handler;
 
@@ -198,16 +213,8 @@ public:
     Lidar(const std::string& portName, std::function<void(bool startSweep, const LidarData& point)> handler);
     virtual ~Lidar();
 public:
-    void updateTime(std::chrono::milliseconds::rep currentTime);
 
     void update();
-    bool send(uint8_t cmd, const std::string& data, bool hasResponse);
-
-    void parse(const std::string& str);
-
-    void updateState(ModeUpdate reason);
-
-    void processResponse(const ResponseParser::Descriptor& desc, const ResponseParser::RespData& data);
 
     void cmdMotorSpeed(int speed);
     void cmdReset();
@@ -222,6 +229,16 @@ public:
     void cmdReqConfAnsType(int mode);
     void cmdReqConfName(int mode);
     void cmdReqTypicalMode();
+
+private:
+
+    bool send(uint8_t cmd, const std::string& data, bool hasResponse);
+    void parse(const std::string& str);
+
+    void processResponse(const ResponseParser::Descriptor& desc, const ResponseParser::RespData& data);
+
+    bool updateAndCheckTimeout(int elapsedMs);
+    bool updateAndCheckCommIdle(int elapsedMs);
 };
 
 
