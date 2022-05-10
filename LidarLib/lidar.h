@@ -230,6 +230,9 @@ public:
     void cmdReqConfName(int mode);
     void cmdReqTypicalMode();
 
+    LidarState getState() const;
+    std::string getStateString() const;
+
 private:
 
     bool send(uint8_t cmd, const std::string& data, bool hasResponse);

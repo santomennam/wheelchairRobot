@@ -101,6 +101,8 @@ int main()
 
         lidar.update();
 
+        g.cout << lidar.getStateString() << endl;
+
         Color c = YELLOW;
 
         double color_h;

@@ -830,6 +830,24 @@ void Lidar::cmdReqTypicalMode()
 
 }
 
+Lidar::LidarState Lidar::getState() const
+{
+    return state;
+}
+
+string Lidar::getStateString() const
+{
+    switch (state) {
+    case LidarState::needReset:         return "needReset";
+    case LidarState::waitingAfterReset: return "waitingAfterReset";
+    case LidarState::waitingForIdle:    return "waitingForIdle";
+    case LidarState::waitingOnModeReq:  return "waitingOnModeReq";
+    case LidarState::stopped:           return "stopped";
+    case LidarState::spinning:          return "spinning";
+    case LidarState::scanning:          return "scanning";
+    }
+}
+
 
 
 static void convert(const sl_lidar_response_measurement_node_t& from, sl_lidar_response_measurement_node_hq_t& to)
