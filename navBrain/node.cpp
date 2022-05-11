@@ -71,12 +71,12 @@ void Node::load(istream &strm, std::map<int, Node *> &nodeMap)
 {
     int numBounds;
     strm>>numBounds;
-    cout<<"numBounds: "<<numBounds<<endl;
+  //  cout<<"numBounds: "<<numBounds<<endl;
     for (int i =0;i<numBounds;i++) {
         int adjIndex;
         strm>>adjIndex;
         adjacents.push_back(nodeMap[adjIndex]);
-        cout<<"adjIndex "<<i<<" "<<adjIndex;
+     //   cout<<"adjIndex "<<i<<" "<<adjIndex;
         segment seg;
         boundaries.push_back(seg);
     }
@@ -360,7 +360,7 @@ Node::~Node()
 {
     if(tree){
         tree->nodes.erase(this);
-        cout<<"node deleted!"<<endl;
+       // cout<<"node deleted!"<<endl;
     }
 }
 

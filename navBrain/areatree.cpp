@@ -36,11 +36,11 @@ void AreaTree::showAdjacents(Graphics &g, Viewport view)
 AreaTree::AreaTree(double width, double height,double Width)
     :botWidth{Width}
 {
-    double cellSize = 200;//botWidth*2;
-    int numRows = width/cellSize;
-    int numCols = height/cellSize;
-    double offx = -width/2;
-    double offy = -height/2;
+    double cellSize = 2000;//botWidth*2;
+    int numRows = 1;//width/cellSize;
+    int numCols = 1;//height/cellSize;
+    double offx = -cellSize/2;//-width/2; ////
+    double offy = -cellSize/2;//-height/2; //
     vector<vector<Node*>> grid(numRows, vector<Node*>(numCols));
 
     for (int r = 0; r < numRows; r++) {
@@ -121,6 +121,7 @@ packet AreaTree::findClosestNode(Vec2d point)
 
 void AreaTree::placer(Vec2d point) //leave
 {
+    placedPoints.push_back(point);
     // visitStuff(cout);
     double t = -1;
     int index = 0;
@@ -145,7 +146,9 @@ void AreaTree::placer(Vec2d point) //leave
 
     }
     else {
-        pointOutNode(point,closestNode);
+        resetTree();
+        return;
+      //  pointOutNode(point,closestNode);
     }
 }
 
@@ -378,6 +381,46 @@ void AreaTree::shortenPath(Waypoint* current,Vec2d destination)
         }
     }
 }
+
+vector<Vec2d> findMinMax(vector<Vec2d> points)
+{
+    double minX = INT_MAX;
+    double maxX = 0;
+    double minY = INT_MAX;
+    double maxY = 0;
+    for(auto p : points)
+    {
+        if(p.x > maxX)
+        {
+            maxX = p.x;
+        }
+        if(p.x < minX)
+        {
+            minX = p.x;
+        }
+        if(p.x > maxY)
+        {
+            maxY = p.y;
+        }
+        if(p.y < minY)
+        {
+            minY = p.y;
+        }
+    }
+
+    Vec2d x{maxX,minX};
+    Vec2d y{maxY,minY};
+    return vector<Vec2d> {x,y};
+}
+
+void AreaTree::resetTree()
+{
+    //find min and max x and y, make somewhat bigger than that
+    vector<Vec2d> pointsCopy = placedPoints;
+    vector<Vec2d>minMaxes = findMinMax(pointsCopy);
+    //now use this information to make a rectangle of width (xMax + l) and height (hMax + h) where l and h are arbitrary
+    //then populate with pointsCopy
+}
 Waypoint* AreaTree::aStar(Vec2d start, Vec2d destination, Graphics &g,Viewport view)
 {
     //traverse tree and reset inQ with visitStuff()
@@ -529,7 +572,7 @@ void AreaTree::splitNode(Vec2d point, Node *node)
         throw new logic_error("2 UH OH! NODE IN TREE AFTER DELETION!");
     }
     delete(node);
-    cout<<"Dump in Split"<<endl;
+   // cout<<"Dump in Split"<<endl;
     //visitStuff(cout);
     while(nodes.size())
     {

@@ -307,11 +307,11 @@ void World::makeNewArea()
 
         }
         if(cont){
-            cout<<"new points, making area"<<endl;
+         //   cout<<"new points, making area"<<endl;
             alreadyDetected.push_back(newlyDetected[0]);
             newlyDetected.erase(newlyDetected.begin());
-            cout<<" detected point at x: "<<alreadyDetected.back().x<< " y: "<<alreadyDetected.back().y<<endl;
-            cout<<"robot position x: "<<robot.position.x<<" position y: "<<robot.position.y<<endl;
+         //   cout<<" detected point at x: "<<alreadyDetected.back().x<< " y: "<<alreadyDetected.back().y<<endl;
+        //    cout<<"robot position x: "<<robot.position.x<<" position y: "<<robot.position.y<<endl;
             strm.close();
             strm.open("writeNode.txt");
             tree.visitStuff(strm);
