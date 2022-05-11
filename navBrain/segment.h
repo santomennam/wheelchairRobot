@@ -20,6 +20,7 @@ public:
     void save(std::ostream& strm);
     void load(std::istream& strm);
     segment();
+
     double magnitude()  {return (p1-p2).magnitude();}
     void magChecker(double width);
     segment(Vec2d point1, Vec2d point2, double botWidth);
