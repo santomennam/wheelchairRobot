@@ -16,6 +16,8 @@
 
 #include <deque>
 
+#define MSSM_GRAPHICS
+
 #ifndef _MSC_VER
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmisleading-indentation"

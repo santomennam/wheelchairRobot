@@ -46,6 +46,7 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     CmdLink.cpp
     lidar.cpp
     lidar.h
+    bitrange.h
 )
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 #set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -64,7 +65,7 @@ include_directories(
     third_party/glfw/include
     graphics
     utility
-    third_party/rplidar_sdk/sdk/include
+    third_party/lidar_sdk
 )
 
 set(ASSETS_SOURCE_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/assets")
@@ -148,6 +149,17 @@ target_sources(${PROJECT_NAME} PUBLIC
     utility/rand.cpp
     utility/paths.h
     utility/paths.cpp
+
+    third_party/lidar_sdk/rplidar_cmd.h
+    third_party/lidar_sdk/rplidar_protocol.h
+    third_party/lidar_sdk/sl_lidar_protocol.h
+    third_party/lidar_sdk/sl_types.h
+    third_party/lidar_sdk/sl_crc.h
+    third_party/lidar_sdk/sl_lidar_cmd.h
+    third_party/lidar_sdk/sl_lidar_driver.h
+
+    third_party/lidar_sdk/sl_lidar_driver.cpp
+    third_party/lidar_sdk/sl_crc.cpp
 )
 
 if(INCLUDE_SOUND)
