@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.13.0)
 #   sudo apt-get install freeglut3-dev
 
 # HEY!  Want to change the name of the project/executable?  Do it on the next line
-project(graphics2022 LANGUAGES CXX C)
+project(clippertest LANGUAGES CXX C)
 
 set(INCLUDE_SOUND TRUE)    # TRUE to include audio/sound support
 set(INCLUDE_SERIAL TRUE)   # TRUE to include serial port support

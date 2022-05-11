@@ -133,7 +133,8 @@ int main()
         g.polygon(poly2, GREY);
 
         for (const auto& p : polys) {
-            g.points(p, YELLOW);
+            g.points(p, GREEN);
+            g.polygon(p, YELLOW);
         }
 
         if (g.isKeyPressed(Key::ESC)) {
