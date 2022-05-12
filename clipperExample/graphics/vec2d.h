@@ -50,4 +50,6 @@ Vec2d& operator-=(Vec2d& v, const Vec2d& other);
 Vec2d& operator/=(Vec2d& v, double s);
 Vec2d& operator*=(Vec2d& v, double s);
 
+std::ostream& operator<<(std::ostream& os, const Vec2d& vec);
+
 #endif // VEC2D_H
