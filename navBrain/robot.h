@@ -14,7 +14,7 @@ public:
     double length;
     bool moved = false;
     double distanceRead = 0;
-    double width = 100;
+    double width = 36;
     Vec2d position; // pissy pants
     double angularVelocity = 0;
     std::vector<Vec2d> pointsToDraw{{-40,20},{-40,-20},{40,-20},{40,20}}; // put a vector of points here. when wan

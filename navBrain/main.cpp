@@ -17,10 +17,10 @@
 #include "viewport.h"
 #include "physics.h"
 #include<windows.h>
-
 #include "botconnection.h"
 #include "botcommserial.h"
 #include "botcommmonitor.h"
+
 
 
 #pragma GCC diagnostic ignored "-Wsign-conversion"
@@ -29,6 +29,8 @@
 
 using namespace std;
 using namespace mssm;
+using namespace ClipperLib;
+
 
 void resetDestination(BotConnection& bot, World& world, Vec2d destination)
 {

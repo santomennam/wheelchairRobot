@@ -12,6 +12,7 @@ class AreaTree
 {
 public:
     std::set<Node*> nodes;
+    std::vector<Vec2d> placedPoints;
     Node* head;
     double botWidth;
 public:
@@ -43,7 +44,10 @@ public:
     bool hasNodeBeenDeleted(Node a);
     Waypoint* aStar(Vec2d start, Vec2d destination,mssm::Graphics&g,Viewport view);
     bool doesSegmentCollide(Vec2d p1, Vec2d p2);
-    void shortenPath(Waypoint* current,Vec2d destination);
+    void shortenPath(Waypoint* current,Vec2d destination);\
+    void resetTree();
+    void closeNode(Node* node);
+    void closeNodeByPoint(Vec2d point);
 
 };
 

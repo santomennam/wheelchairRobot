@@ -36,11 +36,11 @@ void AreaTree::showAdjacents(Graphics &g, Viewport view)
 AreaTree::AreaTree(double width, double height,double Width)
     :botWidth{Width}
 {
-    double cellSize = 2000;//botWidth*2;
-    int numRows = 1;//width/cellSize;
-    int numCols = 1;//height/cellSize;
-    double offx = -cellSize/2;//-width/2; ////
-    double offy = -cellSize/2;//-height/2; //
+    double cellSize = botWidth*2;
+    int numRows = width/cellSize;
+    int numCols = height/cellSize;
+    double offx = -width/2; ////
+    double offy = -height/2;
     vector<vector<Node*>> grid(numRows, vector<Node*>(numCols));
 
     for (int r = 0; r < numRows; r++) {
@@ -122,6 +122,8 @@ packet AreaTree::findClosestNode(Vec2d point)
 void AreaTree::placer(Vec2d point) //leave
 {
     placedPoints.push_back(point);
+
+
     // visitStuff(cout);
     double t = -1;
     int index = 0;
@@ -420,6 +422,26 @@ void AreaTree::resetTree()
     vector<Vec2d>minMaxes = findMinMax(pointsCopy);
     //now use this information to make a rectangle of width (xMax + l) and height (hMax + h) where l and h are arbitrary
     //then populate with pointsCopy
+}
+
+void AreaTree::closeNode(Node *node)
+{
+    if (node) {
+        for (int i = 0; i < node->boundaries.size(); i++) {
+            segment& s = node->boundaries[i];
+            s.open = false;
+            for (auto& sa : node->adjacents[i]->sharedSegsP(node)) {
+                sa->open = false;
+            }
+        }
+    }
+}
+
+void AreaTree::closeNodeByPoint(Vec2d point)
+{
+    packet p = findClosestNode(point);
+    Node* n = p.node;
+    closeNode(n);
 }
 Waypoint* AreaTree::aStar(Vec2d start, Vec2d destination, Graphics &g,Viewport view)
 {

@@ -184,7 +184,7 @@ void World::draw(Graphics &g)
 
     robot.update();
     sensorCoords();
-    makeNewArea();
+    processLidarData();
 //    if(robot.moved)
 //    {
 
@@ -290,7 +290,7 @@ void World::placeObstaclesFromList(std::vector<Vec2d> points)
     newlyDetected = points;
 }
 
-void World::makeNewArea()
+void World::processLidarData()
 {
     while(newlyDetected.size())
     {
@@ -312,10 +312,15 @@ void World::makeNewArea()
             newlyDetected.erase(newlyDetected.begin());
          //   cout<<" detected point at x: "<<alreadyDetected.back().x<< " y: "<<alreadyDetected.back().y<<endl;
         //    cout<<"robot position x: "<<robot.position.x<<" position y: "<<robot.position.y<<endl;
-            strm.close();
-            strm.open("writeNode.txt");
-            tree.visitStuff(strm);
-            tree.placer(alreadyDetected.back());
+//            strm.close();
+//            strm.open("writeNode.txt");
+//            tree.visitStuff(strm);
+//            tree.placer(alreadyDetected.back());
+            polyOp.polys.push_back(polyOp.makeCircle(obstacleRadius,6,newlyDetected.back()));
+            for (Vec2d p : polyOp.polys.back())
+            {
+                tree.closeNodeByPoint(p);
+            }
         }
     }
     //make area

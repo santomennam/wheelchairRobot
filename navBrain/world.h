@@ -11,12 +11,13 @@
 #include <fstream>
 #include "physics.h"
 #include "absolutepostracker.h"
-
+#include "polyops.h"
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
 class World
 {
 public:
+    PolyOps polyOp;
     double vel1;
     double vel2;
     Viewport view;
@@ -59,6 +60,8 @@ public:
     std::vector<navPoint> targets;
     double acceptableError = 600; //in encs //was 1200
     bool targetsChanged = true;
+    int obstacleRadius = 3; //inches around the detected point to build the polygon
+
 public:
 
     // used by BotConnection:
@@ -87,7 +90,7 @@ public:
     void createRandomObstacles(mssm::Graphics&g);
     void placeObstacle(Vec2d point);
     void placeObstaclesFromList(std::vector<Vec2d> list);
-    void makeNewArea();
+    void processLidarData();
     bool followPath(mssm::Graphics&g);
     bool hasWorldChanged(); //implement this
     void callNav(mssm::Graphics&g, Vec2d dest);

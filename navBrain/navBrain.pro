@@ -10,9 +10,11 @@ HEADERS    = \
     botcommmonitor.h \
     botcommserial.h \
     botconnection.h \
+    clipper.h \
     networkclient.h \
     networkplugin.h \
     networkserver.h \
+    polyops.h \
     simplecrc.h \
     window.h \
     graphics.h \
@@ -41,11 +43,13 @@ SOURCES     = \
     botcommmonitor.cpp \
     botcommserial.cpp \
     botconnection.cpp \
+    clipper.cpp \
     main.cpp \
     graphics.cpp \
     networkclient.cpp \
     networkplugin.cpp \
     networkserver.cpp \
+    polyops.cpp \
     simplecrc.cpp \
     vec2d.cpp \
     vec3d.cpp \
