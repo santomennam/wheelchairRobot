@@ -100,7 +100,7 @@ int main()
     vector<vector<Vec2d>> points;
     vector<Vec2d> incomingPoints;
 
-    int scansToKeep = 10;
+    int scansToKeep = 1;
 
     Lidar lidar(portName, [&](bool startSweep, const LidarData& point) {
 

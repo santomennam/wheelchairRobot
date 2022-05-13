@@ -523,21 +523,6 @@ void key(GLFWwindow* window, int key, int /*scancode*/, int action, int mods)
 {
     Graphics* g = reinterpret_cast<Graphics*>(glfwGetWindowUserPointer(window));
 
-    switch (key) {
-    case GLFW_KEY_RIGHT:
-        key = static_cast<int>(KeyCode::Right);
-        break;
-    case GLFW_KEY_LEFT:
-        key = static_cast<int>(KeyCode::Left);
-        break;
-    case GLFW_KEY_UP:
-        key = static_cast<int>(KeyCode::Up);
-        break;
-    case GLFW_KEY_DOWN:
-        key = static_cast<int>(KeyCode::Down);
-        break;
-    }
-
     if (key == GLFW_KEY_ENTER &&
             mods & GLFW_MOD_ALT &&
             action == GLFW_PRESS) {
@@ -700,7 +685,8 @@ Graphics::Graphics(std::string title, int width, int height,
 #ifdef INCLUDE_SOUND
     soundPlayer.init();
 #endif
-
+    resetKeyChangeIdx();
+    resetMouseChangeIdx();
 
     this->mainFunc = mainFunc;
 
@@ -715,7 +701,8 @@ Graphics::Graphics(std::string title, int width, int height,
             (std::chrono::steady_clock::now().time_since_epoch()).count();
     lastDrawTime = std::chrono::steady_clock::now();
 
-    isPressed.resize(GLFW_KEY_LAST+1);
+    keyState.resize(GLFW_KEY_LAST+1);
+    mouseState.resize(GLFW_MOUSE_BUTTON_LAST+1);
     //wasPressed.resize(GLFW_KEY_LAST+1);
 
 
@@ -885,6 +872,36 @@ std::ostream& mssm::operator<<(std::ostream& os, const Event& evt)
     return os;
 }
 
+std::ostream& mssm::operator<<(std::ostream& os, const Key& k)
+{
+    if (std::isprint((int)k)) {
+        os << (char)k;
+    }
+    else {
+        switch (k) {
+        case Key::Left:       os <<  "Key::Left"; break;
+        case Key::Right:      os <<  "Key::Right"; break;
+        case Key::Up:         os <<  "Key::Up"; break;
+        case Key::Down:       os <<  "Key::Down"; break;
+        case Key::LeftShift:  os <<  "Key::LeftShift"; break;
+        case Key::LeftCtrl:   os <<  "Key::LeftCtrl"; break;
+        case Key::LeftAlt:    os <<  "Key::LeftAlt"; break;
+        case Key::RightShift: os <<  "Key::RightShift"; break;
+        case Key::RightCtrl:  os <<  "Key::RightCtrl"; break;
+        case Key::RightAlt:   os <<  "Key::RightAlt"; break;
+        case Key::ESC:        os <<  "Key::ESC"; break;
+        case Key::ENTER:      os <<  "Key::ENTER"; break;
+        case Key::PageUp:     os <<  "Key::PageUp"; break;
+        case Key::PageDown:   os <<  "Key::PageDown"; break;
+        default:              os <<  "Key::UNKNOWN"; break;
+        }
+    }
+    return os;
+}
+
+
+
+
 void Graphics::postEvent(int x, int y, EvtType evtType, ModKey mods, int arg)
 {
     Event evt{evtType,x,y,mods,arg};
@@ -899,13 +916,30 @@ void Graphics::postEvent(int x, int y, EvtType evtType, ModKey mods, int arg)
     case EvtType::KeyPress:
         if (arg <= GLFW_KEY_LAST)
         {
-            isPressed[arg]  = true;
+            updateKeyChangeIdx(arg);
+            keyState[arg]  = KeyState::justPressed;
+            pressedKey = arg;
         }
         break;
     case EvtType::KeyRelease:
         if (arg <= GLFW_KEY_LAST)
         {
-            isPressed[arg] = false;
+            updateKeyChangeIdx(arg);
+            keyState[arg]  = KeyState::justReleased;
+        }
+        break;
+    case EvtType::MousePress:
+        if (arg <= GLFW_MOUSE_BUTTON_LAST)
+        {
+            updateMouseChangeIdx(arg);
+            mouseState[arg]  = KeyState::justPressed;
+        }
+        break;
+    case EvtType::MouseRelease:
+        if (arg <= GLFW_MOUSE_BUTTON_LAST)
+        {
+            updateMouseChangeIdx(arg);
+            mouseState[arg]  = KeyState::justReleased;
         }
         break;
     default:
@@ -943,6 +977,38 @@ void Graphics::setMousePos(int x, int y)
 {
     _mousePos.x = x;
     _mousePos.y = y;
+}
+
+void Graphics::resetKeyChangeIdx()
+{
+   minKeyStateIdx = numeric_limits<int>::max();
+   maxKeyStateIdx = numeric_limits<int>::lowest();
+}
+
+void Graphics::updateKeyChangeIdx(int idx)
+{
+    if (idx < minKeyStateIdx) {
+        minKeyStateIdx = idx;
+    }
+    if (idx > maxKeyStateIdx) {
+        maxKeyStateIdx = idx;
+    }
+}
+
+void Graphics::resetMouseChangeIdx()
+{
+    minMouseStateIdx = numeric_limits<int>::max();
+    maxMouseStateIdx = numeric_limits<int>::lowest();
+}
+
+void Graphics::updateMouseChangeIdx(int idx)
+{
+    if (idx < minMouseStateIdx) {
+        minMouseStateIdx = idx;
+    }
+    if (idx > maxKeyStateIdx) {
+        maxMouseStateIdx = idx;
+    }
 }
 
 std::chrono::milliseconds::rep Graphics::time()
@@ -1164,6 +1230,24 @@ bool Graphics::draw()
     //    }
 
     glfwSwapBuffers(window);
+
+    for (int idx = minKeyStateIdx; idx <= maxKeyStateIdx; idx++) {
+        switch (keyState[idx]) {
+        case KeyState::justPressed:
+            keyState[idx] = KeyState::down;
+            break;
+        case KeyState::justReleased:
+            keyState[idx] = KeyState::up;
+            break;
+        case KeyState::down:
+        case KeyState::up:
+            break;
+        }
+    }
+
+    resetKeyChangeIdx();
+    resetMouseChangeIdx();
+    pressedKey = Key::None;
 
     glfwPollEvents();
 

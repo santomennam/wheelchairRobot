@@ -86,3 +86,9 @@ Vec2d& operator*=(Vec2d& v, double s)
     v.y *= s;
     return v;
 }
+
+std::ostream& operator<<(std::ostream& os, const Vec2d& vec)
+{
+    os << "{" << vec.x << ", " << vec.y << "}";
+    return os;
+}

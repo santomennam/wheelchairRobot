@@ -131,23 +131,6 @@ enum class VAlign {
 #define fwdDefGLFW_KEY_RIGHT_SUPER        347
 #define fwdDefGLFW_KEY_MENU               348
 
-enum class KeyCode
-{
-    Left  = fwdDefGLFW_KEY_LEFT,
-    Right = fwdDefGLFW_KEY_RIGHT,
-    Up    = fwdDefGLFW_KEY_UP,
-    Down  = fwdDefGLFW_KEY_DOWN,
-    LeftShift = fwdDefGLFW_KEY_LEFT_SHIFT,
-    LeftCtrl  = fwdDefGLFW_KEY_LEFT_CONTROL,
-    LeftAlt   = fwdDefGLFW_KEY_LEFT_ALT,
-    RightShift = fwdDefGLFW_KEY_RIGHT_SHIFT,
-    RightCtrl  = fwdDefGLFW_KEY_RIGHT_CONTROL,
-    RightAlt   = fwdDefGLFW_KEY_RIGHT_ALT,
-    ESC   = fwdDefGLFW_KEY_ESCAPE,
-    ENTER = fwdDefGLFW_KEY_ENTER,
-    PageUp = fwdDefGLFW_KEY_PAGE_UP,
-    PageDown = fwdDefGLFW_KEY_PAGE_DOWN,
-};
 
 class Key {
     int code;
@@ -160,6 +143,7 @@ public:
     };
     constexpr Key(char c) { code = c; }
     constexpr Key(int c) { code = c; }
+    static constexpr KeyConst None{0};
     static constexpr KeyConst Left{fwdDefGLFW_KEY_LEFT};
     static constexpr KeyConst Right{fwdDefGLFW_KEY_RIGHT};
     static constexpr KeyConst Up{fwdDefGLFW_KEY_UP};
@@ -176,6 +160,8 @@ public:
     static constexpr KeyConst PageDown{fwdDefGLFW_KEY_PAGE_DOWN};
     constexpr operator int() const { return code; }
 };
+
+std::ostream& operator<<(std::ostream& os, const Key& k);
 
 inline constexpr Key::KeyConst::operator Key() const
 {
@@ -346,14 +332,11 @@ public:
 
 class Graphics
 {
-    class KeyState {
-        char state{0};
-    public:
-        constexpr bool isDown()          const { return state & 0x01; }
-        constexpr bool wasJustPressed()  const { return state & 0x02; }
-        constexpr bool wasJustReleased() const { return state & 0x04; }
-        void onPress()   { state = isDown() ? 0x01 : 0x03; }
-        void onRelease() { }
+    enum KeyState {
+        up,            // still up (2nd and subsequent frames after release)
+        justPressed,   // just pressed this frame
+        down,          // still down (2nd and subsequent frames after press)
+        justReleased,  // just released this frame
     };
 
 private:
@@ -405,8 +388,15 @@ private:
 
     mssm::Color background;
 
-    std::vector<bool> isPressed;
-    //std::vector<bool> wasPressed;
+    int minKeyStateIdx; // minimum idx of keyState that was changed this update cycle
+    int maxKeyStateIdx;                  // max idx of keyState that was changed this update cycle
+    std::vector<KeyState> keyState;
+
+    int minMouseStateIdx; // minimum idx of keyState that was changed this update cycle
+    int maxMouseStateIdx;                  // max idx of keyState that was changed this update cycle
+    std::vector<KeyState> mouseState;
+
+    Key pressedKey{Key::None}; // most recent key pressed, but one frame only
 
     std::string stringOutput;
     std::function<std::string()> getInputText;
@@ -489,7 +479,15 @@ public:
 
     double timeMs();
 
-    bool   isKeyPressed(Key c) const { return isPressed[c]; }
+    bool   isKeyPressed(Key c) const { return keyState[c] == KeyState::down || keyState[c] == KeyState::justPressed; }
+    bool   onKeyPress(Key c) const { return keyState[c] == KeyState::justPressed; }
+    bool   onKeyRelease(Key c) const { return keyState[c] == KeyState::justReleased; }
+
+    bool   isMousePressed(int button) const { return mouseState[button] == KeyState::down || mouseState[button] == KeyState::justPressed; }
+    bool   onMousePress(int button) const { return mouseState[button] == KeyState::justPressed; }
+    bool   onMouseRelease(int button) const { return mouseState[button] == KeyState::justReleased; }
+
+    Key    getKeyPressed() { return pressedKey; }
 
     std::vector<Event> events();
 
@@ -519,6 +517,12 @@ private:
     friend void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
     friend void scrollWheelCallback(GLFWwindow* window, double /*sx*/, double sy);
     friend void windowSizeCallback(GLFWwindow* window,int width,int height);
+
+    void resetKeyChangeIdx();
+    void updateKeyChangeIdx(int idx);
+
+    void resetMouseChangeIdx();
+    void updateMouseChangeIdx(int idx);
 };
 
 

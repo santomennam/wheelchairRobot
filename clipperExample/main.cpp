@@ -141,6 +141,32 @@ int main()
             break;
         }
 
+        if (g.isKeyPressed(' ')) {
+            g.cout << "<SPACE>" << endl;
+        }
+
+        if (g.onKeyPress(' ')) {
+            g.cerr << "Space Press" << endl;
+        }
+        if (g.onKeyRelease(' ')) {
+            g.cerr << "Space Release" << endl;
+        }
+
+        if (g.onMousePress(1)) {
+            polys = clip(polys, makeCircle(30, 6, g.mousePos()), ClipType::ctUnion);
+        }
+
+        switch (g.getKeyPressed()) {
+        case Key::None:
+            break;
+        case Key::Down:
+            g.cerr << "I'm down with that" << endl;
+            break;
+        default:
+            g.cerr << "Key Pressed: " << g.getKeyPressed() << endl;
+            break;
+        }
+
         g.polygon(makeCircle(30, 12, g.mousePos()), GREEN);
 
         for (const Event& e : g.events()) {
@@ -174,7 +200,10 @@ int main()
                 break;
             case EvtType::MousePress:
 
+<<<<<<< HEAD
                 polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
+=======
+>>>>>>> ea74b689165e841aa43ef21addf9fe31333e14bb
 
 
                 break;
