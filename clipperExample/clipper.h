@@ -87,16 +87,16 @@ struct IntPoint {
   cInt Y;
 #ifdef use_xyz
   cInt Z;
-  IntPoint(cInt x = 0, cInt y = 0, cInt z = 0): X(x), Y(y), Z(z) {};
+  constexpr IntPoint(cInt x = 0, cInt y = 0, cInt z = 0): X(x), Y(y), Z(z) {};
 #else
-  IntPoint(cInt x = 0, cInt y = 0): X(x), Y(y) {};
+  constexpr IntPoint(cInt x = 0, cInt y = 0): X(x), Y(y) {};
 #endif
 
-  friend inline bool operator== (const IntPoint& a, const IntPoint& b)
+  friend inline constexpr bool operator== (const IntPoint& a, const IntPoint& b)
   {
     return a.X == b.X && a.Y == b.Y;
   }
-  friend inline bool operator!= (const IntPoint& a, const IntPoint& b)
+  friend inline constexpr bool operator!= (const IntPoint& a, const IntPoint& b)
   {
     return a.X != b.X  || a.Y != b.Y; 
   }

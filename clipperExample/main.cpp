@@ -113,7 +113,7 @@ vector<vector<Vec2d>> simplify(vector<vector<Vec2d>> polys)
 {
     auto paths = makePaths(polys);
     Paths pathsOut;
-    CleanPolygons(paths, pathsOut, 5);
+    CleanPolygons(paths, pathsOut, 2);
     return makePolys(pathsOut);
 }
 
@@ -141,7 +141,7 @@ int main()
             break;
         }
 
-        g.polygon(makeCircle(30, 6, g.mousePos()), GREEN);
+        g.polygon(makeCircle(30, 12, g.mousePos()), GREEN);
 
         for (const Event& e : g.events()) {
             switch (e.evtType) {
@@ -170,11 +170,11 @@ int main()
             case EvtType::KeyRelease:
                 break;
             case EvtType::MouseMove:
-                polys = clip(polys, makeCircle(30, 6, g.mousePos()), ClipType::ctUnion);
+                polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
                 break;
             case EvtType::MousePress:
 
-                polys = clip(polys, makeCircle(30, 6, g.mousePos()), ClipType::ctUnion);
+                polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
 
 
                 break;

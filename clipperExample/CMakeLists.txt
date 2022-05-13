@@ -44,6 +44,8 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     main.cpp
     clipper.cpp
     clipper.h
+    polyops.h
+    polyops.cpp
 )
 
 #set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
