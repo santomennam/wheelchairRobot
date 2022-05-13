@@ -199,13 +199,7 @@ int main()
                 polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
                 break;
             case EvtType::MousePress:
-
-<<<<<<< HEAD
                 polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
-=======
->>>>>>> ea74b689165e841aa43ef21addf9fe31333e14bb
-
-
                 break;
             case EvtType::MouseRelease:
                 break;
