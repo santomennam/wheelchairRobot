@@ -36,7 +36,7 @@ void AreaTree::showAdjacents(Graphics &g, Viewport view)
 AreaTree::AreaTree(double width, double height,double Width)
     :botWidth{Width}
 {
-    double cellSize = botWidth*2;
+    double cellSize = botWidth*1.5;
     int numRows = width/cellSize;
     int numCols = height/cellSize;
     double offx = -width/2; ////

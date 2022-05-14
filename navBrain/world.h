@@ -60,7 +60,7 @@ public:
     std::vector<navPoint> targets;
     double acceptableError = 600; //in encs //was 1200
     bool targetsChanged = true;
-    int obstacleRadius = 3; //inches around the detected point to build the polygon
+    int obstacleRadius = 5; //inches around the detected point to build the polygon
 
 public:
 

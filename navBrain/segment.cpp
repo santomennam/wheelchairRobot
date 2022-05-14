@@ -42,7 +42,7 @@ segment::segment()
 
 void segment::magChecker(double width)
 {
-    open = (magnitude() > width);
+//    open = (magnitude() > width);
 }
 
 segment::segment(Vec2d point1, Vec2d point2, double botWidth)

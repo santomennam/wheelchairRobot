@@ -199,6 +199,16 @@ void World::draw(Graphics &g)
         temp.y += robot.position.y;
     }
 
+
+    for(auto p : polyOp.polys)
+    {
+        for(auto &point : p)
+        {
+            point = view.worldToScreen(point);
+        }
+        g.polygon(p,YELLOW);
+    }
+
     for(navPoint nav : posTracker.navPoints)
     {
         Vec2d head = nav.pos + Vec2d{9,0}.rotated(nav.angle);//second point in arrow
@@ -299,7 +309,6 @@ void World::processLidarData()
         {
             if((newlyDetected[0]-p).magnitude()<3)
             {
-                // cout<<"too close, deleting"<<endl;
                 newlyDetected.erase(newlyDetected.begin());
                 cont = false;
                 break;
@@ -307,20 +316,22 @@ void World::processLidarData()
 
         }
         if(cont){
-         //   cout<<"new points, making area"<<endl;
             alreadyDetected.push_back(newlyDetected[0]);
             newlyDetected.erase(newlyDetected.begin());
-            vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,6,newlyDetected.back());
+            vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8,alreadyDetected.back());
+            polyOp.polys.push_back(poly);
             polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
+            polyOp.polys = polyOp.simplify(polyOp.polys);
+            cout<<"made polygon"<<polyOp.polys.size()<<endl;
 
-            for (Vec2d p : polyOp.polys.back())
-            {
-                tree.closeNodeByPoint(p);
-            }
         }
     }
-    //make area
-
+    for(auto poly : polyOp.polys){
+        for (Vec2d p : poly)
+        {
+            tree.closeNodeByPoint(p);
+        }
+    }
 
 }
 
