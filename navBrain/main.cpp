@@ -76,12 +76,12 @@ void graphicsMain(Graphics& g)
     Vec2d previous;
     bool recording = false;
 
+
     BotCommSerial botSerial(g);
 
     BotCommMonitor botMonitor(&botSerial);
 
     BotConnection bot(&botMonitor);
-
 
 
     botSerial.connect("COM5");
@@ -117,9 +117,6 @@ void graphicsMain(Graphics& g)
             midpoints.push_back({x,y});
         }
     }
-
-
-
 
     world.worldScale = 0.04;
     world.view.pan(Vec2d{g.width()/2, g.height()/2});

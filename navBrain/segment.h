@@ -14,7 +14,7 @@ class segment
 public:
     Vec2d p1;
     Vec2d p2;
-    bool open;
+    bool open = true;
     mssm::Color C = mssm::WHITE;
 public:
     void save(std::ostream& strm);
