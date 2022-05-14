@@ -310,13 +310,9 @@ void World::processLidarData()
          //   cout<<"new points, making area"<<endl;
             alreadyDetected.push_back(newlyDetected[0]);
             newlyDetected.erase(newlyDetected.begin());
-         //   cout<<" detected point at x: "<<alreadyDetected.back().x<< " y: "<<alreadyDetected.back().y<<endl;
-        //    cout<<"robot position x: "<<robot.position.x<<" position y: "<<robot.position.y<<endl;
-//            strm.close();
-//            strm.open("writeNode.txt");
-//            tree.visitStuff(strm);
-//            tree.placer(alreadyDetected.back());
-            polyOp.polys.push_back(polyOp.makeCircle(obstacleRadius,6,newlyDetected.back()));
+            vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,6,newlyDetected.back());
+            polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
+
             for (Vec2d p : polyOp.polys.back())
             {
                 tree.closeNodeByPoint(p);

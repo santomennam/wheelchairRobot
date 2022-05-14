@@ -94,8 +94,8 @@ void graphicsMain(Graphics& g)
     bool clicked = false;
     Vec2d point;
     vector<Vec2d> pathPoints;
-    double width = 10000;
-    double height = 10000;
+    double width = 1000;
+    double height = 1000;
 
 
     World world({0,0},{{100,100}},width,height);
