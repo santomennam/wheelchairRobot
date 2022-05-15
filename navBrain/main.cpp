@@ -185,17 +185,23 @@ void graphicsMain(Graphics& g)
     vector<double> rightMotorSpeed;
 
     SerialPort port(g);
-    port.open("COM8");
+    port.open("COM10");
 
 
     ifstream lidarSimPoints(R"(C:\Users\Marcello Santomenna\wheelchairRobot\navBrain\data\Pts.csv)");
 
     vector<Vec2d> lidarPoints = parser(lidarSimPoints);
 
-    vector<std::pair<bool, LidarData>> lidarRaw;
 
-    Lidar lidar(&port, [&lidarRaw](bool startSweep, const LidarData& point) {
-        lidarRaw.push_back(make_pair(startSweep, point));
+    Lidar lidar(&port, [&world](bool startSweep, const LidarData& point) {
+        if (point.isOk()) {
+            LidarPoint pnt;
+            pnt.distance = point.distance / (25.4); // convert to inches
+            pnt.localAngle = qDegreesToRadians(point.angle);
+            pnt.worldAngle = pnt.localAngle + world.posTracker.angle;
+            pnt.worldPos   = world.posTracker.position + Vec2d(pnt.distance, 0).rotated(pnt.worldAngle);
+            world.addLidarPoint(pnt);
+        }
     });
 
 
@@ -204,20 +210,9 @@ void graphicsMain(Graphics& g)
 
         lidar.update();
 
-        if(lidarRaw.size())
-        {
-            vector<Vec2d> rect;
-           for(const auto &packet : lidarRaw)
-           {
-               const LidarData &data{packet.second};
-               if(data.isOk())
-               {
-                   rect.push_back(Vec2d{data.distance,0}.rotated(qDegreesToRadians(data.angle))); //convert to rect
-               }
-           }
-            world.placeObstaclesFromList(rect);
-            lidarRaw.clear();
-        }
+        int numLidarPoints = world.numNewLidarPoint();
+
+        world.processLidarData(g);
 
         bot.update();
 
@@ -254,7 +249,8 @@ void graphicsMain(Graphics& g)
         if (!bot.getReceivedError().empty()) {
             g.text({10,textY -= 25}, 20, "ERROR:    " + bot.getReceivedError(), RED);
         }
-        g.text({10,textY -= 25}, 20, "Points Received  " + to_string(lidarRaw.size()), RED);
+
+          g.text({10,textY -= 25}, 20, "NumNewLidar: " + to_string(numLidarPoints), GREEN);
 
         //        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
         //        if(diff.count() >= 1)
@@ -510,8 +506,8 @@ void graphicsMain(Graphics& g)
                     world.showBeam = !world.showBeam;
                     break;
                 case 'O':
-                    world.placeObstaclesFromList(vector<Vec2d>(lidarPoints.begin(),lidarPoints.begin()+50));
-                    lidarPoints.erase(lidarPoints.begin(),lidarPoints.begin()+50);
+  //                  world.placeObstaclesFromList(vector<Vec2d>(lidarPoints.begin(),lidarPoints.begin()+50));
+   //                 lidarPoints.erase(lidarPoints.begin(),lidarPoints.begin()+50);
 //                   world.createRandomObstacles(g);
                     break;
                 }

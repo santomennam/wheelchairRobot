@@ -184,7 +184,7 @@ void World::draw(Graphics &g)
 
     robot.update();
     sensorCoords();
-    processLidarData(g);
+ //   processLidarData(g);
     //    if(robot.moved)
     //    {
 
@@ -249,10 +249,10 @@ void World::draw(Graphics &g)
     }
     g.polygon(copyRobot,WHITE);
     //g.polyline(obstacle.pts,RED);
-    for(int i = 0; i<newlyDetected.size();i++)
-    {
-        g.point(view.worldToScreen(newlyDetected[i]),BLUE);
-    }
+//    for(int i = 0; i<newlyDetected.size();i++)
+//    {
+//        g.point(view.worldToScreen(newlyDetected[i]),BLUE);
+//    }
 //    for(int i = 0; i<alreadyDetected.size();i++)
 //    {
 //        g.point(view.worldToScreen(alreadyDetected[i]),GREEN);
@@ -263,31 +263,31 @@ void World::draw(Graphics &g)
 
 void World::sensorCoords()
 {
-    //  cout << "ND: " << newlyDetected.size() << endl;
-    for(auto& point : newlyDetected)
-    {
-        point = point*(1/25.4); //convert from mm to in
-        point.rotate(posTracker.getAngle());
-        point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
-        //  sensedCoords.push_back(point);
-    }
-    // cout << "Sensed: " << sensedCoords.size() << endl;
-    //clear newlyDetected?
+//    //  cout << "ND: " << newlyDetected.size() << endl;
+//    for(auto& point : newlyDetected)
+//    {
+//        point = point*(1/25.4); //convert from mm to in
+//        point.rotate(posTracker.getAngle());
+//        point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
+//        //  sensedCoords.push_back(point);
+//    }
+//    // cout << "Sensed: " << sensedCoords.size() << endl;
+//    //clear newlyDetected?
 }
 
 void World::createRandomObstacles(Graphics &g)
 {
-    int q = g.randomInt(3,10);
-    for(int i = 0; i <q;i++)
-    {
-        newlyDetected.push_back({g.randomDouble(100,500),g.randomDouble(0,500)});
+//    int q = g.randomInt(3,10);
+//    for(int i = 0; i <q;i++)
+//    {
+//        newlyDetected.push_back({g.randomDouble(100,500),g.randomDouble(0,500)});
 
-        //        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
-        //        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
-        //        obstacle.interpolate();
-        //        obstacles.push_back(obstacle);
+//        //        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
+//        //        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
+//        //        obstacle.interpolate();
+//        //        obstacles.push_back(obstacle);
 
-    }
+//    }
 
 }
 
@@ -297,10 +297,10 @@ void World::placeObstacle(Vec2d point)
     obstacles.push_back(obstacle);
 }
 
-void World::placeObstaclesFromList(std::vector<Vec2d> points)
-{
-    newlyDetected = points;
-}
+//void World::placeObstaclesFromList(std::vector<Vec2d> points)
+//{
+//    //newlyDetected = points;
+//}
 
 double triangleAngle(vector<Vec2d>triangle) //finds interior angle from the first point in the list to the other two. expects three points.
 {
@@ -317,52 +317,31 @@ double triangleAngle(vector<Vec2d>triangle) //finds interior angle from the firs
 
 void World::processLidarData(Graphics& g)
 {
-    Vec2d previousNew{numeric_limits<double>::quiet_NaN(),numeric_limits<double>::quiet_NaN()};
-    while(newlyDetected.size())
-    {
-        bool cont = true;
-        for(auto p:alreadyDetected)
-        {
-            if((newlyDetected[0]-p).magnitude()<3)
-            {
-                newlyDetected.erase(newlyDetected.begin());
-                cont = false;
-                break;
-            }
-        }
-        //        if((newlyDetected[0]-posTracker.getPos()).magnitude()<3)
-        //        {
-        //            newlyDetected.erase(newlyDetected.begin());
-        //            cont = false;
-        //            break;
-        //        }
-
-        if(cont){
-            if(isnan(previousNew.x))
-            {
-                previousNew = newlyDetected[0];
-            }
-            else{
-                vector<Vec2d> wedge{posTracker.getPos(),newlyDetected[0],previousNew};
-                //if(triangleAngle(wedge)<3)
-               //{
-                    polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
-                    g.polygon(view.worldToScreen(wedge),PURPLE);
-             //   }
-
-                previousNew = newlyDetected[0];
-
-            }
-
-            alreadyDetected.push_back(newlyDetected[0]);
-            newlyDetected.erase(newlyDetected.begin());
-            vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8,alreadyDetected.back());
-            polyOp.polys.push_back(poly);
-            polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
-            polyOp.polys = polyOp.simplify(polyOp.polys);
-        }
+    if (newLidar.size() > 360) {
+        newLidar.resize(360);
     }
-    for(auto poly : polyOp.polys){
+
+    while(newLidar.size())
+    {
+        LidarPoint& pnt = newLidar[0];
+
+        if (pnt.localAngle - lastLidarPoint.localAngle < (M_PI*2/180)) {
+            vector<Vec2d> wedge{posTracker.getPos(), pnt.worldPos, lastLidarPoint.worldPos};
+            polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
+            //g.polygon(view.worldToScreen(wedge),PURPLE);
+        }
+
+        lastLidarPoint = pnt;
+
+        vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8, pnt.worldPos);
+        polyOp.polys.push_back(poly);
+        polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
+        polyOp.polys = polyOp.simplify(polyOp.polys);
+
+        newLidar.erase(newLidar.begin());
+    }
+
+    for(const auto& poly : polyOp.polys) {
         for (Vec2d p : poly)
         {
             tree.closeNodeByPoint(p);

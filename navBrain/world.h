@@ -12,7 +12,17 @@
 #include "physics.h"
 #include "absolutepostracker.h"
 #include "polyops.h"
+#include "Lidar/lidar.h"
+
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
+
+class LidarPoint {
+public:
+    double distance;
+    double localAngle;
+    double worldAngle;
+    Vec2d  worldPos;
+};
 
 class World
 {
@@ -34,10 +44,11 @@ public:
     bool showObstacle = true;
     std::vector<Vec2d> sensedCoords;
     bool showBeam = false;
-    std::vector<Vec2d> newlyDetected;
+    //std::vector<Vec2d> newlyDetected;
     std::vector<Vec2d> alreadyDetected;
 
-
+    std::vector<LidarPoint> newLidar;
+    LidarPoint lastLidarPoint;
 
 //    std::string incomingData;
 //    std::string receivedCommand;
@@ -89,7 +100,9 @@ public:
     void sensorCoords();
     void createRandomObstacles(mssm::Graphics&g);
     void placeObstacle(Vec2d point);
-    void placeObstaclesFromList(std::vector<Vec2d> list);
+   // void placeObstaclesFromList(std::vector<Vec2d> list);
+    void addLidarPoint(LidarPoint& pnt) { newLidar.push_back(pnt); }
+    int numNewLidarPoint() { return newLidar.size(); }
     void processLidarData(mssm::Graphics& g);
     bool followPath(mssm::Graphics&g);
     bool hasWorldChanged(); //implement this
