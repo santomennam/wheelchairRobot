@@ -16,8 +16,8 @@ constexpr bool verbose = false;
 using namespace std;
 using namespace mssm;
 
-constexpr int      RESET_TIMEOUT = 1000;
-constexpr uint64_t COMM_IDLE_THRESHOLD = 1000;
+constexpr int      RESET_TIMEOUT = 5000;
+constexpr uint64_t COMM_IDLE_THRESHOLD = 2000;
 constexpr int      RESPONSE_TIMEOUT = 100;
 constexpr int      SEND_TIMEOUT = 100;
 

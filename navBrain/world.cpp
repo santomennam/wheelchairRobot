@@ -16,9 +16,9 @@ void World::botTargetUpdated(Vec2d targets)
 
 void World::botEncoderUpdated(Vec2d encoders)
 {
-//    dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
-//    robot.distanceRead /= 2.54;
-//    robot.distanceRead += 8; //this will need to be removed
+    //    dataStream>>robot.distanceRead>>a>>b>>vel1>>vel2; // uwu
+    //    robot.distanceRead /= 2.54;
+    //    robot.distanceRead += 8; //this will need to be removed
     posTracker.update(encoders.x, encoders.y);
     robot.angle = posTracker.getAngle();
     robot.position = posTracker.getPos();
@@ -48,28 +48,28 @@ double World::inches(int encs)
 
 float World::rads(int degrees)
 {
-  return degrees / 57.2958;
+    return degrees / 57.2958;
 }
 
 float World::radToArc(float rads)
 { // returns arc in inches
-  return RobotParams::encSeparation/ 2 * rads;
+    return RobotParams::encSeparation/ 2 * rads;
 }
 
 Vec2d World::generateTurn(int degrees)
 {
-  int sign = degrees < 0 ? -1 : 1;
-  // positive turn is counterclockwise
-  degrees = sign * (abs(degrees) % 360); // constrain to +/- 360
-  if (abs(degrees) > 180)
-  {
-    degrees = (360 - abs(degrees)) * -sign; // find complement, flip sign
-  }
-  float angle = rads(degrees);
-  float arc = radToArc(angle);
-  double dist = encoders(arc);
-  Vec2d motorVals(-dist, dist);
-  return motorVals;
+    int sign = degrees < 0 ? -1 : 1;
+    // positive turn is counterclockwise
+    degrees = sign * (abs(degrees) % 360); // constrain to +/- 360
+    if (abs(degrees) > 180)
+    {
+        degrees = (360 - abs(degrees)) * -sign; // find complement, flip sign
+    }
+    float angle = rads(degrees);
+    float arc = radToArc(angle);
+    double dist = encoders(arc);
+    Vec2d motorVals(-dist, dist);
+    return motorVals;
 }
 
 double angle(Vec2d p1, Vec2d p2) //angle between these two rays
@@ -90,7 +90,7 @@ navPoint World::encsForTurn(double currentAngle, Vec2d inchPos, Vec2d inchDest) 
     double dangle = angle(dir1,dir2);
     Vec2d angularEncTarget = generateTurn(dangle);
     navPoint destPoint{targets.empty() ? posTracker.position : targets.back().pos,currentAngle+dangle,angularEncTarget,true};
-//    cout<<"Encs for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.encoderReadings<<endl;
+    //    cout<<"Encs for turn from "<<inchPos<<" to " << inchDest << " of angle " << dangle << " is " <<destPoint.encoderReadings<<endl;
     return destPoint;
 }
 
@@ -177,19 +177,19 @@ void World::draw(Graphics &g)
         tree.draw(g,view);
     }
     if(diagnostics){
-         g.text({50,70}, 20, "x pos " + to_string(robot.position.x));
-         g.text({50,50}, 20, "y pos " + to_string(robot.position.y));
-         g.text({50,90}, 20, "angle " + to_string(robot.angle));
+        g.text({50,70}, 20, "x pos " + to_string(robot.position.x));
+        g.text({50,50}, 20, "y pos " + to_string(robot.position.y));
+        g.text({50,90}, 20, "angle " + to_string(robot.angle));
     }
 
     robot.update();
     sensorCoords();
     processLidarData(g);
-//    if(robot.moved)
-//    {
+    //    if(robot.moved)
+    //    {
 
-//        robot.moved = false;
-//    }
+    //        robot.moved = false;
+    //    }
 
     vector<Vec2d> tempPoints = robot.pointsToDraw;
     for (Vec2d& temp:tempPoints)
@@ -253,23 +253,25 @@ void World::draw(Graphics &g)
     {
         g.point(view.worldToScreen(newlyDetected[i]),BLUE);
     }
-    for(int i = 0; i<alreadyDetected.size();i++)
-    {
-        g.point(view.worldToScreen(alreadyDetected[i]),GREEN);
-    }
+//    for(int i = 0; i<alreadyDetected.size();i++)
+//    {
+//        g.point(view.worldToScreen(alreadyDetected[i]),GREEN);
+//    }
 }
+
+
 
 void World::sensorCoords()
 {
-  //  cout << "ND: " << newlyDetected.size() << endl;
+    //  cout << "ND: " << newlyDetected.size() << endl;
     for(auto& point : newlyDetected)
     {
         point = point*(1/25.4); //convert from mm to in
         point.rotate(posTracker.getAngle());
         point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
-      //  sensedCoords.push_back(point);
+        //  sensedCoords.push_back(point);
     }
-   // cout << "Sensed: " << sensedCoords.size() << endl;
+    // cout << "Sensed: " << sensedCoords.size() << endl;
     //clear newlyDetected?
 }
 
@@ -280,10 +282,10 @@ void World::createRandomObstacles(Graphics &g)
     {
         newlyDetected.push_back({g.randomDouble(100,500),g.randomDouble(0,500)});
 
-//        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
-//        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
-//        obstacle.interpolate();
-//        obstacles.push_back(obstacle);
+        //        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
+        //        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
+        //        obstacle.interpolate();
+        //        obstacles.push_back(obstacle);
 
     }
 
@@ -298,6 +300,19 @@ void World::placeObstacle(Vec2d point)
 void World::placeObstaclesFromList(std::vector<Vec2d> points)
 {
     newlyDetected = points;
+}
+
+double triangleAngle(vector<Vec2d>triangle) //finds interior angle from the first point in the list to the other two. expects three points.
+{
+    if(triangle.size() != 3)
+    {
+        throw new logic_error("Tried to call triangle angle on a shape with num points != 3!");
+    }
+    //does law of cosines
+    double a = segment{triangle[1],triangle[2],30}.magnitude();
+    double b = segment{triangle[0],triangle[2],30}.magnitude();
+    double c = segment{triangle[0],triangle[1],30}.magnitude();
+    return qRadiansToDegrees(acos((pow(b,2)+pow(c,2)-pow(a,2))/(2*b*c)));
 }
 
 void World::processLidarData(Graphics& g)
@@ -315,12 +330,12 @@ void World::processLidarData(Graphics& g)
                 break;
             }
         }
-//        if((newlyDetected[0]-posTracker.getPos()).magnitude()<3)
-//        {
-//            newlyDetected.erase(newlyDetected.begin());
-//            cont = false;
-//            break;
-//        }
+        //        if((newlyDetected[0]-posTracker.getPos()).magnitude()<3)
+        //        {
+        //            newlyDetected.erase(newlyDetected.begin());
+        //            cont = false;
+        //            break;
+        //        }
 
         if(cont){
             if(isnan(previousNew.x))
@@ -329,9 +344,14 @@ void World::processLidarData(Graphics& g)
             }
             else{
                 vector<Vec2d> wedge{posTracker.getPos(),newlyDetected[0],previousNew};
-                polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
+                //if(triangleAngle(wedge)<3)
+               //{
+                    polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
+                    g.polygon(view.worldToScreen(wedge),PURPLE);
+             //   }
+
                 previousNew = newlyDetected[0];
-                g.polygon(view.worldToScreen(wedge),PURPLE);
+
             }
 
             alreadyDetected.push_back(newlyDetected[0]);
@@ -340,7 +360,6 @@ void World::processLidarData(Graphics& g)
             polyOp.polys.push_back(poly);
             polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
             polyOp.polys = polyOp.simplify(polyOp.polys);
-//            cout<<"made polygon"<<polyOp.polys.size()<<endl;
         }
     }
     for(auto poly : polyOp.polys){
@@ -381,7 +400,7 @@ void World::callNav(mssm::Graphics&g, Vec2d dest)
 
 bool World::masterNav(Vec2d dest,mssm::Graphics&g)
 {
-   // cout<<"power in master: left: "<<phys.leftPower<<" right: "<<phys.rightPower<<endl;
+    // cout<<"power in master: left: "<<phys.leftPower<<" right: "<<phys.rightPower<<endl;
     if(!(destination == dest))
     {
         navigated = false;

@@ -185,11 +185,13 @@ void graphicsMain(Graphics& g)
     vector<double> rightMotorSpeed;
 
     SerialPort port(g);
-    port.open("COM10");
+    port.open("COM8");
 
 
     ifstream lidarSimPoints(R"(C:\Users\Marcello Santomenna\wheelchairRobot\navBrain\data\Pts.csv)");
+
     vector<Vec2d> lidarPoints = parser(lidarSimPoints);
+
     vector<std::pair<bool, LidarData>> lidarRaw;
 
     Lidar lidar(&port, [&lidarRaw](bool startSweep, const LidarData& point) {
@@ -201,6 +203,21 @@ void graphicsMain(Graphics& g)
         g.clear();
 
         lidar.update();
+
+        if(lidarRaw.size())
+        {
+            vector<Vec2d> rect;
+           for(const auto &packet : lidarRaw)
+           {
+               const LidarData &data{packet.second};
+               if(data.isOk())
+               {
+                   rect.push_back(Vec2d{data.distance,0}.rotated(qDegreesToRadians(data.angle))); //convert to rect
+               }
+           }
+            world.placeObstaclesFromList(rect);
+            lidarRaw.clear();
+        }
 
         bot.update();
 

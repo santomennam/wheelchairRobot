@@ -105,7 +105,7 @@ void AreaTree::load(istream &strm)
     }
     head = nodeMap[1];
 
-     for(int i =0; i<numNodes; i++)
+    for(int i =0; i<numNodes; i++)
     {
         nodeMap[i+1]->load(strm,nodeMap);
     }
@@ -150,7 +150,7 @@ void AreaTree::placer(Vec2d point) //leave
     else {
         resetTree();
         return;
-      //  pointOutNode(point,closestNode);
+        //  pointOutNode(point,closestNode);
     }
 }
 
@@ -168,7 +168,7 @@ void AreaTree::resetColor(Graphics &g)
 
 vector<Vec2d> AreaTree::navigation(Vec2d start, Vec2d end, Graphics&g,Viewport view)
 {
-   // cout<<"nav2"<<endl;
+    // cout<<"nav2"<<endl;
 
     //traversal: take starting points, get two areas.
     //find path between areas
@@ -377,7 +377,7 @@ void AreaTree::shortenPath(Waypoint* current,Vec2d destination)
     {
         if(!doesSegmentCollide(current->node->centroid(),current->previous->previous->node->centroid()))
         {
-           // cout<<"straightening"<<endl;
+            // cout<<"straightening"<<endl;
             current->previous = current->previous->previous;
             current->recalculateCost(destination);
         }
@@ -430,8 +430,11 @@ void AreaTree::closeNode(Node *node)
         for (int i = 0; i < node->boundaries.size(); i++) {
             segment& s = node->boundaries[i];
             s.open = false;
-            for (auto& sa : node->adjacents[i]->sharedSegsP(node)) {
-                sa->open = false;
+            if(node->adjacents[i])
+            {
+                for (auto& sa : node->adjacents[i]->sharedSegsP(node)) {
+                    sa->open = false;
+                }
             }
         }
     }
@@ -471,13 +474,13 @@ Waypoint* AreaTree::aStar(Vec2d start, Vec2d destination, Graphics &g,Viewport v
         draw(g,view);
         // cout<<"Plotting..."<<endl;
         Waypoint* current = q.top();
-       // g.ellipseC(view.worldToScreen(current->node->centroid()),10,10,mssm::CYAN,mssm::CYAN); //DRAWINGGGGGGGGGGGGGGGGGGGG
-       // g.polyline(view.worldToScreen(current->pathPoints(botWidth)),mssm::WHITE);
-       // g.draw();
+        // g.ellipseC(view.worldToScreen(current->node->centroid()),10,10,mssm::CYAN,mssm::CYAN); //DRAWINGGGGGGGGGGGGGGGGGGGG
+        // g.polyline(view.worldToScreen(current->pathPoints(botWidth)),mssm::WHITE);
+        // g.draw();
         q.pop();
-       // current->node->inQ = false;
+        // current->node->inQ = false;
         if(current->node->isAdjacentTo(endNode))
-        {           
+        {
             Waypoint* path = new Waypoint(endNode,current,destination);
             shortenPath(path,destination);
             return path;
@@ -489,7 +492,7 @@ Waypoint* AreaTree::aStar(Vec2d start, Vec2d destination, Graphics &g,Viewport v
             segment& s = current->node->boundaries[i];
             if(n && s.open && !n->inQ && !current->containsNode(n))
             {
-               shortenPath(current,destination);
+                shortenPath(current,destination);
                 Waypoint* adj = new Waypoint(n,current,destination);
                 // maybe need vector of previous running in tandem: different threads could not have visited nodes in their previous and go infinitely
                 q.push(adj);
@@ -594,7 +597,7 @@ void AreaTree::splitNode(Vec2d point, Node *node)
         throw new logic_error("2 UH OH! NODE IN TREE AFTER DELETION!");
     }
     delete(node);
-   // cout<<"Dump in Split"<<endl;
+    // cout<<"Dump in Split"<<endl;
     //visitStuff(cout);
     while(nodes.size())
     {
