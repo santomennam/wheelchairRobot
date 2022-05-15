@@ -190,10 +190,10 @@ void graphicsMain(Graphics& g)
 
     ifstream lidarSimPoints(R"(C:\Users\Marcello Santomenna\wheelchairRobot\navBrain\data\Pts.csv)");
     vector<Vec2d> lidarPoints = parser(lidarSimPoints);
+    vector<std::pair<bool, LidarData>> lidarRaw;
 
-
-    Lidar lidar(&port, [](bool startSweep, const LidarData& point) {
-        cout << "Data!!!" << endl;
+    Lidar lidar(&port, [&lidarRaw](bool startSweep, const LidarData& point) {
+        lidarRaw.push_back(make_pair(startSweep, point));
     });
 
 
@@ -237,6 +237,7 @@ void graphicsMain(Graphics& g)
         if (!bot.getReceivedError().empty()) {
             g.text({10,textY -= 25}, 20, "ERROR:    " + bot.getReceivedError(), RED);
         }
+        g.text({10,textY -= 25}, 20, "Points Received  " + to_string(lidarRaw.size()), RED);
 
         //        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
         //        if(diff.count() >= 1)
@@ -520,6 +521,9 @@ void graphicsMain(Graphics& g)
         }
     }
 
+    lidar.cmdMotorSpeed(0);
+
+    lidar.update();
     cout << "Application closing: reset bot" << endl;
     bot.resetBot();
 
