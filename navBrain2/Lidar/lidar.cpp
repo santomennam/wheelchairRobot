@@ -446,7 +446,9 @@ std::string getConfCmdString(int packedCmd)
 Lidar::Lidar(string portname, std::function<void (bool startSweep, const LidarData&)> handler, bool autoStartScan)
     : handler{handler}, autoStartScan{autoStartScan}
 {
-    port.open(portname, 115200);
+    if (portname.size() > 0) {
+        port.open(portname, 115200);
+    }
     //setState(LidarMode::connect);
     prevTime = std::chrono::steady_clock::now();
     currTime = prevTime;
@@ -455,13 +457,19 @@ Lidar::Lidar(string portname, std::function<void (bool startSweep, const LidarDa
 
 Lidar::~Lidar()
 {
-    send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString((uint16_t)0), false);
-    send(RPLIDAR_CMD_STOP,"",false);
+    if (port.isOpen()) {
+        send(RPLIDAR_CMD_SET_MOTOR_PWM, rawString((uint16_t)0), false);
+        send(RPLIDAR_CMD_STOP,"",false);
+    }
 }
 
 
 void Lidar::update()
 {
+    if (!port.isOpen()) {
+        return;
+    }
+
     currTime = std::chrono::steady_clock::now();
     auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(currTime - prevTime);
     prevTime = currTime;

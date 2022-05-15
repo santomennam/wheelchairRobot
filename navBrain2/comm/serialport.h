@@ -20,6 +20,8 @@ public:
     bool open(std::string portName, int baud);
     void close();
 
+    bool isOpen() { return port != nullptr; }
+
     std::string name() { return sp_get_port_name(port); }
     std::string description() { return sp_get_port_description(port); }
     sp_transport transport() { return sp_get_port_transport(port); }

@@ -17,7 +17,7 @@ class BotCommSerial : public BotComm {
 public:
     BotCommSerial(mssm::Graphics& g);
 
-    void handleRawData(std::string data);
+    void update();
 //    int getPluginId() const { return pluginId; }
 
     // BotComm interface

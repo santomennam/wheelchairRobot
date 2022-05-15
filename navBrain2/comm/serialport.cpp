@@ -43,6 +43,7 @@ bool SerialPort::open(std::string portName, int baud)
     }
 
     if (sp_open(port, SP_MODE_READ_WRITE)) {
+        port = nullptr;
         return false;
     }
 

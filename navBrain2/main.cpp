@@ -207,10 +207,11 @@ void graphicsMain(Graphics& g)
         g.clear();
 
         lidar.update();
-
+        botSerial.update();
         int numLidarPoints = world.numNewLidarPoint();
 
         world.processLidarData(g);
+
 
         bot.update();
 

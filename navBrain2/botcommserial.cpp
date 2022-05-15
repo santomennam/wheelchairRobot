@@ -12,9 +12,12 @@ BotCommSerial::BotCommSerial(mssm::Graphics &g)
 
 }
 
-void BotCommSerial::handleRawData(std::string data)
+void BotCommSerial::update()
 {
-    client->onBotCommPacket(data);
+    while (port.canRead()) {
+        cout << "Got Something!!" << endl;
+        client->onBotCommPacket(port.read());
+    }
 }
 
 void BotCommSerial::attach(BotCommClient *client)
