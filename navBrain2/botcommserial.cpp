@@ -15,7 +15,6 @@ BotCommSerial::BotCommSerial(mssm::Graphics &g)
 void BotCommSerial::handleRawData(std::string data)
 {
     client->onBotCommPacket(data);
-
 }
 
 void BotCommSerial::attach(BotCommClient *client)
@@ -25,25 +24,16 @@ void BotCommSerial::attach(BotCommClient *client)
 
 void BotCommSerial::sendPacket(std::string data)
 {
-
-    if (pluginId < 0) {
-        if (client) {
-            client->onBotCommError("Attempt to sendPacket before connected!!");
-        }
-    }
-    else {
-  //      g.callPlugin(pluginId,static_cast<int>(SerialPortReader::Command::send),0, data);
-    }
+    port.write(data);
 }
 
 void BotCommSerial::connect(std::string connectionName)
 {
-//    pluginId = g.registerPlugin([connectionName](QObject* parent) {
-//          return new SerialPortReader(parent, connectionName, QSerialPort::Baud115200);
-//    });
+    port.open(connectionName,115200);
 }
 
 void BotCommSerial::disconnect()
 {
+    port.close();
 }
 

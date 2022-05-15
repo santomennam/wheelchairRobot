@@ -463,6 +463,7 @@ void graphicsMain(Graphics& g)
                     break;
                 case 'D':
                     // world.diagnostics = !world.diagnostics;
+                    world.drawDebug = !world.drawDebug;
                     bot.setDebug(true);
                     break;
                 case 'U':

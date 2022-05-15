@@ -18,7 +18,7 @@ using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
 class LidarPoint {
 public:
-    bool   valid;
+    bool   valid = false;
     double distance;
     double localAngle;
     double worldAngle;
@@ -33,7 +33,7 @@ public:
     double vel2;
     Viewport view;
     Vec2d panOffset {0,0};
-
+    bool drawDebug = true;
     std::ofstream strm;
     double worldScale = 0.5;
     Robot robot;

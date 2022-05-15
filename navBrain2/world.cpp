@@ -185,7 +185,7 @@ void World::draw(Graphics &g)
 
     robot.update();
     sensorCoords();
- //   processLidarData(g);
+    //   processLidarData(g);
     //    if(robot.moved)
     //    {
 
@@ -220,18 +220,20 @@ void World::draw(Graphics &g)
         {
             i = view.worldToScreen(i);
         }
-        g.polyline(arrowPoints,{50,50+posTracker.navPoints.size(),150});
+        if(diagnostics){
+            g.polyline(arrowPoints,{50,50+posTracker.navPoints.size(),150});
+        }
     }
     if(showBeam){
-        //for(int i = 0; i<world.robot.measuredPoints.size(); i++)
-        //{
-        vector<Vec2d> copy = robot.measuredPoints;
-        for(Vec2d& n: copy)
-        {
-            n = view.worldToScreen(n);
-        }
-        g.polyline(copy,WHITE);
-        //}
+//        if(lastLidarPoint.valid){
+//            auto a = lastLidarPoint.worldAngle;
+//            Vec2d p1 = lastLidarPoint.worldPos;
+//            Vec2d p2 = Vec2d{15,0}.rotate(a);
+//            p2 = p2 + p1;
+//            p1 = view.worldToScreen(p1);
+//            p2 = view.worldToScreen(p2);
+//            g.line(p1,p2,WHITE);
+//        }
     }
 
     if(showObstacle)
@@ -250,45 +252,45 @@ void World::draw(Graphics &g)
     }
     g.polygon(copyRobot,WHITE);
     //g.polyline(obstacle.pts,RED);
-//    for(int i = 0; i<newlyDetected.size();i++)
-//    {
-//        g.point(view.worldToScreen(newlyDetected[i]),BLUE);
-//    }
-//    for(int i = 0; i<alreadyDetected.size();i++)
-//    {
-//        g.point(view.worldToScreen(alreadyDetected[i]),GREEN);
-//    }
+    //    for(int i = 0; i<newlyDetected.size();i++)
+    //    {
+    //        g.point(view.worldToScreen(newlyDetected[i]),BLUE);
+    //    }
+    //    for(int i = 0; i<alreadyDetected.size();i++)
+    //    {
+    //        g.point(view.worldToScreen(alreadyDetected[i]),GREEN);
+    //    }
 }
 
 
 
 void World::sensorCoords()
 {
-//    //  cout << "ND: " << newlyDetected.size() << endl;
-//    for(auto& point : newlyDetected)
-//    {
-//        point = point*(1/25.4); //convert from mm to in
-//        point.rotate(posTracker.getAngle());
-//        point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
-//        //  sensedCoords.push_back(point);
-//    }
-//    // cout << "Sensed: " << sensedCoords.size() << endl;
-//    //clear newlyDetected?
+    //    //  cout << "ND: " << newlyDetected.size() << endl;
+    //    for(auto& point : newlyDetected)
+    //    {
+    //        point = point*(1/25.4); //convert from mm to in
+    //        point.rotate(posTracker.getAngle());
+    //        point = point + posTracker.getPos(); // take the rectangular lidar points, centered around the origin, and center them about the robot
+    //        //  sensedCoords.push_back(point);
+    //    }
+    //    // cout << "Sensed: " << sensedCoords.size() << endl;
+    //    //clear newlyDetected?
 }
 
 void World::createRandomObstacles(Graphics &g)
 {
-//    int q = g.randomInt(3,10);
-//    for(int i = 0; i <q;i++)
-//    {
-//        newlyDetected.push_back({g.randomDouble(100,500),g.randomDouble(0,500)});
+    //    int q = g.randomInt(3,10);
+    //    for(int i = 0; i <q;i++)
+    //    {
+    //        newlyDetected.push_back({g.randomDouble(100,500),g.randomDouble(0,500)});
 
-//        //        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
-//        //        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
-//        //        obstacle.interpolate();
-//        //        obstacles.push_back(obstacle);
+    //        //        Obstacle obstacle({{g.randomDouble(100,500),g.randomDouble(0,500)}});
+    //        //        //,g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)},{g.randomDouble(100,500),g.randomDouble(100,500)/*}});
+    //        //        obstacle.interpolate();
+    //        //        obstacles.push_back(obstacle);
 
-//    }
+    //    }
 
 }
 
@@ -311,9 +313,9 @@ double triangleAngle(vector<Vec2d>triangle) //finds interior angle from the firs
     }
     //does law of cosines
     double a = segment{triangle[1],triangle[2],30}.magnitude();
-    double b = segment{triangle[0],triangle[2],30}.magnitude();
-    double c = segment{triangle[0],triangle[1],30}.magnitude();
-    return qRadiansToDegrees(acos((pow(b,2)+pow(c,2)-pow(a,2))/(2*b*c)));
+double b = segment{triangle[0],triangle[2],30}.magnitude();
+double c = segment{triangle[0],triangle[1],30}.magnitude();
+return qRadiansToDegrees(acos((pow(b,2)+pow(c,2)-pow(a,2))/(2*b*c)));
 }
 
 double angleDiffSpecial(double prev, double curr)
@@ -356,7 +358,7 @@ void World::processLidarData(Graphics& g)
                 newLidarTmp.push_back(newLidar[i]);
             }
         }
-        cout << "Discarding lidar data. Was: " << newLidar.size() << " Keeping: " << newLidarTmp.size() << endl;
+        //        cout << "Discarding lidar data. Was: " << newLidar.size() << " Keeping: " << newLidarTmp.size() << endl;
         newLidar = newLidarTmp;
     }
 
@@ -373,7 +375,7 @@ void World::processLidarData(Graphics& g)
         bool   lastValid = lastLidarPoint.valid;
         bool   thisValid = pnt.valid;
         double angleDiff = angleDiffSpecial(lastLidarPoint.worldAngle, pnt.worldAngle);
-  //      g.cerr << "Diff: " << angleDiff << endl;
+        //      g.cerr << "Diff: " << angleDiff << endl;
         bool   angleValid = angleDiff < M_PI*2.0/180;
         bool   breakStrip = false;
 
@@ -405,7 +407,9 @@ void World::processLidarData(Graphics& g)
         else if (wedge.size() > 0) {
             // finished this wedge, process it
             polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
-            g.polygon(view.worldToScreen(wedge),PURPLE,Color(255,0,255,100));
+            if(drawDebug){
+                g.polygon(view.worldToScreen(wedge),PURPLE,Color(255,0,255,100));
+            }
             wedge.clear();
         }
 
@@ -415,8 +419,10 @@ void World::processLidarData(Graphics& g)
             obstPts.push_back(pnt.worldPos);
         }
         else {
-            Vec2d pbad = posTracker.position + Vec2d(180, 0).rotated(pnt.worldAngle);
-            g.line(view.worldToScreen(posTracker.position), view.worldToScreen(pbad), RED );
+            if(drawDebug){
+                Vec2d pbad = posTracker.position + Vec2d(180, 0).rotated(pnt.worldAngle);
+                g.line(view.worldToScreen(posTracker.position), view.worldToScreen(pbad), RED );
+            }
         }
     }
 
@@ -427,7 +433,7 @@ void World::processLidarData(Graphics& g)
         if (s.size() > 1) {
             giveStripThickness(posTracker.position, s, 1);
             polyOp.polys = polyOp.clip(polyOp.polys,s,ClipperLib::ClipType::ctUnion);
-           // polyOp.polys = polyOp.simplify(polyOp.polys);
+            // polyOp.polys = polyOp.simplify(polyOp.polys);
             g.polygon(view.worldToScreen(s), toggleColor ? YELLOW : GREEN, toggleColor ? YELLOW : GREEN);
             toggleColor = !toggleColor;
         }
@@ -437,18 +443,18 @@ void World::processLidarData(Graphics& g)
     }
 
 
-//    for (auto& p : obstPts) {
-//        vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8, p);
-//        polyOp.polys.push_back(poly);
-//        polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
-//        polyOp.polys = polyOp.simplify(polyOp.polys);
+    //    for (auto& p : obstPts) {
+    //        vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8, p);
+    //        polyOp.polys.push_back(poly);
+    //        polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
+    //        polyOp.polys = polyOp.simplify(polyOp.polys);
 
-//    }
+    //    }
 
     for(const auto& poly : polyOp.polys) {
         for (Vec2d p : poly)
         {
-      //      tree.closeNodeByPoint(p);
+            //      tree.closeNodeByPoint(p);
         }
     }
 
