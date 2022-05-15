@@ -336,31 +336,33 @@ void giveStripThickness(Vec2d scanCenter, vector<Vec2d>& strip, double thickness
     }
 }
 
-void World::processLidarData(Graphics& g)
+void World::processLidarData(Graphics& g, int startIdx, int endIdx)
 {
+    newLidar.erase(newLidar.begin()+endIdx+1);
+    newLidar.erase(newLidar.begin(), newLidar.begin()+startIdx);
 
-    if (newLidar.size() > 400) {
-        std::vector<LidarPoint> newLidarTmp;
-        bool gotStart = false;
+//    if (newLidar.size() > 400) {
+//        std::vector<LidarPoint> newLidarTmp;
+//        bool gotStart = false;
 
-        for (int i = 0; i < newLidar.size(); i++) {
-            if (i > 0 && newLidar[i-1].worldAngle > 1.5*M_PI && newLidar[i].worldAngle < 0.5*M_PI) {
-                // wrapped!
-                if (!gotStart) {
-                    gotStart = true;
-                }
-                else {
-                    newLidarTmp.push_back(newLidar[i]);
-                    break;
-                }
-            }
-            if (gotStart) {
-                newLidarTmp.push_back(newLidar[i]);
-            }
-        }
-        //        cout << "Discarding lidar data. Was: " << newLidar.size() << " Keeping: " << newLidarTmp.size() << endl;
-        newLidar = newLidarTmp;
-    }
+//        for (int i = 0; i < newLidar.size(); i++) {
+//            if (i > 0 && newLidar[i-1].worldAngle > 1.5*M_PI && newLidar[i].worldAngle < 0.5*M_PI) {
+//                // wrapped!
+//                if (!gotStart) {
+//                    gotStart = true;
+//                }
+//                else {
+//                    newLidarTmp.push_back(newLidar[i]);
+//                    break;
+//                }
+//            }
+//            if (gotStart) {
+//                newLidarTmp.push_back(newLidar[i]);
+//            }
+//        }
+//        //        cout << "Discarding lidar data. Was: " << newLidar.size() << " Keeping: " << newLidarTmp.size() << endl;
+//        newLidar = newLidarTmp;
+//    }
 
     vector<Vec2d> wedge;
     vector<Vec2d> obstPts;
@@ -458,6 +460,40 @@ void World::processLidarData(Graphics& g)
         }
     }
 
+}
+
+bool World::has360Scan(int &startIdx, int &endIdx)
+{
+    startIdx = -1;
+    endIdx = -1;
+
+    for (int i = newLidar.size()-1; i >= 1; i--) {
+        auto& curr = newLidar[i];
+        auto& prev = newLidar[i-1];
+        if (curr.worldAngle < (M_PI/180.0)*10 && prev.worldAngle > (M_PI/180.0)*300) {
+            if (endIdx < 0) {
+                endIdx = i-1;
+            }
+            else {
+                startIdx = i;
+                break;
+            }
+        }
+    }
+
+    if (startIdx < 0 || endIdx < 0) {
+        startIdx = 0;
+        endIdx = 0;
+        return false;
+    }
+
+    return true;
+}
+
+
+void World::discardLidarData()
+{
+    newLidar.clear();
 }
 
 bool World::followPath(Graphics&g)

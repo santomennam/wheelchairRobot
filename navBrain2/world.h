@@ -104,7 +104,9 @@ public:
    // void placeObstaclesFromList(std::vector<Vec2d> list);
     void addLidarPoint(LidarPoint& pnt) { newLidar.push_back(pnt); }
     int numNewLidarPoint() { return newLidar.size(); }
-    void processLidarData(mssm::Graphics& g);
+    void processLidarData(mssm::Graphics& g, int startIdx, int endIdx);
+    bool has360Scan(int& startIdx, int& endIdx);
+    void discardLidarData();
     bool followPath(mssm::Graphics&g);
     bool hasWorldChanged(); //implement this
     void callNav(mssm::Graphics&g, Vec2d dest);

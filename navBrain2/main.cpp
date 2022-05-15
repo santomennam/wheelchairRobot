@@ -193,15 +193,19 @@ void graphicsMain(Graphics& g)
             pnt.valid = point.isOk();
             pnt.distance = point.distance / (25.4); // convert to inches
             pnt.localAngle = qDegreesToRadians(point.angle);
-            pnt.worldAngle = pnt.localAngle + world.posTracker.angle;
+            pnt.worldAngle = pnt.localAngle - world.posTracker.angle;
             while (pnt.worldAngle > (M_PI*2)) {
                 pnt.worldAngle -= M_PI*2; // normalize
+            }
+            while (pnt.worldAngle < 0) {
+                pnt.worldAngle += M_PI*2; // normalize
             }
             pnt.worldPos   = world.posTracker.position + Vec2d(pnt.distance, 0).rotated(pnt.worldAngle);
             world.addLidarPoint(pnt);
 //        }
     });
 
+    bool processLidar = false;
 
     while (g.draw()) {
         g.clear();
@@ -210,7 +214,19 @@ void graphicsMain(Graphics& g)
         botSerial.update();
         int numLidarPoints = world.numNewLidarPoint();
 
-        world.processLidarData(g);
+        if (processLidar) {
+            int startIdx;
+            int endIdx;
+            if (world.has360Scan(startIdx, endIdx)) {
+
+                 world.processLidarData(g, startIdx, endIdx);
+            }
+
+        }
+        else {
+            cout << "Discarding" << endl;
+            world.discardLidarData();
+        }
 
 
         bot.update();
@@ -441,6 +457,9 @@ void graphicsMain(Graphics& g)
                 case static_cast<int>(Key::ESC):
                     resetRequested = true;
                     world.targets.clear();
+                    break;
+                case 'L':
+                    processLidar = !processLidar;
                     break;
                 case '>':
                     targetRequested = true;
