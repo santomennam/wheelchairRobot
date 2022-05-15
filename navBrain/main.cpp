@@ -21,7 +21,7 @@
 #include "botcommserial.h"
 #include "botcommmonitor.h"
 
-
+#include "Lidar/lidar.h"
 
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -62,6 +62,56 @@ vector<Vec2d> parser(istream& file)
     return pts;
 }
 
+
+class SerialPort : public ISerialPort
+{
+public:
+    Graphics& g;
+    int pluginId{-1};
+    string incoming;
+    // ISerialPort interface
+public:
+    SerialPort(Graphics& g) : g{g} {}
+
+    void open(std::string port);
+
+    bool canRead() const override;
+    string read() override;
+    void write(string data) override;
+    bool stillWriting() override;
+
+    void addIncoming(string str) { incoming.append(str); }
+};
+
+void SerialPort::open(string connectionName)
+{
+    pluginId = g.registerPlugin([connectionName](QObject* parent) {
+          return new SerialPortReader(parent, connectionName, QSerialPort::Baud115200);
+    });
+}
+
+bool SerialPort::canRead() const
+{
+    return !incoming.empty();
+}
+
+string SerialPort::read()
+{
+    string tmp{std::move(incoming)};
+    incoming.clear();
+    return tmp;
+}
+
+void SerialPort::write(string data)
+{
+    g.callPlugin(pluginId,static_cast<int>(SerialPortReader::Command::send),0, data);
+
+}
+
+bool SerialPort::stillWriting()
+{
+    return false;
+}
 
 void graphicsMain(Graphics& g)
 {
@@ -134,11 +184,23 @@ void graphicsMain(Graphics& g)
     vector<double> leftMotorSpeed;
     vector<double> rightMotorSpeed;
 
+    SerialPort port(g);
+    port.open("COM10");
+
+
     ifstream lidarSimPoints(R"(C:\Users\Marcello Santomenna\wheelchairRobot\navBrain\data\Pts.csv)");
     vector<Vec2d> lidarPoints = parser(lidarSimPoints);
 
+
+    Lidar lidar(&port, [](bool startSweep, const LidarData& point) {
+        cout << "Data!!!" << endl;
+    });
+
+
     while (g.draw()) {
         g.clear();
+
+        lidar.update();
 
         bot.update();
 
@@ -354,6 +416,9 @@ void graphicsMain(Graphics& g)
                 {
                     //cout << "RAWRAW: " << e.data << endl;
                     botSerial.handleRawData(e.data);
+                }
+                else if (e.pluginId == port.pluginId) {
+                    port.addIncoming(e.data);
                 }
                 break;
 
