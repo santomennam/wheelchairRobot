@@ -303,6 +303,7 @@ void graphicsMain(Graphics& g)
                     bot.tankSteer(0,-1);
                     break;
                 }
+                //h
             }
             else {
                 //cout << "Not ready for arrows" << endl;
