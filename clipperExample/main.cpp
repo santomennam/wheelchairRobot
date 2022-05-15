@@ -82,12 +82,18 @@ vector<vector<Vec2d>> clip(vector<Vec2d> poly1, vector<Vec2d> poly2, ClipType ct
 }
 
 
-vector<vector<Vec2d>> clip(vector<vector<Vec2d>> polys, vector<Vec2d> poly, ClipType ct)
+vector<vector<Vec2d>> clip(vector<vector<Vec2d>> polys, vector<Vec2d> poly, ClipType ct, bool rev)
 {
     Clipper c;
 
-    c.AddPaths(makePaths(polys), PolyType::ptSubject, true);
-    c.AddPath(makePath(poly), PolyType::ptClip, true);
+    if (rev) {
+        c.AddPath(makePath(poly), PolyType::ptSubject, true);
+        c.AddPaths(makePaths(polys), PolyType::ptClip, true);
+    }
+    else  {
+        c.AddPaths(makePaths(polys), PolyType::ptSubject, true);
+        c.AddPath(makePath(poly), PolyType::ptClip, true);
+    }
 
     Paths pathsOut;
 
@@ -153,7 +159,7 @@ int main()
         }
 
         if (g.onMousePress(1)) {
-            polys = clip(polys, makeCircle(30, 6, g.mousePos()), ClipType::ctUnion);
+            polys = clip(polys, makeCircle(30, 6, g.mousePos()), ClipType::ctUnion, false);
         }
 
         switch (g.getKeyPressed()) {
@@ -196,10 +202,29 @@ int main()
             case EvtType::KeyRelease:
                 break;
             case EvtType::MouseMove:
-                polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
+                if (e.arg == 1) {
+                    polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion, false);
+                }
+                else if (e.arg == 2) {
+                    polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctDifference, false);
+                }
+                else {
+                    polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctDifference, true);
+
+                }
                 break;
             case EvtType::MousePress:
-                polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion);
+                if (e.arg == 1) {
+                    polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctUnion, false);
+                }
+                else if (e.arg == 2) {
+                    polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctDifference, false);
+
+                }
+                else {
+                    polys = clip(polys, makeCircle(30, 12, g.mousePos()), ClipType::ctDifference, true);
+
+                }
                 break;
             case EvtType::MouseRelease:
                 break;

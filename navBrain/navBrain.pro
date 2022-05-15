@@ -5,6 +5,14 @@ CONFIG += gui
 CONFIG += c++14
 HEADERS    = \
     CmdLink.h \
+    Lidar/lidar.h \
+    Lidar/rplidar_cmd.h \
+    Lidar/rplidar_protocol.h \
+    Lidar/sl_crc.h \
+    Lidar/sl_lidar_cmd.h \
+    Lidar/sl_lidar_driver.h \
+    Lidar/sl_lidar_protocol.h \
+    Lidar/sl_types.h \
     absolutepostracker.h \
     botcomm.h \
     botcommmonitor.h \
@@ -38,6 +46,9 @@ HEADERS    = \
 
 SOURCES     = \
     CmdLink.cpp \
+    Lidar/lidar.cpp \
+    Lidar/sl_crc.cpp \
+    Lidar/sl_lidar_driver.cpp \
     absolutepostracker.cpp \
     botcomm.cpp \
     botcommmonitor.cpp \

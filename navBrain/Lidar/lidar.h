@@ -1,12 +1,22 @@
 #ifndef LIDAR_H
 #define LIDAR_H
 
-#include "serialport.h"
+#include <string>
 #include <vector>
 #include <array>
 #include <functional>
 #include <chrono>
 #include <memory>
+
+
+class ISerialPort
+{
+  public:
+      virtual bool canRead() const = 0;
+      virtual std::string read() = 0;
+      virtual void write(std::string data) = 0;
+      virtual bool stillWriting() = 0;
+};
 
 
 class ResponseParser {
@@ -157,7 +167,7 @@ class Lidar
     LidarState state{LidarState::needReset};
     CmdState   cmdState{CmdState::none};
 
-    SerialPort port;
+    ISerialPort *port;
 
     LidarDataProcessor processor;
 
@@ -216,7 +226,7 @@ private:
 
     bool autoStartScan{false};
 public:
-    Lidar(const std::string& portName, std::function<void(bool startSweep, const LidarData& point)> handler, bool autoStartScan = true);
+    Lidar(ISerialPort* port, std::function<void(bool startSweep, const LidarData& point)> handler, bool autoStartScan = true);
     virtual ~Lidar();
 public:
 
