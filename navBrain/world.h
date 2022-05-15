@@ -90,7 +90,7 @@ public:
     void createRandomObstacles(mssm::Graphics&g);
     void placeObstacle(Vec2d point);
     void placeObstaclesFromList(std::vector<Vec2d> list);
-    void processLidarData();
+    void processLidarData(mssm::Graphics& g);
     bool followPath(mssm::Graphics&g);
     bool hasWorldChanged(); //implement this
     void callNav(mssm::Graphics&g, Vec2d dest);

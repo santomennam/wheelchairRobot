@@ -184,7 +184,7 @@ void World::draw(Graphics &g)
 
     robot.update();
     sensorCoords();
-    processLidarData();
+    processLidarData(g);
 //    if(robot.moved)
 //    {
 
@@ -300,8 +300,9 @@ void World::placeObstaclesFromList(std::vector<Vec2d> points)
     newlyDetected = points;
 }
 
-void World::processLidarData()
+void World::processLidarData(Graphics& g)
 {
+    Vec2d previousNew{numeric_limits<double>::quiet_NaN(),numeric_limits<double>::quiet_NaN()};
     while(newlyDetected.size())
     {
         bool cont = true;
@@ -313,17 +314,33 @@ void World::processLidarData()
                 cont = false;
                 break;
             }
-
         }
+//        if((newlyDetected[0]-posTracker.getPos()).magnitude()<3)
+//        {
+//            newlyDetected.erase(newlyDetected.begin());
+//            cont = false;
+//            break;
+//        }
+
         if(cont){
+            if(isnan(previousNew.x))
+            {
+                previousNew = newlyDetected[0];
+            }
+            else{
+                vector<Vec2d> wedge{posTracker.getPos(),newlyDetected[0],previousNew};
+                polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
+                previousNew = newlyDetected[0];
+                g.polygon(view.worldToScreen(wedge),PURPLE);
+            }
+
             alreadyDetected.push_back(newlyDetected[0]);
             newlyDetected.erase(newlyDetected.begin());
             vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8,alreadyDetected.back());
             polyOp.polys.push_back(poly);
             polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
             polyOp.polys = polyOp.simplify(polyOp.polys);
-            cout<<"made polygon"<<polyOp.polys.size()<<endl;
-
+//            cout<<"made polygon"<<polyOp.polys.size()<<endl;
         }
     }
     for(auto poly : polyOp.polys){
