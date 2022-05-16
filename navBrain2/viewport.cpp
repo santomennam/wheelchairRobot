@@ -15,6 +15,8 @@ Vec2d Viewport::worldToScreen(Vec2d vec)
     //scale: pixels per inch
     //offset: pixels
 
+ //   vec.y = -vec.y;
+
     return(vec*scale) + panOffset;
 }
 
@@ -30,6 +32,7 @@ std::vector<Vec2d> Viewport::worldToScreen(std::vector<Vec2d> points)
 Vec2d Viewport::screenToWorld(Vec2d vec)
 {
     vec = (vec-panOffset)*(1/scale);
+      //  vec.y = -vec.y;
     return vec;
 }
 

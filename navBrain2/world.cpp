@@ -417,7 +417,7 @@ void World::processLidarData(Graphics& g)
     bool toggleColor = true;
     for (auto& s : strips) {
         if (s.size() > 1) {
-            giveStripThickness(posTracker.position, s, 5);
+            giveStripThickness(posTracker.position, s, 1);
             polyOp.polys = polyOp.clip(polyOp.polys,s,ClipperLib::ClipType::ctUnion);
            // polyOp.polys = polyOp.simplify(polyOp.polys);
             g.polygon(view.worldToScreen(s), toggleColor ? YELLOW : GREEN, toggleColor ? YELLOW : GREEN);
