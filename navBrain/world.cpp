@@ -315,31 +315,126 @@ double triangleAngle(vector<Vec2d>triangle) //finds interior angle from the firs
     return qRadiansToDegrees(acos((pow(b,2)+pow(c,2)-pow(a,2))/(2*b*c)));
 }
 
+double angleDiffSpecial(double prev, double curr)
+{
+    if (curr < prev) {
+        // wrapped from 2pi back to zero?
+        curr += M_PI*2;
+    }
+    return curr - prev;
+}
+
+void giveStripThickness(Vec2d scanCenter, vector<Vec2d>& strip, double thickness)
+{
+    for (int i = strip.size()-1; i >= 0; i--) {
+        Vec2d& p = strip[i];
+        Vec2d u = (p - scanCenter).unit();
+        strip.push_back(p + u * thickness);
+    }
+}
+
 void World::processLidarData(Graphics& g)
 {
-    if (newLidar.size() > 360) {
-        newLidar.resize(360);
+
+    if (newLidar.size() > 400) {
+        std::vector<LidarPoint> newLidarTmp;
+        bool gotStart = false;
+
+        for (int i = 0; i < newLidar.size(); i++) {
+            if (i > 0 && newLidar[i-1].worldAngle > 1.5*M_PI && newLidar[i].worldAngle < 0.5*M_PI) {
+                // wrapped!
+                if (!gotStart) {
+                    gotStart = true;
+                }
+                else {
+                    newLidarTmp.push_back(newLidar[i]);
+                    break;
+                }
+            }
+            if (gotStart) {
+                newLidarTmp.push_back(newLidar[i]);
+            }
+        }
+        cout << "Discarding lidar data. Was: " << newLidar.size() << " Keeping: " << newLidarTmp.size() << endl;
+        newLidar = newLidarTmp;
     }
 
-    while(newLidar.size())
-    {
-        LidarPoint& pnt = newLidar[0];
+    vector<Vec2d> wedge;
+    vector<Vec2d> obstPts;
+    vector<Vec2d> strip;
+    vector<vector<Vec2d>> strips;
 
-        if (pnt.localAngle - lastLidarPoint.localAngle < (M_PI*2/180)) {
-            vector<Vec2d> wedge{posTracker.getPos(), pnt.worldPos, lastLidarPoint.worldPos};
+    for (auto& pnt : newLidar)
+    {
+        bool   lastValid = lastLidarPoint.valid;
+        bool   thisValid = pnt.valid;
+        double angleDiff = angleDiffSpecial(lastLidarPoint.worldAngle, pnt.worldAngle);
+        bool   angleValid = angleDiff < 1;
+        bool   breakStrip = false;
+
+        if (thisValid && !strip.empty() && (abs(pnt.distance - lastLidarPoint.distance) > 4)) {
+            breakStrip = true;
+        }
+
+        if (thisValid && !breakStrip) {
+            strip.push_back(pnt.worldPos);
+        }
+        else {
+            if (strip.size() > 0) {
+                strips.push_back(move(strip));
+                strip.clear();
+            }
+            if (thisValid) {
+                strip.push_back(pnt.worldPos);
+            }
+        }
+
+        if (lastValid && thisValid && angleValid) {
+            // create or append to wedge
+            if (wedge.empty()) {
+                wedge.push_back(posTracker.position);
+                wedge.push_back(lastLidarPoint.worldPos);
+            }
+            wedge.push_back(pnt.worldPos);
+        }
+        else if (wedge.size() > 0) {
+            // finished this wedge, process it
             polyOp.polys = polyOp.clip(polyOp.polys,wedge,ClipperLib::ClipType::ctDifference);
-            //g.polygon(view.worldToScreen(wedge),PURPLE);
+            g.polygon(view.worldToScreen(wedge),PURPLE,Color(255,0,255,100));
+            wedge.clear();
         }
 
         lastLidarPoint = pnt;
 
-        vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8, pnt.worldPos);
-        polyOp.polys.push_back(poly);
-        polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
-        polyOp.polys = polyOp.simplify(polyOp.polys);
-
-        newLidar.erase(newLidar.begin());
+        if (thisValid) {
+            obstPts.push_back(pnt.worldPos);
+        }
     }
+
+    newLidar.clear();
+
+    bool toggleColor = true;
+    for (auto& s : strips) {
+        if (s.size() > 1) {
+            giveStripThickness(posTracker.position, s, 5);
+            polyOp.polys = polyOp.clip(polyOp.polys,s,ClipperLib::ClipType::ctUnion);
+           // polyOp.polys = polyOp.simplify(polyOp.polys);
+            g.polygon(view.worldToScreen(s), toggleColor ? YELLOW : GREEN, toggleColor ? YELLOW : GREEN);
+            toggleColor = !toggleColor;
+        }
+        else {
+            g.point(view.worldToScreen(s[0]), CYAN);
+        }
+    }
+
+
+//    for (auto& p : obstPts) {
+//        vector<Vec2d> poly = polyOp.makeCircle(obstacleRadius,8, p);
+//        polyOp.polys.push_back(poly);
+//        polyOp.polys = polyOp.clip(polyOp.polys,poly,ClipperLib::ClipType::ctUnion);
+//        polyOp.polys = polyOp.simplify(polyOp.polys);
+
+//    }
 
     for(const auto& poly : polyOp.polys) {
         for (Vec2d p : poly)

@@ -1311,14 +1311,15 @@ sl_result HQDataProcessor::processIncoming(int recvSize, uint8_t *recvData, int 
 
     //cout << count << " HQ: data in local_buf.  What to do with it?" << endl;
 
+
     for (int i = 0; i < count; i++) {
         LidarData data;
         data.angle = getAngle(local_buf[i]);
         data.distance = getDistanceQ2(local_buf[i])/4;
         data.quality = local_buf[i].quality;
-        if (data.isOk()  || (local_buf[i].flag & 0x01)) {
+       // if (data.isOk()  || (local_buf[i].flag & 0x01)) {
             handler(local_buf[i].flag & 0x01, data);
-        }
+      //  }
     }
 
     return SL_RESULT_OK;
@@ -1462,9 +1463,9 @@ sl_result UltraCapsuleProcessor::processIncoming(int recvSize, uint8_t *recvData
         data.angle = getAngle(local_buf[i]);
         data.distance = getDistanceQ2(local_buf[i])/4;
         data.quality = local_buf[i].quality;
-        if (data.isOk() || (local_buf[i].flag & 0x01)) {
+        //if (data.isOk() || (local_buf[i].flag & 0x01)) {
             handler(local_buf[i].flag & 0x01, data);
-        }
+        //}
     }
 
     return SL_RESULT_OK;
@@ -1646,9 +1647,9 @@ sl_result CapsuleProcessor::processIncoming(int recvSize, uint8_t *recvData, int
         data.angle = getAngle(local_buf[i]);
         data.distance = getDistanceQ2(local_buf[i])/4;
         data.quality = local_buf[i].quality;
-        if (data.isOk() || (local_buf[i].flag & 0x01)) {
+       // if (data.isOk() || (local_buf[i].flag & 0x01)) {
             handler(local_buf[i].flag & 0x01, data);
-        }
+       // }
     }
 
     return SL_RESULT_OK;

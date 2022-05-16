@@ -18,6 +18,7 @@ using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
 class LidarPoint {
 public:
+    bool   valid;
     double distance;
     double localAngle;
     double worldAngle;

@@ -194,14 +194,26 @@ void graphicsMain(Graphics& g)
 
 
     Lidar lidar(&port, [&world](bool startSweep, const LidarData& point) {
-        if (point.isOk()) {
+ //       if (point.quality < 188) {
+//            if (startSweep) {
+//                cout << "Ping: " << point.angle << endl;
+//            }
+//            if (point.angle > 350 || point.angle < 10) {
+       //         cout << "Angle: " << point.angle << "   Q:" << point.quality << endl;
+//            }
+  //      }
+//        if (point.isOk()) {
             LidarPoint pnt;
+            pnt.valid = point.isOk();
             pnt.distance = point.distance / (25.4); // convert to inches
             pnt.localAngle = qDegreesToRadians(point.angle);
             pnt.worldAngle = pnt.localAngle + world.posTracker.angle;
+            while (pnt.worldAngle > (M_PI*2)) {
+                pnt.worldAngle -= M_PI*2; // normalize
+            }
             pnt.worldPos   = world.posTracker.position + Vec2d(pnt.distance, 0).rotated(pnt.worldAngle);
             world.addLidarPoint(pnt);
-        }
+//        }
     });
 
 
