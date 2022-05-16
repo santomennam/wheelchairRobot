@@ -60,6 +60,41 @@ vector<Vec2d> parser(istream& file)
 }
 
 
+string chooseSerialPort(Graphics& g, string msg)
+{
+    string portName;
+
+    SerialPorts ports;
+
+    while (g.draw() && portName.empty()) {
+
+        g.cout << msg << endl << endl;
+        g.cout << "Press a number key to choose the port: " << endl;
+        g.cout << "Escape to cancel" << endl << endl;
+        for (int i = 0; i < ports.size(); i++) {
+            g.cout << "Port " << i << ": " << ports[i] << endl;
+        }
+
+        for (const Event& e : g.events()) {
+            switch (e.evtType) {
+            case EvtType::KeyPress:
+                if (e.arg >= '0' && e.arg < '0'+ports.size()) {
+                    portName = ports[e.arg - '0'];
+                }
+                if (e.arg == Key::ESC) {
+                    return "";
+                }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    return portName;
+
+}
+
 
 void graphicsMain(Graphics& g)
 {
@@ -81,8 +116,12 @@ void graphicsMain(Graphics& g)
 
     BotConnection bot(&botMonitor);
 
+    string lidarPortName = chooseSerialPort(g, "Choose Lidar Port");
+    string botPortName = chooseSerialPort(g, "Choose Bot Port");
 
-    botSerial.connect("COM5");
+
+
+    botSerial.connect(botPortName);
 
     ofstream file;
     ifstream input;
@@ -140,7 +179,7 @@ void graphicsMain(Graphics& g)
     vector<Vec2d> lidarPoints = parser(lidarSimPoints);
 
 
-    Lidar lidar("COM10", [&world](bool startSweep, const LidarData& point) {
+    Lidar lidar(lidarPortName, [&world](bool startSweep, const LidarData& point) {
  //       if (point.quality < 188) {
 //            if (startSweep) {
 //                cout << "Ping: " << point.angle << endl;
