@@ -365,12 +365,16 @@ void World::processLidarData(Graphics& g)
     vector<Vec2d> strip;
     vector<vector<Vec2d>> strips;
 
+    // TODO:  when building wedges, do we need to split when distance changes?
+    //    maybe that's a separate pass than building strips?
+
     for (auto& pnt : newLidar)
     {
         bool   lastValid = lastLidarPoint.valid;
         bool   thisValid = pnt.valid;
         double angleDiff = angleDiffSpecial(lastLidarPoint.worldAngle, pnt.worldAngle);
-        bool   angleValid = angleDiff < 1;
+  //      g.cerr << "Diff: " << angleDiff << endl;
+        bool   angleValid = angleDiff < M_PI*2.0/180;
         bool   breakStrip = false;
 
         if (thisValid && !strip.empty() && (abs(pnt.distance - lastLidarPoint.distance) > 4)) {
@@ -409,6 +413,10 @@ void World::processLidarData(Graphics& g)
 
         if (thisValid) {
             obstPts.push_back(pnt.worldPos);
+        }
+        else {
+            Vec2d pbad = posTracker.position + Vec2d(180, 0).rotated(pnt.worldAngle);
+            g.line(view.worldToScreen(posTracker.position), view.worldToScreen(pbad), RED );
         }
     }
 
