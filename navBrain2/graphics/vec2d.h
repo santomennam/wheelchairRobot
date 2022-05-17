@@ -41,14 +41,12 @@ public:
 
     constexpr Vec2base operator-() const { return {-x, -y}; }
 
-    constexpr bool isInvalid() const { return std::isnan(x) && std::isnan(y); }
-
     std::string toIntString() const;
     std::string toString() const;
 
 
-    static constexpr Vec2base Invalid{std::numeric_limits<T>::quiet_NaN(), std::numeric_limits<T>::quiet_NaN()};
 };
+
 
 template <typename T>
 constexpr Vec2base<T> operator-(const Vec2base<T>& p1, const Vec2base<T>& p2)

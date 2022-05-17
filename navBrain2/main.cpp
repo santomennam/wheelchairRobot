@@ -110,16 +110,12 @@ void graphicsMain(Graphics& g)
     bool recording = false;
 
 
-    BotCommSerial botSerial(g);
-
+    BotCommSerial  botSerial(g);
     BotCommMonitor botMonitor(&botSerial);
-
-    BotConnection bot(&botMonitor);
+    BotConnection  bot(&botMonitor);
 
     string lidarPortName = chooseSerialPort(g, "Choose Lidar Port");
-    string botPortName = chooseSerialPort(g, "Choose Bot Port");
-
-
+    string botPortName   = chooseSerialPort(g, "Choose Bot Port");
 
     botSerial.connect(botPortName);
 

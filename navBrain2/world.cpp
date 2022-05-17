@@ -338,32 +338,6 @@ void giveStripThickness(Vec2d scanCenter, vector<Vec2d>& strip, double thickness
 
 void World::processLidarData(Graphics& g, int startIdx, int endIdx)
 {
-    newLidar.erase(newLidar.begin()+endIdx+1);
-    newLidar.erase(newLidar.begin(), newLidar.begin()+startIdx);
-
-//    if (newLidar.size() > 400) {
-//        std::vector<LidarPoint> newLidarTmp;
-//        bool gotStart = false;
-
-//        for (int i = 0; i < newLidar.size(); i++) {
-//            if (i > 0 && newLidar[i-1].worldAngle > 1.5*M_PI && newLidar[i].worldAngle < 0.5*M_PI) {
-//                // wrapped!
-//                if (!gotStart) {
-//                    gotStart = true;
-//                }
-//                else {
-//                    newLidarTmp.push_back(newLidar[i]);
-//                    break;
-//                }
-//            }
-//            if (gotStart) {
-//                newLidarTmp.push_back(newLidar[i]);
-//            }
-//        }
-//        //        cout << "Discarding lidar data. Was: " << newLidar.size() << " Keeping: " << newLidarTmp.size() << endl;
-//        newLidar = newLidarTmp;
-//    }
-
     vector<Vec2d> wedge;
     vector<Vec2d> obstPts;
     vector<Vec2d> strip;
@@ -372,8 +346,10 @@ void World::processLidarData(Graphics& g, int startIdx, int endIdx)
     // TODO:  when building wedges, do we need to split when distance changes?
     //    maybe that's a separate pass than building strips?
 
-    for (auto& pnt : newLidar)
+    for (int i = startIdx; i <= endIdx; i++)
     {
+        LidarPoint& pnt = newLidar[i];
+
         bool   lastValid = lastLidarPoint.valid;
         bool   thisValid = pnt.valid;
         double angleDiff = angleDiffSpecial(lastLidarPoint.worldAngle, pnt.worldAngle);
@@ -428,7 +404,7 @@ void World::processLidarData(Graphics& g, int startIdx, int endIdx)
         }
     }
 
-    newLidar.clear();
+    newLidar.erase(newLidar.begin(), newLidar.begin()+startIdx);
 
     bool toggleColor = true;
     for (auto& s : strips) {

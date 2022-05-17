@@ -3,7 +3,7 @@
 
 using namespace std;
 
-void throwOnError(enum sp_return result);
+int throwOnError(enum sp_return result);
 
 SerialPort::SerialPort()
 {
@@ -62,16 +62,17 @@ bool SerialPort::open(std::string portName, int baud)
 
 string SerialPort::read()
 {
-    int bytes_waiting = static_cast<int>(sp_input_waiting(port));
-    if (bytes_waiting > 0) {
-        string buff(bytes_waiting, 0);
-        throwOnError(sp_nonblocking_read(port, buff.data(), bytes_waiting));
-        return buff;
+    int bytes_waiting = throwOnError(sp_input_waiting(port));
+    if (bytes_waiting == 0) {
+        return string{};
     }
-    else if (bytes_waiting < 0) {
-        throwOnError(static_cast<sp_return>(bytes_waiting));
+    string buff(bytes_waiting, 0);
+    int bytesRead = throwOnError(sp_nonblocking_read(port, buff.data(), bytes_waiting));
+    if (bytesRead != bytes_waiting) {
+        cout << "UhOh: SerialPort::read apparently this is a thing that can happen" << endl;
+        buff.resize(bytesRead);
     }
-    return string{};
+    return buff;
 }
 
 void SerialPort::write(std::string data)
@@ -219,7 +220,7 @@ string serialPortLastError()
 }
 
 /* Helper function for error handling. */
-void throwOnError(enum sp_return result)
+int throwOnError(enum sp_return result)
 {
     switch (result) {
     case SP_ERR_ARG:
@@ -231,7 +232,13 @@ void throwOnError(enum sp_return result)
     case SP_ERR_MEM:
         throw runtime_error("Serial Port: Memory Alloc Error");
     case SP_OK:
-        break;
+        return 0;
     }
+
+    if (result < 0) {
+        throw runtime_error("Unexpected serial port error");
+    }
+
+    return result;
 }
 

@@ -18,7 +18,7 @@ public:
     BotCommSerial(mssm::Graphics& g);
 
     void update();
-//    int getPluginId() const { return pluginId; }
+    bool isPortOpen() { return port.isOpen(); }
 
     // BotComm interface
     void attach(BotCommClient *client) override;
