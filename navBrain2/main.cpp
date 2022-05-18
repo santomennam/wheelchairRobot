@@ -92,7 +92,6 @@ string chooseSerialPort(Graphics& g, string msg)
     }
 
     return portName;
-
 }
 
 

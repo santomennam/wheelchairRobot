@@ -1,13 +1,13 @@
 #include "waypoint.h"
 
 using namespace std;
-Waypoint::Waypoint(Node *n, Waypoint *prev, Vec2d destination)
+Waypoint::Waypoint(cell *c, Waypoint *prev, Vec2d destination)
 {
     previous = prev;
-    node = n;
-    n->color = mssm::YELLOW;
+    this->c = c;
+    c->color = mssm::YELLOW;
     Vec2d garbage;
-    hueristic = n->distanceToPoint(destination, garbage);
+    hueristic = c->distanceToPoint(destination, garbage);
     if(prev){
         cost = prev->cost + (n->centroid()-prev->node->centroid()).magnitude();
     }

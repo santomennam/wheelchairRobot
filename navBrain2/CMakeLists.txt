@@ -56,12 +56,16 @@ add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     botcommserial.h
     botconnection.cpp
     botconnection.h
+    cell.cpp
+    cell.h
     clipper.cpp
     clipper.h
     CmdLink.cpp
     CmdLink.h
     geometry.cpp
     geometry.h
+    grid.cpp
+    grid.h
     node.cpp
     node.h
     obstacle.cpp
