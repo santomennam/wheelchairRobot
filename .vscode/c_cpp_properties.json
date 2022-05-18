@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "Arduino",
-            "compilerPath": "C:\\Users\\Gizmo Garden 62\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\bin\\avr-g++",
+            "compilerPath": "C:\\Users\\gjham\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\bin\\avr-g++",
             "compilerArgs": [
                 "-w",
                 "-std=gnu++11",
@@ -16,26 +16,30 @@
             ],
             "intelliSenseMode": "gcc-x64",
             "includePath": [
-                "C:\\Users\\Gizmo Garden 62\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.4\\cores\\arduino",
-                "C:\\Users\\Gizmo Garden 62\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.4\\variants\\mega",
-                "C:\\Users\\Gizmo Garden 62\\Documents\\Arduino\\libraries\\ArduinoSTL\\src",
-                "C:\\Users\\Gizmo Garden 62\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.4\\libraries\\SoftwareSerial\\src",
-                "C:\\Users\\Gizmo Garden 62\\Documents\\Arduino\\libraries\\ArduPID\\src",
-                "C:\\Users\\Gizmo Garden 62\\Documents\\Arduino\\libraries\\FireTimer\\src",
-                "C:\\Users\\Gizmo Garden 62\\Documents\\Arduino\\libraries\\Encoder",
-                "C:\\Users\\Gizmo Garden 62\\Documents\\Arduino\\libraries\\Vec2d",
-                "c:\\users\\gizmo garden 62\\appdata\\local\\arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\lib\\gcc\\avr\\7.3.0\\include",
-                "c:\\users\\gizmo garden 62\\appdata\\local\\arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\lib\\gcc\\avr\\7.3.0\\include-fixed",
-                "c:\\users\\gizmo garden 62\\appdata\\local\\arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\avr\\include"
+                "C:\\Users\\gjham\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.5\\cores\\arduino",
+                "C:\\Users\\gjham\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.5\\variants\\mega",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\ArduPID\\src",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\FireTimer\\src",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\Encoder",
+                "C:\\Users\\gjham\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.5\\libraries\\Wire\\src",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\Adafruit_GFX_Library",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\Adafruit_LED_Backpack_Library",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\Adafruit_BusIO",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\CmdLink",
+                "C:\\Users\\gjham\\Documents\\Arduino\\libraries\\Adafruit_NeoPixel",
+                "C:\\Users\\gjham\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.5\\libraries\\SPI\\src",
+                "c:\\users\\gjham\\appdata\\local\\arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\lib\\gcc\\avr\\7.3.0\\include",
+                "c:\\users\\gjham\\appdata\\local\\arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\lib\\gcc\\avr\\7.3.0\\include-fixed",
+                "c:\\users\\gjham\\appdata\\local\\arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7\\avr\\include"
             ],
             "forcedInclude": [
-                "C:\\Users\\Gizmo Garden 62\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.4\\cores\\arduino\\Arduino.h"
+                "C:\\Users\\gjham\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.5\\cores\\arduino\\Arduino.h"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",
             "defines": [
                 "F_CPU=16000000L",
-                "ARDUINO=10802",
+                "ARDUINO=10819",
                 "ARDUINO_AVR_MEGA2560",
                 "ARDUINO_ARCH_AVR",
                 "__DBL_MIN_EXP__=(-125)",

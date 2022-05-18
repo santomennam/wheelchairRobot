@@ -10,9 +10,10 @@
 #include <FireTimer.h>
 #endif
 
-// commands start with '#' followed by 4 bytes (command specific) followed by '\n'  6 bytes total
+constexpr int maxDataSize = 9;
 
-#define MAX_CMD_SIZE 16
+// cmd sz = maxDataSize*2 + # + digit + \n + cmd
+//        = maxDataSize*2 + 4
 
 // cmd format    #0a\n 
 // or            #1ab\n
@@ -23,30 +24,39 @@
 // 0-9 indicates number of bytes after cmd letter (1 digit only)
 // b is any byte
 
+// if b is # or \n or \ or 0 then it will be escaped as follows:
+//    '\0'  -> "\\0"
+//    '#'   -> "\\1"
+//    '\n'  -> "\\2"
+//    '\'   -> "\\3"
+
+// "number of bytes" counts the 2 byte escape sequence as a single char
+
 class HardwareSerial;
 
+enum class CmdBufferState {
+    expectHash,   // ready for #
+    expectSize,   // got the #, waiting for digit
+    expectCmd,    // got the digit, waiting for cmd char
+    expectData,   // got non-zero size, waiting for data
+    expectEnd,    // end of data reached, waiting for \n
+    expectEsc,    // got a \, waiting for 1,2,3
+    corrupt       // got unexpected input, waiting for #
+};
+
 class CmdBuffer {
-  char buffer[MAX_CMD_SIZE];
-  int  pushIdx{0};
-  int  hashIdx{-1}; // -1 means we haven't seen a # yet
+  char dataBuffer[maxDataSize+1];
+  CmdBufferState state{CmdBufferState::expectHash};
   char lastCmd{0};
   int  numDataBytes{0};
-  int  dataIdx{0};
+  int  numDataRecv{0};
  public:
   bool push(char c);
   char cmd() const { return lastCmd; }
-  void eraseCmd();
   int  length() const { return numDataBytes; }
   void copyDataTo(char *dst, int count);
   template<typename T>
   void copyDataTo(T& dst);
-#ifndef ARDUINO
-  std::string currentCmdBuffer() const;
-#endif
- private:
-  bool verify(int hashIdx, int lfIdx);
-  char get(int idx) const { return buffer[idx%MAX_CMD_SIZE]; }
-
 };
 
 template<typename T>
@@ -57,12 +67,13 @@ void CmdBuffer::copyDataTo(T& dst)
 
 
 class CmdBuilder {
-  char buffer[MAX_CMD_SIZE];
+  char buffer[maxDataSize*2 + 4 + 1];
   int  numDataBytes{0};
+  int  numEsc{0};
 public:
   CmdBuilder();
   void begin(char cmd);
-  int length() { return numDataBytes + 4; }
+  int length() { return numDataBytes + numEsc + 4; }
   void pushData(const char* data, int count);
   template<typename T>
   void pushData(const T& data);
@@ -118,7 +129,6 @@ class CmdLink {
 
   bool readCmd();
   char cmd() { return buffer.cmd(); }
-  void eraseCmd() { buffer.eraseCmd(); }
 
   template<typename T>
   void getParam(T& dst);

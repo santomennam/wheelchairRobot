@@ -1,5 +1,3 @@
-OM
-
 #include <string.h>
 #include <ArduPID.h>
 #include <Encoder.h>
@@ -414,7 +412,6 @@ void reportUnexpectedHindbrainCmd(char c)
 {
   host.sendCmdFmt('I', "Unex: %c", c);
   host.sendCmdStr('I', "FroMHind");
-  hindbrain.eraseCmd();
 }
 
 
