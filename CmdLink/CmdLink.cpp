@@ -74,6 +74,9 @@ bool CmdBuffer::push(char c)
             state = CmdBufferState::expectEsc;
             return false;
         }
+        // if (numDataRecv == dataBufferSize) {
+        //     throw logic_error("buffer overrun!!");
+        // }
         dataBuffer[numDataRecv++] = c;
         if (numDataRecv == numDataBytes) {
             state = CmdBufferState::expectEnd;
@@ -115,6 +118,7 @@ bool CmdBuffer::push(char c)
     case CmdBufferState::expectEnd:    // end of data reached, waiting for \n
         if (c == '\n') {
             state = CmdBufferState::expectHash;
+            copyDataPos = 0;
             return true; // woohoo!  we got a complete command
         }
         // should have gotten \n :(
@@ -132,8 +136,44 @@ bool CmdBuffer::push(char c)
 
 void CmdBuffer::copyDataTo(char *dst, int count)
 {
-    memcpy(dst, dataBuffer, count);
+    memcpy(dst, dataBuffer+copyDataPos, count);
+    copyDataPos += count;
 }
+
+#ifndef ARDUINO
+void CmdBuffer::dump()
+{
+    string stateStr{"CmdStateCorruptUnk"};
+
+    switch (state) {
+    case CmdBufferState::corrupt:     // got unexpected input, waiting for #
+        stateStr = "CmdStateCorrupt";
+        break;
+    case CmdBufferState::expectHash:  // ready for #
+        stateStr = "CmdStateExpectHash";
+        break;
+    case CmdBufferState::expectSize:   // got the #, waiting for digit
+        stateStr = "CmdStateExpectSize";
+        break;
+    case CmdBufferState::expectCmd:
+        stateStr = "CmdStateExpectCmd";
+        break;
+    case CmdBufferState::expectData:   // got non-zero size, waiting for data
+        stateStr = "CmdStateExpectData";
+        break;
+    case CmdBufferState::expectEsc:    // got a \, waiting for 0,1,2,3
+        stateStr = "CmdStateExpectEsc";
+        break;
+    case CmdBufferState::expectEnd:    // end of data reached, waiting for \n
+        stateStr = "CmdStateExpectEnd";
+        break;
+    }
+
+    cout << stateStr << ": " << lastCmd << " sz: " << numDataBytes << " rc: " << numDataRecv << endl;
+    dumpAsHex(string(dataBuffer, numDataRecv));
+}
+
+#endif
 
 CmdBuilder::CmdBuilder()
 {
@@ -298,6 +338,16 @@ std::string CmdLink::getStr()
     buffer.copyDataTo(buff, buffer.length());
     return std::string(buff, buffer.length());
 }
+
+void CmdLink::dumpSent()
+{
+    CmdBuffer tmp;
+    const char* buf = builder.getBuffer();
+    for (int i = 0; i < builder.length(); i++) {
+        tmp.push(buf[i]);
+    }
+    tmp.dump();
+}
 #endif
 
 void CmdLink::send()
@@ -308,6 +358,7 @@ void CmdLink::send()
     stream.write(sendbuffer, sendlen);
     sendTimer.begin(sendTimeoutMS);
 #else
+    dumpSent();
     if (debug) {
         string msg = string(sendbuffer, sendlen);
         if (msg != "#0P\n") {
