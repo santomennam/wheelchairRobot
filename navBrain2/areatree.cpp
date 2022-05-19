@@ -168,6 +168,9 @@ void AreaTree::resetColor(Graphics &g)
 
 vector<Vec2d> AreaTree::navigation(Vec2d start, Vec2d end, Graphics&g,Viewport view)
 {
+        vector<Vec2d> pointsReturn;
+
+        cout << "Navigation not implemented" << endl;
     // cout<<"nav2"<<endl;
 
     //traversal: take starting points, get two areas.
@@ -175,32 +178,32 @@ vector<Vec2d> AreaTree::navigation(Vec2d start, Vec2d end, Graphics&g,Viewport v
 
     //traversal:
 
-    packet startPack = findClosestNode(start);
-    packet endPack = findClosestNode(end);
+//    packet startPack = findClosestNode(start);
+//    packet endPack = findClosestNode(end);
 
-    Node *startNode = startPack.node;
-    startNode->color = RED;
-    Node *endNode = endPack.node;
-    endNode->color = PURPLE;
-    if(startNode == endNode)
-    {
-        cout<<"start and end are in the same node!"<<endl;
-    }
-    vector<Node*> path;
-    head->clearVisited();
-    vector<Vec2d> pointsReturn;
-    Waypoint* use = aStar(start,end,g,view);
-    if(use)
-    {
-        pointsReturn = use->pathPoints(botWidth);
-    }
+//    Node *startNode = startPack.node;
+//    startNode->color = RED;
+//    Node *endNode = endPack.node;
+//    endNode->color = PURPLE;
+//    if(startNode == endNode)
+//    {
+//        cout<<"start and end are in the same node!"<<endl;
+//    }
+//    vector<Node*> path;
+//    head->clearVisited();
 
-    //modes: explore, destination, manual - should be able to add stored waypoints to navigate to
-    //find list of areas
-    //if area tree gets updated - find a wall or something, its time to re calculate the path
-    //create a list of waypoints
-    //give it start and endpoints, return with list of waypoints
-    //could be midpoint of sides of the area, or middle of the area, or both
+//    Waypoint* use = aStar(start,end,g,view);
+//    if(use)
+//    {
+//        pointsReturn = use->pathPoints(botWidth);
+//    }
+
+//    //modes: explore, destination, manual - should be able to add stored waypoints to navigate to
+//    //find list of areas
+//    //if area tree gets updated - find a wall or something, its time to re calculate the path
+//    //create a list of waypoints
+//    //give it start and endpoints, return with list of waypoints
+//    //could be midpoint of sides of the area, or middle of the area, or both
     return pointsReturn;
 }
 
@@ -372,16 +375,16 @@ void AreaTree::visitNodes(std::function<void (Node *)> fn)
 }
 void AreaTree::shortenPath(Waypoint* current,Vec2d destination)
 {
-
-    if(current->previous&&current->previous->previous)
-    {
-        if(!doesSegmentCollide(current->node->centroid(),current->previous->previous->node->centroid()))
-        {
-            // cout<<"straightening"<<endl;
-            current->previous = current->previous->previous;
-            current->recalculateCost(destination);
-        }
-    }
+cout << "ShortenPath not implemented" << endl;
+//    if(current->previous&&current->previous->previous)
+//    {
+//        if(!doesSegmentCollide(current->node->centroid(),current->previous->previous->node->centroid()))
+//        {
+//            // cout<<"straightening"<<endl;
+//            current->previous = current->previous->previous;
+//            current->recalculateCost(destination);
+//        }
+//    }
 }
 
 vector<Vec2d> findMinMax(vector<Vec2d> points)
@@ -448,60 +451,63 @@ void AreaTree::closeNodeByPoint(Vec2d point)
 }
 Waypoint* AreaTree::aStar(Vec2d start, Vec2d destination, Graphics &g,Viewport view)
 {
-    //traverse tree and reset inQ with visitStuff()
-    visitNodes([](Node* b){b->inQ = false; b->color = BLACK;});
-    packet startPack = findClosestNode(start);
-    packet endPack = findClosestNode(destination);
-    Node *startNode = startPack.node;
-    startNode->color = RED;
-    Node *endNode = endPack.node;
-    endNode->color = PURPLE;
-    if(startNode == endNode)
-    {
-        cout<<"start and end are in the same node!"<<endl;
-        return  nullptr;
-    }
-    priority_queue<Waypoint*,vector<Waypoint*>,function<bool(const Waypoint*,const Waypoint*)>> q([](const Waypoint* w1, const Waypoint* w2){return *w2<*w1;});
-    Waypoint* first = new Waypoint(startNode,nullptr,destination);
-    q.push(first);
-    first->node->inQ = true;
-    while(q.size())
-    {
-        //look for area 2 back  `
-        //prev of prev
-        //if can draw ray from here to there, this->prev = prev->prev
-        g.clear();
-        draw(g,view);
-        // cout<<"Plotting..."<<endl;
-        Waypoint* current = q.top();
-        // g.ellipseC(view.worldToScreen(current->node->centroid()),10,10,mssm::CYAN,mssm::CYAN); //DRAWINGGGGGGGGGGGGGGGGGGGG
-        // g.polyline(view.worldToScreen(current->pathPoints(botWidth)),mssm::WHITE);
-        // g.draw();
-        q.pop();
-        // current->node->inQ = false;
-        if(current->node->isAdjacentTo(endNode))
-        {
-            Waypoint* path = new Waypoint(endNode,current,destination);
-            shortenPath(path,destination);
-            return path;
-        }
+    cout << "aStar not implemented" << endl;
+    return nullptr;
 
-        for (int i =0; i < current->node->adjacents.size(); i++)
-        {
-            Node* n = current->node->adjacents[i];
-            segment& s = current->node->boundaries[i];
-            if(n && s.open && !n->inQ && !current->containsNode(n))
-            {
-                shortenPath(current,destination);
-                Waypoint* adj = new Waypoint(n,current,destination);
-                // maybe need vector of previous running in tandem: different threads could not have visited nodes in their previous and go infinitely
-                q.push(adj);
-                n->inQ = true;
-            }
-        }
-    }
-    cout<<"No path"<<endl;
-    return  nullptr;
+//    //traverse tree and reset inQ with visitStuff()
+//    visitNodes([](Node* b){b->inQ = false; b->color = BLACK;});
+//    packet startPack = findClosestNode(start);
+//    packet endPack = findClosestNode(destination);
+//    Node *startNode = startPack.node;
+//    startNode->color = RED;
+//    Node *endNode = endPack.node;
+//    endNode->color = PURPLE;
+//    if(startNode == endNode)
+//    {
+//        cout<<"start and end are in the same node!"<<endl;
+//        return  nullptr;
+//    }
+//    priority_queue<Waypoint*,vector<Waypoint*>,function<bool(const Waypoint*,const Waypoint*)>> q([](const Waypoint* w1, const Waypoint* w2){return *w2<*w1;});
+//    Waypoint* first = new Waypoint(startNode,nullptr,destination);
+//    q.push(first);
+//    first->node->inQ = true;
+//    while(q.size())
+//    {
+//        //look for area 2 back  `
+//        //prev of prev
+//        //if can draw ray from here to there, this->prev = prev->prev
+//        g.clear();
+//        draw(g,view);
+//        // cout<<"Plotting..."<<endl;
+//        Waypoint* current = q.top();
+//        // g.ellipseC(view.worldToScreen(current->node->centroid()),10,10,mssm::CYAN,mssm::CYAN); //DRAWINGGGGGGGGGGGGGGGGGGGG
+//        // g.polyline(view.worldToScreen(current->pathPoints(botWidth)),mssm::WHITE);
+//        // g.draw();
+//        q.pop();
+//        // current->node->inQ = false;
+//        if(current->node->isAdjacentTo(endNode))
+//        {
+//            Waypoint* path = new Waypoint(endNode,current,destination);
+//            shortenPath(path,destination);
+//            return path;
+//        }
+
+//        for (int i =0; i < current->node->adjacents.size(); i++)
+//        {
+//            Node* n = current->node->adjacents[i];
+//            segment& s = current->node->boundaries[i];
+//            if(n && s.open && !n->inQ && !current->containsNode(n))
+//            {
+//                shortenPath(current,destination);
+//                Waypoint* adj = new Waypoint(n,current,destination);
+//                // maybe need vector of previous running in tandem: different threads could not have visited nodes in their previous and go infinitely
+//                q.push(adj);
+//                n->inQ = true;
+//            }
+//        }
+//    }
+//    cout<<"No path"<<endl;
+//    return  nullptr;
 
 }
 

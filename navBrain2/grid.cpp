@@ -13,7 +13,7 @@ grid::grid(int width, int height, double offsetX, double offsetY, double cellWid
     }
 }
 
-std::vector<cell> grid::navigate(cell start, cell end, mssm::Graphics &g, Viewport view)
+std::vector<cell> grid::navigate(Vec2d start, Vec2d end, mssm::Graphics& g, Viewport view)
 {
 
 }

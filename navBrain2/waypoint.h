@@ -4,6 +4,7 @@
 #include "cell.h"
 #include "graphics.h"
 #include "viewport.h"
+#include "node.h"
 
 class Waypoint{
 public:
