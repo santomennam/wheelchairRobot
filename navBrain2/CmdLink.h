@@ -51,6 +51,7 @@ class CmdBuffer {
   char lastCmd{0};
   int  numDataBytes{0};
   int  numDataRecv{0};
+  int  copyDataPos{0};
  public:
   bool push(char c);
   char cmd() const { return lastCmd; }
@@ -58,6 +59,9 @@ class CmdBuffer {
   void copyDataTo(char *dst, int count);
   template<typename T>
   void copyDataTo(T& dst);
+#ifndef ARDUINO
+  void dump();
+#endif
 };
 
 template<typename T>
@@ -79,6 +83,7 @@ public:
   template<typename T>
   void pushData(const T& data);
   char *finish();
+  const char* getBuffer() { return buffer; }
 };
 
 
@@ -142,6 +147,8 @@ class CmdLink {
   std::string getStr();
   void setDebug(bool dbg) { debug = dbg; }
   bool isDebug() const { return debug; }
+  void dumpIncoming() { buffer.dump(); }
+  void dumpSent();
 #endif
 
 private:

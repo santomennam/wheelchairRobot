@@ -165,9 +165,13 @@ void BotConnection::onBotCommPacket(std::string data)
 //    }
     incomingData += data;
 
-   cout << "IncomingData: '" << data << "'" << endl;
+   //cout << "IncomingData: '" << data << "'" << endl;
 
     while (cmdLink->readCmd()) {
+
+        cout << "Incoming: ";
+        cmdLink->dumpIncoming();
+
         char cmd = cmdLink->cmd();
 
         double leftMotor;
@@ -226,8 +230,8 @@ void BotConnection::onBotCommPacket(std::string data)
         case 'C': // encoder counts
             cmdLink->getParam(leftCount);
             cmdLink->getParam(rightCount);
-            receivedResponse = "Encoders: " + to_string(leftCount) + " " + to_string(rightCount);
-            cout << receivedResponse << endl;
+            //receivedResponse = "Encoders: " + to_string(leftCount) + " " + to_string(rightCount);
+            //cout << receivedResponse << endl;
             updateEncoders({(double)leftCount, (double)rightCount});
             break;
         case 'M': // motor values
