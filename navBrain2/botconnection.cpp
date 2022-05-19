@@ -169,8 +169,7 @@ void BotConnection::onBotCommPacket(std::string data)
 
     while (cmdLink->readCmd()) {
 
-        cout << "Incoming: ";
-        cmdLink->dumpIncoming();
+
 
         char cmd = cmdLink->cmd();
 

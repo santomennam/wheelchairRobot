@@ -6,6 +6,7 @@
 #ifndef ARDUINO
 #include <functional>
 #include <string>
+#include <iostream>
 #else
 #include <FireTimer.h>
 #endif
@@ -60,7 +61,7 @@ class CmdBuffer {
   template<typename T>
   void copyDataTo(T& dst);
 #ifndef ARDUINO
-  void dump();
+  void dump(std::ostream& strm);
 #endif
 };
 
@@ -103,6 +104,7 @@ class CmdLink {
     std::function<void(const char* data, int len)> writer;
     std::function<bool()> canRead;
     std::function<char()> readChar;
+    std::ostream* debugStream{nullptr};
 #endif
     bool debug{false};
   CmdBuffer  buffer;
@@ -147,8 +149,9 @@ class CmdLink {
   std::string getStr();
   void setDebug(bool dbg) { debug = dbg; }
   bool isDebug() const { return debug; }
-  void dumpIncoming() { buffer.dump(); }
+  void dumpIncoming() { buffer.dump(debugStream ? *debugStream : std::cout); }
   void dumpSent();
+  void setDebugStream(std::ostream& strm) { debugStream = &strm; }
 #endif
 
 private:

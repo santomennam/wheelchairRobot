@@ -15,7 +15,7 @@ BotCommSerial::BotCommSerial(mssm::Graphics &g)
 void BotCommSerial::update()
 {
     while (port.canRead()) {
-        cout << "Got Something!!" << endl;
+        //cout << "Got Something!!" << endl;
         client->onBotCommPacket(port.read());
     }
 }

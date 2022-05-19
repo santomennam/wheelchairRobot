@@ -202,6 +202,8 @@ void graphicsMain(Graphics& g)
 
     bool processLidar = false;
 
+    bot.setDebugStream(g.cerr);
+
     while (g.draw()) {
         g.clear();
 
@@ -261,6 +263,7 @@ void graphicsMain(Graphics& g)
         }
 
           g.text({10,textY -= 25}, 20, "NumNewLidar: " + to_string(numLidarPoints), GREEN);
+
 
         //        std::chrono::duration<double> diff = std::chrono::steady_clock::now() - world.lastTime;
         //        if(diff.count() >= 1)
@@ -479,7 +482,9 @@ void graphicsMain(Graphics& g)
                 case 'D':
                     // world.diagnostics = !world.diagnostics;
                     world.drawDebug = !world.drawDebug;
-                    bot.setDebug(true);
+                    break;
+                case 'B':
+                    bot.setDebug(!bot.isDebug());
                     break;
                 case 'U':
                     targetMode = !targetMode;
@@ -516,9 +521,9 @@ void graphicsMain(Graphics& g)
                 case ' ':
                     world.showObstacle = !world.showObstacle;
                     break;
-                case 'B':
-                    world.showBeam = !world.showBeam;
-                    break;
+//                case 'U':
+//                    world.showBeam = !world.showBeam;
+//                    break;
                 case 'O':
   //                  world.placeObstaclesFromList(vector<Vec2d>(lidarPoints.begin(),lidarPoints.begin()+50));
    //                 lidarPoints.erase(lidarPoints.begin(),lidarPoints.begin()+50);
