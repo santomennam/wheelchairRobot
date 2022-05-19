@@ -219,7 +219,7 @@ void graphicsMain(Graphics& g)
 
         }
         else {
-            cout << "Discarding" << endl;
+           // cout << "Discarding" << endl;
             world.discardLidarData();
         }
 

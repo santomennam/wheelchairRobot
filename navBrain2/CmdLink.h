@@ -11,6 +11,7 @@
 #endif
 
 constexpr int maxDataSize = 9;
+constexpr int dataBufferSize = maxDataSize*2 + 4 + 1;
 
 // cmd sz = maxDataSize*2 + # + digit + \n + cmd
 //        = maxDataSize*2 + 4
@@ -45,7 +46,7 @@ enum class CmdBufferState {
 };
 
 class CmdBuffer {
-  char dataBuffer[maxDataSize+1];
+  char dataBuffer[dataBufferSize];
   CmdBufferState state{CmdBufferState::expectHash};
   char lastCmd{0};
   int  numDataBytes{0};
@@ -67,7 +68,7 @@ void CmdBuffer::copyDataTo(T& dst)
 
 
 class CmdBuilder {
-  char buffer[maxDataSize*2 + 4 + 1];
+  char buffer[dataBufferSize];
   int  numDataBytes{0};
   int  numEsc{0};
 public:

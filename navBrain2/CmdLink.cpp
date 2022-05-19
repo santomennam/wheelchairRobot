@@ -59,6 +59,7 @@ bool CmdBuffer::push(char c)
             lastCmd = c;
             if (numDataBytes > 0) {
                 state = CmdBufferState::expectData;
+                numDataRecv = 0;
                 return false;
             }
             else {
@@ -72,6 +73,9 @@ bool CmdBuffer::push(char c)
         if (c == '\\') {
             state = CmdBufferState::expectEsc;
             return false;
+        }
+        if (numDataRecv == dataBufferSize) {
+            throw logic_error("buffer overrun!!");
         }
         dataBuffer[numDataRecv++] = c;
         if (numDataRecv == numDataBytes) {
@@ -100,6 +104,9 @@ bool CmdBuffer::push(char c)
             return false;
         }
         // now this is just like normal
+        if (numDataRecv == dataBufferSize) {
+            throw logic_error("buffer overrun!!");
+        }
         dataBuffer[numDataRecv++] = c;
         if (numDataRecv == numDataBytes) {
             state = CmdBufferState::expectEnd;
@@ -118,6 +125,7 @@ bool CmdBuffer::push(char c)
         return false;
     default:
 #ifndef ARDUINO
+        cout << "BadBufferState: " << static_cast<int>(state) << endl;
         throw logic_error("Bad CmdBufferState!!!");
 #endif
         state = CmdBufferState::corrupt;
