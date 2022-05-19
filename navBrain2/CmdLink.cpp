@@ -74,9 +74,9 @@ bool CmdBuffer::push(char c)
             state = CmdBufferState::expectEsc;
             return false;
         }
-        if (numDataRecv == dataBufferSize) {
-            throw logic_error("buffer overrun!!");
-        }
+        // if (numDataRecv == dataBufferSize) {
+        //     throw logic_error("buffer overrun!!");
+        // }
         dataBuffer[numDataRecv++] = c;
         if (numDataRecv == numDataBytes) {
             state = CmdBufferState::expectEnd;
@@ -104,9 +104,9 @@ bool CmdBuffer::push(char c)
             return false;
         }
         // now this is just like normal
-        if (numDataRecv == dataBufferSize) {
-            throw logic_error("buffer overrun!!");
-        }
+        // if (numDataRecv == dataBufferSize) {
+        //     throw logic_error("buffer overrun!!");
+        // }
         dataBuffer[numDataRecv++] = c;
         if (numDataRecv == numDataBytes) {
             state = CmdBufferState::expectEnd;
