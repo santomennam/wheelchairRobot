@@ -13,24 +13,25 @@
 using namespace std;
 
 #ifndef ARDUINO
-void dumpAsHex(std::string data)
+void dumpAsHex(std::ostream& strm, std::string data)
 {
+    strm << "|";
     for (char c : data) {
         if (isprint(c)) {
-            cout << setfill(' ') << setw(2) << c << " ";
+            strm << setfill(' ') << setw(2) << c << " ";
         }
         else if (c == '\n') {
-            cout << "\\n ";
+            strm << "\\n ";
         }
         else {
-            cout << "__ ";
+            strm << "__ ";
         }
     }
-    cout << endl;
+    strm << "| |";
     for (char c : data) {
-        cout << std::hex << setw(2) << setfill('0') << (0xFF & (int)c) << " ";
+        strm << std::hex << setw(2) << setfill('0') << (0xFF & (int)c) << " ";
     }
-    cout << std::dec << setfill(' ') << endl;
+    strm << std::dec << setfill(' ') << "|" << endl;
 }
 #endif
 
@@ -44,16 +45,14 @@ bool CmdBuffer::push(char c)
             state = CmdBufferState::expectSize;
             return false;
         }
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"Not #");
     case CmdBufferState::expectSize:   // got the #, waiting for digit
         if (c >= '0' && c <= '9') {
             numDataBytes = c - '0';
             state = CmdBufferState::expectCmd;
             return false;
         }
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"NotDigit");
     case CmdBufferState::expectCmd:
         if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
             lastCmd = c;
@@ -67,8 +66,7 @@ bool CmdBuffer::push(char c)
                 return false;
             }
         }
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"NotCmd");
     case CmdBufferState::expectData:   // got non-zero size, waiting for data
         if (c == '\\') {
             state = CmdBufferState::expectEsc;
@@ -100,8 +98,7 @@ bool CmdBuffer::push(char c)
             break;
         default:
             // unexpected escape
-            state = CmdBufferState::corrupt;
-            return false;
+            return setCorrupt(c,"NotEsc");
         }
         // now this is just like normal
         // if (numDataRecv == dataBufferSize) {
@@ -122,15 +119,13 @@ bool CmdBuffer::push(char c)
             return true; // woohoo!  we got a complete command
         }
         // should have gotten \n :(
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"Not\n");
     default:
 #ifndef ARDUINO
         cout << "BadBufferState: " << static_cast<int>(state) << endl;
         throw logic_error("Bad CmdBufferState!!!");
 #endif
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"BadState"); // buffer overrun??
     }
 }
 
@@ -141,7 +136,7 @@ void CmdBuffer::copyDataTo(char *dst, int count)
 }
 
 #ifndef ARDUINO
-void CmdBuffer::dump()
+void CmdBuffer::dump(std::ostream& strm)
 {
     string stateStr{"CmdStateCorruptUnk"};
 
@@ -150,7 +145,7 @@ void CmdBuffer::dump()
         stateStr = "CmdStateCorrupt";
         break;
     case CmdBufferState::expectHash:  // ready for #
-        stateStr = "CmdStateExpectHash";
+        stateStr = "Ready";
         break;
     case CmdBufferState::expectSize:   // got the #, waiting for digit
         stateStr = "CmdStateExpectSize";
@@ -169,11 +164,19 @@ void CmdBuffer::dump()
         break;
     }
 
-    cout << stateStr << ": " << lastCmd << " sz: " << numDataBytes << " rc: " << numDataRecv << endl;
-    dumpAsHex(string(dataBuffer, numDataRecv));
+    strm << stateStr << ": " << lastCmd << " sz: " << numDataBytes << " rc: " << numDataRecv << ": ";
+    dumpAsHex(strm, string(dataBuffer, numDataRecv));
 }
 
 #endif
+
+bool CmdBuffer::setCorrupt(char c, const char *msg)
+{
+    state = CmdBufferState::corrupt;
+    corruptChar = c;
+    corruptMsg = msg;
+    return false;
+}
 
 CmdBuilder::CmdBuilder()
 {
@@ -274,6 +277,13 @@ void CmdLink::sendCmdStr(char cmd, const char* str)
     send();
 }
 
+void CmdLink::sendCmdStr(char cmd, const char *str, int len)
+{
+    builder.begin(cmd);
+    builder.pushData(str, len);
+    send();
+}
+
 void CmdLink::sendCmdBB(char cmd, char v1, char v2)
 {
     builder.begin(cmd);
@@ -317,13 +327,10 @@ bool CmdLink::readCmd()
 #else
     while (canRead()) {
         if (buffer.push(readChar())) {
-//            if (debug) {
-//                string msg = buffer.currentCmdBuffer();
-//                if (msg != "#3KAck\n") {
-//                    cout << "Received: \n";
-//                    dumpAsHex(buffer.currentCmdBuffer());
-//                }
-//            }
+            if (debug) {
+                (debugStream ? *debugStream : cout) << "Incoming <- ";
+                dumpIncoming();
+            }
             return true;
         }
     }
@@ -346,7 +353,7 @@ void CmdLink::dumpSent()
     for (int i = 0; i < builder.length(); i++) {
         tmp.push(buf[i]);
     }
-    tmp.dump();
+    tmp.dump(debugStream ? *debugStream : std::cout);
 }
 #endif
 
@@ -358,13 +365,10 @@ void CmdLink::send()
     stream.write(sendbuffer, sendlen);
     sendTimer.begin(sendTimeoutMS);
 #else
-    dumpSent();
+
     if (debug) {
-        string msg = string(sendbuffer, sendlen);
-        if (msg != "#0P\n") {
-            cout << "Sending:\n";
-            dumpAsHex(string(sendbuffer, sendlen));
-        }
+        (debugStream ? *debugStream : cout)  << "Sending  -> ";
+        dumpSent();
     }
     writer(sendbuffer, sendlen);
 #endif

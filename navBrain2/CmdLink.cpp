@@ -45,16 +45,14 @@ bool CmdBuffer::push(char c)
             state = CmdBufferState::expectSize;
             return false;
         }
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"Not #");
     case CmdBufferState::expectSize:   // got the #, waiting for digit
         if (c >= '0' && c <= '9') {
             numDataBytes = c - '0';
             state = CmdBufferState::expectCmd;
             return false;
         }
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"NotDigit");
     case CmdBufferState::expectCmd:
         if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
             lastCmd = c;
@@ -68,8 +66,7 @@ bool CmdBuffer::push(char c)
                 return false;
             }
         }
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"NotCmd");
     case CmdBufferState::expectData:   // got non-zero size, waiting for data
         if (c == '\\') {
             state = CmdBufferState::expectEsc;
@@ -101,8 +98,7 @@ bool CmdBuffer::push(char c)
             break;
         default:
             // unexpected escape
-            state = CmdBufferState::corrupt;
-            return false;
+            return setCorrupt(c,"NotEsc");
         }
         // now this is just like normal
         // if (numDataRecv == dataBufferSize) {
@@ -123,15 +119,13 @@ bool CmdBuffer::push(char c)
             return true; // woohoo!  we got a complete command
         }
         // should have gotten \n :(
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"Not\n");
     default:
 #ifndef ARDUINO
         cout << "BadBufferState: " << static_cast<int>(state) << endl;
         throw logic_error("Bad CmdBufferState!!!");
 #endif
-        state = CmdBufferState::corrupt;
-        return false;
+        return setCorrupt(c,"BadState"); // buffer overrun??
     }
 }
 
@@ -175,6 +169,14 @@ void CmdBuffer::dump(std::ostream& strm)
 }
 
 #endif
+
+bool CmdBuffer::setCorrupt(char c, const char *msg)
+{
+    state = CmdBufferState::corrupt;
+    corruptChar = c;
+    corruptMsg = msg;
+    return false;
+}
 
 CmdBuilder::CmdBuilder()
 {
@@ -272,6 +274,13 @@ void CmdLink::sendCmdStr(char cmd, const char* str)
 {
     builder.begin(cmd);
     builder.pushData(str, strlen(str));
+    send();
+}
+
+void CmdLink::sendCmdStr(char cmd, const char *str, int len)
+{
+    builder.begin(cmd);
+    builder.pushData(str, len);
     send();
 }
 

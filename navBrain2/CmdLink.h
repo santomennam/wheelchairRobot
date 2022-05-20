@@ -47,22 +47,30 @@ enum class CmdBufferState {
 };
 
 class CmdBuffer {
+private:
   char dataBuffer[dataBufferSize];
   CmdBufferState state{CmdBufferState::expectHash};
   char lastCmd{0};
   int  numDataBytes{0};
   int  numDataRecv{0};
   int  copyDataPos{0};
+  char corruptChar{0};
+  const char *corruptMsg{""};
  public:
   bool push(char c);
+  bool isCorrupt() { return state == CmdBufferState::corrupt; }
   char cmd() const { return lastCmd; }
+  char* buffer() { return dataBuffer; }
   int  length() const { return numDataBytes; }
   void copyDataTo(char *dst, int count);
   template<typename T>
   void copyDataTo(T& dst);
+  const char *getCorruptMsg() { return corruptMsg; }
 #ifndef ARDUINO
   void dump(std::ostream& strm);
 #endif
+private:
+  bool setCorrupt(char c, const char* msg);
 };
 
 template<typename T>
@@ -126,6 +134,7 @@ class CmdLink {
 
   void sendCmd(char cmd);
   void sendCmdStr(char cmd, const char* str);
+  void sendCmdStr(char cmd, const char* str, int len);
   template<typename T>
   void sendCmdFmt(char cmd, const char*fmt, T val);
   void sendCmdBB(char cmd, char v1, char v2);
@@ -137,6 +146,8 @@ class CmdLink {
 
   bool readCmd();
   char cmd() { return buffer.cmd(); }
+  int  recvLen() { return buffer.length(); }
+  char *recvBuffer() { return buffer.buffer(); }
 
   template<typename T>
   void getParam(T& dst);
@@ -153,6 +164,9 @@ class CmdLink {
   void dumpSent();
   void setDebugStream(std::ostream& strm) { debugStream = &strm; }
 #endif
+
+  bool isCorrupt() { return buffer.isCorrupt(); }
+  const char *getCorruptMsg() { return buffer.getCorruptMsg(); }
 
 private:
   void send();
