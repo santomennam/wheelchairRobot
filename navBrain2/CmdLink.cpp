@@ -45,14 +45,14 @@ bool CmdBuffer::push(char c)
             state = CmdBufferState::expectSize;
             return false;
         }
-        return setCorrupt(c,"Not #");
+        return setCorrupt(c,"1Not #");
     case CmdBufferState::expectSize:   // got the #, waiting for digit
         if (c >= '0' && c <= '9') {
             numDataBytes = c - '0';
             state = CmdBufferState::expectCmd;
             return false;
         }
-        return setCorrupt(c,"NotDigit");
+        return setCorrupt(c,"2NotDigt");
     case CmdBufferState::expectCmd:
         if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
             lastCmd = c;
@@ -66,7 +66,7 @@ bool CmdBuffer::push(char c)
                 return false;
             }
         }
-        return setCorrupt(c,"NotCmd");
+        return setCorrupt(c,"3NotCmd");
     case CmdBufferState::expectData:   // got non-zero size, waiting for data
         if (c == '\\') {
             state = CmdBufferState::expectEsc;
@@ -98,7 +98,7 @@ bool CmdBuffer::push(char c)
             break;
         default:
             // unexpected escape
-            return setCorrupt(c,"NotEsc");
+            return setCorrupt(c,"4NotEsc");
         }
         // now this is just like normal
         // if (numDataRecv == dataBufferSize) {
@@ -119,13 +119,13 @@ bool CmdBuffer::push(char c)
             return true; // woohoo!  we got a complete command
         }
         // should have gotten \n :(
-        return setCorrupt(c,"Not\n");
+        return  setCorrupt(c,"5Not\\n");
     default:
 #ifndef ARDUINO
         cout << "BadBufferState: " << static_cast<int>(state) << endl;
         throw logic_error("Bad CmdBufferState!!!");
 #endif
-        return setCorrupt(c,"BadState"); // buffer overrun??
+        return setCorrupt(c,"6BState"); // buffer overrun??
     }
 }
 
