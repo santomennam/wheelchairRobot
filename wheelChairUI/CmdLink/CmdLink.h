@@ -49,6 +49,8 @@ enum class CmdBufferState {
 class CmdBuffer {
 private:
   char dataBuffer[dataBufferSize];
+  unsigned char overrunDetect1{0xBE};
+  unsigned char overrunDetect2{0xEF};
   CmdBufferState state{CmdBufferState::expectHash};
   char lastCmd{0};
   int  numDataBytes{0};
@@ -58,6 +60,7 @@ private:
   const char *corruptMsg{""};
  public:
   bool push(char c);
+  bool isOverrun() { return overrunDetect1 != 0xBE || overrunDetect2 != 0xEF; }
   bool isCorrupt() { return state == CmdBufferState::corrupt; }
   char cmd() const { return lastCmd; }
   char* buffer() { return dataBuffer; }

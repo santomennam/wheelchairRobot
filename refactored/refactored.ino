@@ -107,6 +107,27 @@ static const uint8_t PROGMEM
     B00111000,
     B00010000 
   },
+  tank_bmp[] =
+  { 
+    B00000000,
+    B00000000,
+    B00010000,
+    B00010000,
+    B00010000,
+    B00010000,
+    B00000000,
+    B00000000,
+  },
+  target_bmp[] =
+  { B00111100,
+    B01010010,
+    B10010001,
+    B11111111,
+    B10010001,
+    B01010010,
+    B00111100,
+    B00000000
+  },
   frown_bmp[] =
   { B00111100,
     B01000010,
@@ -148,6 +169,9 @@ void drawArrow(int x, int value, bool fwd)
    beginDraw();
    if (value != 0) {
       matrix.drawBitmap(x, 0, fwd ? arrow_up : arrow_dn, 8, 8, LED_ON);
+   }
+   else {
+      matrix.drawBitmap(x, 0, tank_bmp, 8, 8, LED_ON);      
    }
 }
 
