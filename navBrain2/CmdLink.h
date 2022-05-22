@@ -69,6 +69,7 @@ private:
   template<typename T>
   void copyDataTo(T& dst);
   const char *getCorruptMsg() { return corruptMsg; }
+  CmdBufferState getState() const { return state; }
 #ifndef ARDUINO
   void dump(std::ostream& strm);
 #endif
