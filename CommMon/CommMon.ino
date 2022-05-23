@@ -32,14 +32,9 @@ void setup()
   while (!Serial)
     ;
 
-  Serial.println("Dose: check for LCD");
-
-  // See http://playground.arduino.cc/Main/I2cScanner how to test for a I2C device.
   Wire.begin();
   Wire.beginTransmission(0x27);
   error = Wire.endTransmission();
-  Serial.print("Error: ");
-  Serial.print(error);
 
   if (error == 0) {
     Serial.println(": LCD found.");
@@ -50,75 +45,76 @@ void setup()
     Serial.println(": LCD not found.");
   } // if
 
+  lcd.setBacklight(255);
 } // setup()
 
-
-void loop()
-{
-  if (show == 0) {
-    lcd.setBacklight(255);
-    lcd.home();
-    lcd.clear();
-    lcd.print("Hello LCD");
-    delay(1000);
-
-    lcd.setBacklight(0);
-    delay(400);
-    lcd.setBacklight(255);
-
-  } else if (show == 1) {
-    lcd.clear();
-    lcd.print("Cursor On");
-    lcd.cursor();
-
-  } else if (show == 2) {
-    lcd.clear();
-    lcd.print("Cursor Blink");
-    lcd.blink();
-
-  } else if (show == 3) {
-    lcd.clear();
-    lcd.print("Cursor OFF");
-    lcd.noBlink();
-    lcd.noCursor();
-
-  } else if (show == 4) {
-    lcd.clear();
-    lcd.print("Display Off");
-    lcd.noDisplay();
-
-  } else if (show == 5) {
-    lcd.clear();
-    lcd.print("Display On");
-    lcd.display();
-
-  } else if (show == 7) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("*** first line.");
-    lcd.setCursor(0, 1);
-    lcd.print("*** second line.");
-
-  } else if (show == 8) {
-    lcd.scrollDisplayLeft();
-  } else if (show == 9) {
-    lcd.scrollDisplayLeft();
-  } else if (show == 10) {
-    lcd.scrollDisplayLeft();
-  } else if (show == 11) {
-    lcd.scrollDisplayRight();
-
-  } else if (show == 12) {
-    lcd.clear();
-    lcd.print("write-");
-
-  } else if (show > 12) {
-    lcd.print(show - 13);
-  } // if
-
-  delay(1400);
-  show = (show + 1) % 16;
-} // loop()
+//
+//void loop()
+//{
+//  if (show == 0) {
+//    lcd.setBacklight(255);
+//    lcd.home();
+//    lcd.clear();
+//    lcd.print("Hello LCD");
+//    delay(1000);
+//
+//    lcd.setBacklight(0);
+//    delay(400);
+//    lcd.setBacklight(255);
+//
+//  } else if (show == 1) {
+//    lcd.clear();
+//    lcd.print("Cursor On");
+//    lcd.cursor();
+//
+//  } else if (show == 2) {
+//    lcd.clear();
+//    lcd.print("Cursor Blink");
+//    lcd.blink();
+//
+//  } else if (show == 3) {
+//    lcd.clear();
+//    lcd.print("Cursor OFF");
+//    lcd.noBlink();
+//    lcd.noCursor();
+//
+//  } else if (show == 4) {
+//    lcd.clear();
+//    lcd.print("Display Off");
+//    lcd.noDisplay();
+//
+//  } else if (show == 5) {
+//    lcd.clear();
+//    lcd.print("Display On");
+//    lcd.display();
+//
+//  } else if (show == 7) {
+//    lcd.clear();
+//    lcd.setCursor(0, 0);
+//    lcd.print("*** first line.");
+//    lcd.setCursor(0, 1);
+//    lcd.print("*** second line.");
+//
+//  } else if (show == 8) {
+//    lcd.scrollDisplayLeft();
+//  } else if (show == 9) {
+//    lcd.scrollDisplayLeft();
+//  } else if (show == 10) {
+//    lcd.scrollDisplayLeft();
+//  } else if (show == 11) {
+//    lcd.scrollDisplayRight();
+//
+//  } else if (show == 12) {
+//    lcd.clear();
+//    lcd.print("write-");
+//
+//  } else if (show > 12) {
+//    lcd.print(show - 13);
+//  } // if
+//
+//  delay(1400);
+//  show = (show + 1) % 16;
+//} // loop()
 
 
 
@@ -134,7 +130,7 @@ BotState botState{BotState::noConnect};
 //  hindbrain.getParam(v2);
 //  leftEncoder.refresh(v1);
 //  rightEncoder.refresh(v2);
-//  host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());   
+//  host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());
 //}
 
 BotState handleEStopState()
@@ -145,13 +141,13 @@ BotState handleEStopState()
         return BotState::sleep;
       case 'E': // estop
         return BotState::estop;
-      case 'I': 
+      case 'I':
         //forwardInfoToHost();
         break;
-     }
+    }
   }
-  
-  return BotState::estop;  
+
+  return BotState::estop;
 }
 
 BotState handleDisconnectState()
@@ -162,44 +158,44 @@ BotState handleDisconnectState()
         return BotState::sleep;
       case 'E': // estop
         return BotState::estop;
-      case 'I': 
+      case 'I':
         //forwardInfoToHost();
         break;
-     }
+    }
   }
 
-  return BotState::noConnect;  
+  return BotState::noConnect;
 }
 
 BotState handleSleepState()
 {
   if (hindbrain.readCmd()) {
     switch (hindbrain.cmd()) {
-      case 'C': 
-//        forwardEncodersToHost();      
+      case 'C':
+        //        forwardEncodersToHost();
         break;
       case 'S': // stopped/asleep
         break;
       case 'w': // waking
       case 's': // stopping
         break;
-      case 'W': // awakened   
-        return BotState::wake;
+      case 'W': // awakened
+        return BotState::awake;
       case 'E': // estop
         return BotState::estop;
-      case 'I': 
+      case 'I':
         break;
       default:
         break;
-     }
+    }
   }
 
   if (hindbrain.recvTimeout()) {
     // connection to hindbrain lost
     return BotState::noConnect;
   }
-  
-  return BotState::sleep;  
+
+  return BotState::sleep;
 }
 
 
@@ -219,11 +215,11 @@ BotState handleAwakeState()
         break;
       case 'E': // estop
         return BotState::estop;
-      case 'I': 
+      case 'I':
         break;
       default:
         break;
-      }
+    }
   }
 
   if (hindbrain.recvTimeout()) {
@@ -231,29 +227,41 @@ BotState handleAwakeState()
     return BotState::noConnect;
   }
 
-  return BotState::wake;
+  return BotState::awake;
 }
 
-BotState lastbotState{BotState::noConnect};
+BotState lastbotState{BotState::awake};
 
 void reportState(BotState state)
 {
-   switch (botState) {
+  switch (botState) {
     case BotState::noConnect:
-      
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Not Connected");
+      //    lcd.setCursor(0, 1);
+      //    lcd.print("*** second line.");
       break;
     case BotState::sleep:
-      
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Asleep");
+      //    lcd.setCursor(0, 1);
+      //    lcd.print("*** second line.");
       break;
 
-    case BotState::wake:
-      
+    case BotState::awake:
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Awake");
       break;
     case BotState::estop:
-      
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("EStop");
       break;
-    }
-  
+  }
+
 }
 
 void loop()
@@ -268,41 +276,41 @@ void loop()
     case BotState::sleep:
       botState = handleSleepState();
       break;
-    case BotState::wake:
-      botState = handleWakeState();
+    case BotState::awake:
+      botState = handleAwakeState();
       break;
   }
 
   forebrain.readCmd();
-  
+
   if (forebrain.isCorrupt()) {
-//    host.sendCmdStr('I', "Corrupt");
-//    host.sendCmdStr('I', host.getCorruptMsg());
-//    host.sendCmdStr('I', "FromHost");
+    //    host.sendCmdStr('I', "Corrupt");
+    //    host.sendCmdStr('I', host.getCorruptMsg());
+    //    host.sendCmdStr('I', "FromHost");
   }
 
   if (hindbrain.isCorrupt()) {
-//    host.sendCmdStr('I', "Corrupt");
-//    host.sendCmdStr('I', hindbrain.getCorruptMsg());
-//    host.sendCmdStr('I', "FromHind");
+    //    host.sendCmdStr('I', "Corrupt");
+    //    host.sendCmdStr('I', hindbrain.getCorruptMsg());
+    //    host.sendCmdStr('I', "FromHind");
   }
 
   if (lastbotState != botState) {
     // bot state changed, update displays
-    
+
     lastbotState =  botState;
 
     reportState(botState);
 
     switch (botState) {
-    case BotState::estop:
-      break;
-    case BotState::noConnect:
-      break;
-    case BotState::sleep:
-      break;
-    case BotState::wake:
-      break;
+      case BotState::estop:
+        break;
+      case BotState::noConnect:
+        break;
+      case BotState::sleep:
+        break;
+      case BotState::awake:
+        break;
     }
-  }    
+  }
 }
