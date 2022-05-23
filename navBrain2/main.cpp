@@ -654,24 +654,24 @@ bool test(CmdBuilder& builder, CmdBuffer& buffer, uint32_t v1, uint32_t v2)
 
 int main()
 {
-    CmdBuilder builder;
-    CmdBuffer buffer;
+//    CmdBuilder builder;
+//    CmdBuffer buffer;
 
-    int v1 = 0;
-    int v2 = 0;
+//    int v1 = 0;
+//    int v2 = 0;
 
-    for (int i = 0; i < 1000; i++) {
-        if (!test(builder, buffer, v1, v2)) {
-            cout << "Oh no!!! " << i << endl;
-            cout << "V1: " << v1 << "  V2: " << v2 << endl;
-            break;
-        }
-        v1--;
-        v2++;
-    }
+//    for (int i = 0; i < 1000; i++) {
+//        if (!test(builder, buffer, v1, v2)) {
+//            cout << "Oh no!!! " << i << endl;
+//            cout << "V1: " << v1 << "  V2: " << v2 << endl;
+//            break;
+//        }
+//        v1--;
+//        v2++;
+//    }
 
     // main should be empty except for the following line:
-    //Graphics g("Navigation", 800, 600, graphicsMain);
+    Graphics g("Navigation", 800, 600, graphicsMain);
 }
 
 

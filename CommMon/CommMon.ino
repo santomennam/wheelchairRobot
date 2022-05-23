@@ -9,6 +9,11 @@ enum class BotState {
   estop
 };
 
+enum class ForebrainState {
+  awake,
+  noConnect,
+};
+
 LiquidCrystal_PCF8574 lcd(0x27); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 int show = -1;
@@ -123,11 +128,16 @@ int commTimeoutTime = 1000;
 BotState botState{BotState::noConnect};
 BotState lastbotState{BotState::awake};
 
+ForebrainState forebrainState{ForebrainState::noConnect};
+ForebrainState lastForebrainState{ForebrainState::awake};
+
 int32_t encL{ -1};
 int32_t encR{ -1};
+bool encUpdated{true};
 
-bool leftEncUpdated{true};
-bool rightEncUpdated{true};
+int8_t motorL{0};
+int8_t motorR{0};
+bool motorUpdated{true};
 
 constexpr int bufflen = 17;
 
@@ -135,15 +145,23 @@ char lineOne[bufflen] = "LineOne";
 char lineTwo[bufflen] = "LineTwo";
 bool needRedraw{true};
 
-void setLineOne(char* message)
+void displayLine(int lineNum, const char* message)
 {
-  snprintf(lineOne, bufflen, message);
+  snprintf(lineNum ? lineTwo : lineOne, bufflen, message);
   needRedraw = true;
 }
 
-void setLineTwo(char* message)
+template<typename T>
+void displayLine(int lineNum, const char* message, T param)
 {
-  snprintf(lineTwo, bufflen, message);
+  snprintf(lineNum ? lineTwo : lineOne, bufflen, message, param);
+  needRedraw = true;
+}
+
+template<typename T1, typename T2>
+void displayLine(int lineNum, const char* message, T1 p1, T2 p2)
+{
+  snprintf(lineNum ? lineTwo : lineOne, bufflen, message, p1, p2);
   needRedraw = true;
 }
 
@@ -163,25 +181,43 @@ void handleEncoders()  // NOTE: this assumes we just got a 'C' command from hind
 {
   hindbrain.getParam(encL);
   hindbrain.getParam(encR);
-  leftEncUpdated = true;
-  rightEncUpdated = true;
+  encUpdated = true;
 }
 
 
+void handleMotors()  // NOTE: this assumes we just got a 'M' command from forebrain!!!
+{
+  forebrain.getParam(motorL);
+  forebrain.getParam(motorR);
+  motorUpdated = true;
+}
+
 void reportState(BotState state)
 {
-  switch (botState) {
+  switch (state) {
     case BotState::noConnect:
-      setLineOne("N/C");
+      displayLine(0, "Hindbrain N/C");
       break;
     case BotState::sleep:
-      setLineOne("ZZZzz...");
+      displayLine(0, "ZZZzz...");
       break;
     case BotState::awake:
-      setLineOne("Awake");
+      displayLine(0, "Awake");
       break;
     case BotState::estop:
-      setLineOne("E-Stop");
+      displayLine(0, "E-Stop");
+      break;
+  }
+}
+
+void reportForebrainState(ForebrainState state)
+{
+  switch (state) {
+    case ForebrainState::noConnect:
+      displayLine(1, "Forebrain N/C");
+      break;
+    case ForebrainState::awake:
+      displayLine(1, "Awake");
       break;
   }
 }
@@ -191,6 +227,8 @@ bool gotCorruptForebrain{false};
 
 void loop()
 {
+  redrawIfNeeded();
+  
   if (hindbrain.readCmd()) {
     switch (hindbrain.cmd()) {
       case 'C':
@@ -202,7 +240,7 @@ void loop()
         break;
       case 'w': // waking
       case 'W': // awake ping
-        botState = BotState::wake;
+        botState = BotState::awake;
         break;
       case 'E': // estop
         botState = BotState::estop;
@@ -217,54 +255,59 @@ void loop()
   if (hindbrain.recvTimeout()) {
     // connection to hindbrain lost
     botState = BotState::noConnect;
-    lineTwo("Hindbrain N/C");
   }
-  
+
   if (forebrain.readCmd()) {
     switch (forebrain.cmd()) {
+      case 'M':
+        handleMotors();
+        break;
       default:
+        forebrainState = ForebrainState::awake;
         break;
     }
   }
 
   if (forebrain.recvTimeout()) {
-    // connection to forebrain lost
-    lineTwo("ForeBrain N/C");
+    forebrainState = ForebrainState::noConnect;
   }
 
-  if (gotCorruptForebrain) {
-
+  if (encUpdated) {
+    encUpdated = false;
+    displayLine(0, "%8ld%8ld", encL, encR);
+    needRedraw = true;
   }
-  else if (forebrain.isCorrupt()) {
+
+
+  if (motorUpdated) {
+    motorUpdated = false;
+    displayLine(1, "Motor: %4d %4d", (int)motorL, (int)motorR);
+    needRedraw = true;
+  }
+
+  if (forebrain.isCorrupt()) {
     gotCorruptForebrain = true;
-    setLineTwo(forebrain.getCorruptMsg());
-  }
-  else if (leftEncUpdated) {
-    leftEncUpdated = false;
-    snprintf(lineOne, bufflen, "L: %ld", encL);
-    needRedraw = true;
+    displayLine(1, forebrain.getCorruptMsg());
   }
 
-  if (gotCorruptHindbrain) {
-
-  }
-  else if (hindbrain.isCorrupt()) {
+  if (hindbrain.isCorrupt()) {
     gotCorruptHindbrain = true;
-    setLineOne(hindbrain.getCorruptMsg());
+    displayLine(0, hindbrain.getCorruptMsg());
   }
-  else if (rightEncUpdated) {
-    rightEncUpdated = false;
-    snprintf(lineTwo, bufflen, "R: %ld", encR);
-    needRedraw = true;
-  }
-
-  if (gotCorruptHindbrain || gotCorruptForebrain) {
-    return;
-  }
+//
+//  if (gotCorruptHindbrain || gotCorruptForebrain) {
+//    return;
+//  }
 
   if (lastbotState != botState) {
     // bot state changed, update displays
     lastbotState =  botState;
     reportState(botState);
+  }
+
+  if (lastForebrainState != forebrainState) {
+    // bot state changed, update displays
+    lastForebrainState =  forebrainState;
+    reportForebrainState(forebrainState);
   }
 }
