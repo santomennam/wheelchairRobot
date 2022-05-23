@@ -561,10 +561,117 @@ void graphicsMain(Graphics& g)
 
 }
 
+
+constexpr int circBufferSize = 32;
+char circBuffer[circBufferSize];
+int circBufferIdx = 0;
+
+void pushToCircBuffer(char c)
+{
+  circBuffer[circBufferIdx] = c;
+  circBufferIdx = (circBufferIdx + 1) % circBufferSize;
+}
+
+#include <iomanip>
+
+void dumpCircBuffer()
+{
+  for (int i = 0; i < circBufferSize; i++) {
+    int idx = (circBufferIdx + i) % circBufferSize;
+    char c = circBuffer[idx];
+    if (isprint(c)) {
+      cout << "|_" << c;
+    }
+    else {
+      cout << "|__";
+    }
+  }
+
+  cout << endl;
+
+  for (int i = 0; i < circBufferSize; i++) {
+    int idx = (circBufferIdx + i) % circBufferSize;
+
+     uint8_t c = circBuffer[idx];
+     cout << " " << std::hex << (int)((c>>4)&0x0F) << (int)(c&0x0F) << std::dec;
+  }
+
+  cout << endl;
+}
+
+void markCircularBuffer(int offset, char c)
+{
+  circBuffer[(circBufferIdx + circBufferSize + offset)%circBufferSize] = c;
+}
+
+
+
+bool test(CmdBuilder& builder, CmdBuffer& buffer, uint32_t v1, uint32_t v2)
+{
+    builder.begin('C');
+    builder.pushData(v1);
+    builder.pushData(v2);
+    char* buff = builder.finish();
+    bool lastRes{false};
+    cout << builder.length() << endl;
+    for (int i = 0; i < builder.length(); i++) {
+
+        pushToCircBuffer(buff[i]);
+
+        lastRes = buffer.push(buff[i]);
+
+        if (buffer.getState() == CmdBufferState::expectSize) {
+            markCircularBuffer(-1, '@');
+        }
+
+        if (buffer.isOverrun()) {
+          // very bad.  programming error
+          cout << "Buffer Overrun: Fix your code!!" << endl;
+        }
+
+        if (buffer.isCorrupt()) {
+            cout <<"Corrupt Data:" << endl;
+           cout << buffer.getCorruptMsg() << endl;
+
+        }
+
+        if (i != builder.length()-1 && lastRes) {
+            cout << "Premature!!" << endl;
+        }
+    }
+
+    dumpCircBuffer();
+
+    return lastRes;
+}
+
+
+
+
+
+
+
+
 int main()
 {
+    CmdBuilder builder;
+    CmdBuffer buffer;
+
+    int v1 = 0;
+    int v2 = 0;
+
+    for (int i = 0; i < 1000; i++) {
+        if (!test(builder, buffer, v1, v2)) {
+            cout << "Oh no!!! " << i << endl;
+            cout << "V1: " << v1 << "  V2: " << v2 << endl;
+            break;
+        }
+        v1--;
+        v2++;
+    }
+
     // main should be empty except for the following line:
-    Graphics g("Navigation", 800, 600, graphicsMain);
+    //Graphics g("Navigation", 800, 600, graphicsMain);
 }
 
 
