@@ -121,196 +121,150 @@ void setup()
 int commTimeoutTime = 1000;
 
 BotState botState{BotState::noConnect};
-//
-//void forwardEncodersToHost()  // NOTE: this assumes we just got a 'C' command from hindbrain!!!
-//{
-//  int32_t v1;
-//  int32_t v2;
-//  hindbrain.getParam(v1);
-//  hindbrain.getParam(v2);
-//  leftEncoder.refresh(v1);
-//  rightEncoder.refresh(v2);
-//  host.sendCmdII('C', leftEncoder.getCount(), rightEncoder.getCount());
-//}
-
-BotState handleEStopState()
-{
-  if (hindbrain.readCmd()) {
-    switch (hindbrain.cmd()) {
-      case 'S': // stopped/asleep
-        return BotState::sleep;
-      case 'E': // estop
-        return BotState::estop;
-      case 'I':
-        //forwardInfoToHost();
-        break;
-    }
-  }
-
-  return BotState::estop;
-}
-
-BotState handleDisconnectState()
-{
-  if (hindbrain.readCmd()) {
-    switch (hindbrain.cmd()) {
-      case 'S': // stopped/asleep
-        return BotState::sleep;
-      case 'E': // estop
-        return BotState::estop;
-      case 'I':
-        //forwardInfoToHost();
-        break;
-    }
-  }
-
-  return BotState::noConnect;
-}
-
-BotState handleSleepState()
-{
-  if (hindbrain.readCmd()) {
-    switch (hindbrain.cmd()) {
-      case 'C':
-        //        forwardEncodersToHost();
-        break;
-      case 'S': // stopped/asleep
-        break;
-      case 'w': // waking
-      case 's': // stopping
-        break;
-      case 'W': // awakened
-        return BotState::awake;
-      case 'E': // estop
-        return BotState::estop;
-      case 'I':
-        break;
-      default:
-        break;
-    }
-  }
-
-  if (hindbrain.recvTimeout()) {
-    // connection to hindbrain lost
-    return BotState::noConnect;
-  }
-
-  return BotState::sleep;
-}
-
-
-BotState handleAwakeState()
-{
-  if (hindbrain.readCmd()) {
-    int32_t v1;
-    int32_t v2;
-    switch (hindbrain.cmd()) {
-      case 'C': // encoder count
-        break;
-      case 'S': // stopped/asleep
-      case 's': // stopping
-        return BotState::sleep;
-      case 'w': // waking
-      case 'W': // awake ping
-        break;
-      case 'E': // estop
-        return BotState::estop;
-      case 'I':
-        break;
-      default:
-        break;
-    }
-  }
-
-  if (hindbrain.recvTimeout()) {
-    // connection to hindbrain lost
-    return BotState::noConnect;
-  }
-
-  return BotState::awake;
-}
-
 BotState lastbotState{BotState::awake};
+
+int32_t encL{ -1};
+int32_t encR{ -1};
+
+bool leftEncUpdated{true};
+bool rightEncUpdated{true};
+
+constexpr int bufflen = 17;
+
+char lineOne[bufflen] = "LineOne";
+char lineTwo[bufflen] = "LineTwo";
+bool needRedraw{true};
+
+void setLineOne(char* message)
+{
+  snprintf(lineOne, bufflen, message);
+  needRedraw = true;
+}
+
+void setLineTwo(char* message)
+{
+  snprintf(lineTwo, bufflen, message);
+  needRedraw = true;
+}
+
+void redrawIfNeeded()
+{
+  if (needRedraw) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(lineOne);
+    lcd.setCursor(0, 1);
+    lcd.print(lineTwo);
+    needRedraw = false;
+  }
+}
+
+void handleEncoders()  // NOTE: this assumes we just got a 'C' command from hindbrain!!!
+{
+  hindbrain.getParam(encL);
+  hindbrain.getParam(encR);
+  leftEncUpdated = true;
+  rightEncUpdated = true;
+}
+
 
 void reportState(BotState state)
 {
   switch (botState) {
     case BotState::noConnect:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Not Connected");
-      //    lcd.setCursor(0, 1);
-      //    lcd.print("*** second line.");
+      setLineOne("N/C");
       break;
     case BotState::sleep:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Asleep");
-      //    lcd.setCursor(0, 1);
-      //    lcd.print("*** second line.");
+      setLineOne("ZZZzz...");
       break;
-
     case BotState::awake:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Awake");
+      setLineOne("Awake");
       break;
     case BotState::estop:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("EStop");
+      setLineOne("E-Stop");
       break;
   }
-
 }
+
+bool gotCorruptHindbrain{false};
+bool gotCorruptForebrain{false};
 
 void loop()
 {
-  switch (botState) {
-    case BotState::estop:
-      botState = handleEStopState();
-      break;
-    case BotState::noConnect:
-      botState = handleDisconnectState();
-      break;
-    case BotState::sleep:
-      botState = handleSleepState();
-      break;
-    case BotState::awake:
-      botState = handleAwakeState();
-      break;
+  if (hindbrain.readCmd()) {
+    switch (hindbrain.cmd()) {
+      case 'C':
+        handleEncoders();
+        break;
+      case 'S': // stopped/asleep
+      case 's': // stopping
+        botState = BotState::sleep;
+        break;
+      case 'w': // waking
+      case 'W': // awake ping
+        botState = BotState::wake;
+        break;
+      case 'E': // estop
+        botState = BotState::estop;
+        break;
+      case 'I':
+        break;
+      default:
+        break;
+    }
   }
 
-  forebrain.readCmd();
-
-  if (forebrain.isCorrupt()) {
-    //    host.sendCmdStr('I', "Corrupt");
-    //    host.sendCmdStr('I', host.getCorruptMsg());
-    //    host.sendCmdStr('I', "FromHost");
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    botState = BotState::noConnect;
+    lineTwo("Hindbrain N/C");
+  }
+  
+  if (forebrain.readCmd()) {
+    switch (forebrain.cmd()) {
+      default:
+        break;
+    }
   }
 
-  if (hindbrain.isCorrupt()) {
-    //    host.sendCmdStr('I', "Corrupt");
-    //    host.sendCmdStr('I', hindbrain.getCorruptMsg());
-    //    host.sendCmdStr('I', "FromHind");
+  if (forebrain.recvTimeout()) {
+    // connection to forebrain lost
+    lineTwo("ForeBrain N/C");
+  }
+
+  if (gotCorruptForebrain) {
+
+  }
+  else if (forebrain.isCorrupt()) {
+    gotCorruptForebrain = true;
+    setLineTwo(forebrain.getCorruptMsg());
+  }
+  else if (leftEncUpdated) {
+    leftEncUpdated = false;
+    snprintf(lineOne, bufflen, "L: %ld", encL);
+    needRedraw = true;
+  }
+
+  if (gotCorruptHindbrain) {
+
+  }
+  else if (hindbrain.isCorrupt()) {
+    gotCorruptHindbrain = true;
+    setLineOne(hindbrain.getCorruptMsg());
+  }
+  else if (rightEncUpdated) {
+    rightEncUpdated = false;
+    snprintf(lineTwo, bufflen, "R: %ld", encR);
+    needRedraw = true;
+  }
+
+  if (gotCorruptHindbrain || gotCorruptForebrain) {
+    return;
   }
 
   if (lastbotState != botState) {
     // bot state changed, update displays
-
     lastbotState =  botState;
-
     reportState(botState);
-
-    switch (botState) {
-      case BotState::estop:
-        break;
-      case BotState::noConnect:
-        break;
-      case BotState::sleep:
-        break;
-      case BotState::awake:
-        break;
-    }
   }
 }
