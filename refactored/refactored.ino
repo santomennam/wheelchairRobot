@@ -35,13 +35,7 @@ ArduPID PIDControllerR;
 
 int32_t encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
-//int heartbeatTime = 200;  // ping or send motor updates to hindbrain at this rate to keep it awake
 int commTimeoutTime = 1000;
-//int sleepPulseTimeout = 500;
-
-//FireTimer heartbeatTimer;
-//FireTimer commTimeout;
-//FireTimer sleepingPulse;
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
