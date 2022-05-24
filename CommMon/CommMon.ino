@@ -18,10 +18,8 @@ LiquidCrystal_PCF8574 lcd(0x27); // set the LCD address to 0x27 for a 16 chars a
 
 int show = -1;
 
-
 CmdLink forebrain(Serial3, 19200);
 CmdLink hindbrain(Serial2, 19200);
-
 
 void setup()
 {
@@ -52,74 +50,6 @@ void setup()
 
   lcd.setBacklight(255);
 } // setup()
-
-//
-//void loop()
-//{
-//  if (show == 0) {
-//    lcd.setBacklight(255);
-//    lcd.home();
-//    lcd.clear();
-//    lcd.print("Hello LCD");
-//    delay(1000);
-//
-//    lcd.setBacklight(0);
-//    delay(400);
-//    lcd.setBacklight(255);
-//
-//  } else if (show == 1) {
-//    lcd.clear();
-//    lcd.print("Cursor On");
-//    lcd.cursor();
-//
-//  } else if (show == 2) {
-//    lcd.clear();
-//    lcd.print("Cursor Blink");
-//    lcd.blink();
-//
-//  } else if (show == 3) {
-//    lcd.clear();
-//    lcd.print("Cursor OFF");
-//    lcd.noBlink();
-//    lcd.noCursor();
-//
-//  } else if (show == 4) {
-//    lcd.clear();
-//    lcd.print("Display Off");
-//    lcd.noDisplay();
-//
-//  } else if (show == 5) {
-//    lcd.clear();
-//    lcd.print("Display On");
-//    lcd.display();
-//
-//  } else if (show == 7) {
-//    lcd.clear();
-//    lcd.setCursor(0, 0);
-//    lcd.print("*** first line.");
-//    lcd.setCursor(0, 1);
-//    lcd.print("*** second line.");
-//
-//  } else if (show == 8) {
-//    lcd.scrollDisplayLeft();
-//  } else if (show == 9) {
-//    lcd.scrollDisplayLeft();
-//  } else if (show == 10) {
-//    lcd.scrollDisplayLeft();
-//  } else if (show == 11) {
-//    lcd.scrollDisplayRight();
-//
-//  } else if (show == 12) {
-//    lcd.clear();
-//    lcd.print("write-");
-//
-//  } else if (show > 12) {
-//    lcd.print(show - 13);
-//  } // if
-//
-//  delay(1400);
-//  show = (show + 1) % 16;
-//} // loop()
 
 
 
@@ -182,6 +112,11 @@ void handleEncoders()  // NOTE: this assumes we just got a 'C' command from hind
   hindbrain.getParam(encL);
   hindbrain.getParam(encR);
   encUpdated = true;
+  Serial.print(micros());
+  Serial.print(" C ");
+  Serial.print(encL);
+  Serial.print(" ");
+  Serial.println(encR);
 }
 
 
@@ -190,6 +125,11 @@ void handleMotors()  // NOTE: this assumes we just got a 'M' command from forebr
   forebrain.getParam(motorL);
   forebrain.getParam(motorR);
   motorUpdated = true;
+  Serial.print(micros());
+  Serial.print(" M ");
+  Serial.print(motorL);
+  Serial.print(" ");
+  Serial.println(motorR);
 }
 
 void reportState(BotState state)
@@ -217,7 +157,7 @@ void reportForebrainState(ForebrainState state)
       displayLine(1, "Forebrain N/C");
       break;
     case ForebrainState::awake:
-      displayLine(1, "Awake");
+      displayLine(1, "FB Awake");
       break;
   }
 }
@@ -275,14 +215,12 @@ void loop()
   if (encUpdated) {
     encUpdated = false;
     displayLine(0, "%8ld%8ld", encL, encR);
-    needRedraw = true;
   }
 
 
   if (motorUpdated) {
     motorUpdated = false;
     displayLine(1, "Motor: %4d %4d", (int)motorL, (int)motorR);
-    needRedraw = true;
   }
 
   if (forebrain.isCorrupt()) {
