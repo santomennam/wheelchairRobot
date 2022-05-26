@@ -2,8 +2,8 @@
 #include "grid.h"
 
 
-cell::cell(grid* grid,Vec2d centroid)
-    :parentGrid{grid}
+cell::cell(Grid* grid,Vec2d centroid, Vec2d indices)
+    :parentGrid{grid}, centroid{centroid}, indices{indices}
 {}
 
 double cell::distanceToPoint(Vec2d point, Vec2d &closest)

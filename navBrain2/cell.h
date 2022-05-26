@@ -2,17 +2,20 @@
 #define CELL_H
 #include "graphics.h"
 
-class grid;
+class Grid;
 class cell
 {
 public:
-    grid* parentGrid;
+    bool inQ;
+    Grid* parentGrid;
     Vec2d centroid; //in world coords
     bool visited = false;
     bool blocked = false;
+    Vec2i32 indices;
     mssm::Color color = mssm::BLACK;
 public:
-    cell(grid* grid,Vec2d centroid);
+    void draw(mssm::Graphics& g);
+    cell(Grid* grid,Vec2d centroid,Vec2d indices);
     double distanceToPoint(Vec2d point, Vec2d& closest);
     bool pointInCell(Vec2d point);
 };

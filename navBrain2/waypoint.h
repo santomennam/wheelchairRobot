@@ -15,8 +15,8 @@ public:
 public:
     Waypoint(cell* n,Waypoint* prev, Vec2d destination);
     double totalCost() {return cost+hueristic;}
-    bool containsNode(Node* n);
-    std::vector<Node*> extract();
+    bool containsCell(cell* c);
+    std::vector<cell*> extract();
     std::vector<Vec2d> pathPoints(double botWidth);
     void recalculateCost(Vec2d destination);
 

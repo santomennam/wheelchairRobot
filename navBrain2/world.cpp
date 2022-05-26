@@ -144,39 +144,38 @@ void World::findEncPath(std::vector<Vec2d> path) //pass a path of inches coordin
 }
 
 
-void World::save(ostream& strm)
-{
-    tree.save(strm);
-}
+//void World::save(ostream& strm)
+//{
+//    tree.save(strm);
+//}
 
-void World::save(string filename)
-{
-    ofstream stream {filename};
-    save(stream);
-}
+//void World::save(string filename)
+//{
+//    ofstream stream {filename};
+//    save(stream);
+//}
 
-void World::load(istream &strm)
-{
-    tree.load(strm);
-}
+//void World::load(istream &strm)
+//{
+//    tree.load(strm);
+//}
 
-void World::load(string filename)
-{
-    ifstream stream {filename, std::ifstream::in};
-    load(stream);
-}
+//void World::load(string filename)
+//{
+//    ifstream stream {filename, std::ifstream::in};
+//    load(stream);
+//}
 
 World::World(Vec2d botStart, vector<Vec2d> obstaclePoints, double width, double height)
-    :robot(botStart), tree(width,height,robot.width)
+    :robot(botStart), grid(width,height,robot.width,100,100,3)
 {
     strm = ofstream("writeNode.txt");
     // obstacles.emplace_back(obstaclePoints);
 }
 
 void World::draw(Graphics &g)
-{if(drawBoundaries){
-        tree.draw(g,view);
-    }
+{
+    grid.draw(g,view);
     if(diagnostics){
         g.text({50,70}, 20, "x pos " + to_string(robot.position.x));
         g.text({50,50}, 20, "y pos " + to_string(robot.position.y));
@@ -191,7 +190,7 @@ void World::draw(Graphics &g)
 
     //        robot.moved = false;
     //    }
-
+    grid.draw(g,view);
     vector<Vec2d> tempPoints = robot.pointsToDraw;
     for (Vec2d& temp:tempPoints)
     {
@@ -495,7 +494,7 @@ void World::callNav(mssm::Graphics&g, Vec2d dest)
     if(hasWorldChanged())
     {
         cout<<"recalculating in callNav"<<endl;
-        path = tree.navigation(phys.position,dest,g,view);
+        path = grid.navigation(phys.position,dest,g,view);
     }
 }
 
@@ -511,7 +510,7 @@ bool World::masterNav(Vec2d dest,mssm::Graphics&g)
     if(!navigated)
     {
         cout<<"recalculating in masterNav"<<endl;
-        path = tree.navigation(phys.position,dest,g,view);
+        path = grid.navigation(phys.position,dest,g,view);
         navigated = true;
     }
     callNav(g,dest);

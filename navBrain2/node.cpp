@@ -333,20 +333,20 @@ bool Node::pointOnBound(Vec2d point, double &t, int &index)
     return false;
 }
 
-void Node::visitNodes(std::function<void (Node *)> fn, std::set<Node *> &visited)
-{
-    visited.insert(this);
+//void Node::visitNodes(std::function<void (Node *)> fn, std::set<Node *> &visited)
+//{
+//    visited.insert(this);
 
-    for(Node* n : adjacents)
-    {
-        if(n && (visited.find(n) == visited.end()))
-        {
-            n->visitNodes(fn, visited);
-        }
-    }
-    fn(this);
+//    for(Node* n : adjacents)
+//    {
+//        if(n && (visited.find(n) == visited.end()))
+//        {
+//            n->visitNodes(fn, visited);
+//        }
+//    }
+//    fn(this);
 
-}
+//}
 
 bool Node::doesSegCollide(Vec2d p1, Vec2d p2, double botWidth)
 {

@@ -137,7 +137,7 @@ void graphicsMain(Graphics& g)
     bot.setOnTargetUpdateHandler([&world](Vec2d targets) { world.botTargetUpdated(targets); });
     bot.setOnMotorUpdateHandler([&world](Vec2d motors) { world.botMotorsUpdated(motors); });
 
-    phys.botWidth = world.tree.botWidth;
+    phys.botWidth = world.grid.botWidth;
     //string incomingData;
 
     vector<Vec2d> midpoints;
@@ -273,10 +273,10 @@ void graphicsMain(Graphics& g)
         g.text({300,g.height()-30}, 20, bot.stateStr());
 
 
-        if(drawAdj)
-        {
-            world.tree.showAdjacents(g,world.view);
-        }
+//        if(drawAdj)
+//        {
+//            world.tree.showAdjacents(g,world.view);
+//        }
 
         g.ellipse(world.view.worldToScreen(destination),10,10,RED,WHITE);
         world.draw(g);
@@ -407,7 +407,7 @@ void graphicsMain(Graphics& g)
                 if(e.arg == 1)
                 {
                     if(clicked){
-                        pathPoints = world.tree.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
+                        pathPoints = world.grid.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
                         clicked = false;
                     }
                     else{
@@ -498,16 +498,16 @@ void graphicsMain(Graphics& g)
                     break;
                 case 'X':
                 {
-                    packet p = world.tree.findClosestNode(world.view.screenToWorld(g.mousePos()));
-                    if (p.node) {
-                        for (int i = 0; i < p.node->boundaries.size(); i++) {
-                            segment& s = p.node->boundaries[i];
-                            s.open = false;
-                            for (auto& sa : p.node->adjacents[i]->sharedSegsP(p.node)) {
-                                sa->open = false;
-                            }
-                        }
-                    }
+//                    packet p = world.tree.findClosestNode(world.view.screenToWorld(g.mousePos()));
+//                    if (p.node) {
+//                        for (int i = 0; i < p.node->boundaries.size(); i++) {
+//                            segment& s = p.node->boundaries[i];
+//                            s.open = false;
+//                            for (auto& sa : p.node->adjacents[i]->sharedSegsP(p.node)) {
+//                                sa->open = false;
+//                            }
+//                        }
+//                    }
 
                 }break;
                 case 'A':

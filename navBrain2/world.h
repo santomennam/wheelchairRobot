@@ -13,7 +13,7 @@
 #include "absolutepostracker.h"
 #include "polyops.h"
 #include "Lidar/lidar.h"
-
+#include "grid.h"
 using tp = std::chrono::time_point<std::chrono::steady_clock>;
 
 class LidarPoint {
@@ -37,7 +37,8 @@ public:
     std::ofstream strm;
     double worldScale = 0.5;
     Robot robot;
-    AreaTree tree;
+    Grid grid;
+   // AreaTree tree;
     bool diagnostics = true;
 
     std::vector<Obstacle> obstacles;    
