@@ -6,6 +6,7 @@
 #ifndef ARDUINO
 #include <functional>
 #include <string>
+#include <iostream>
 #else
 #include <FireTimer.h>
 #endif
@@ -46,18 +47,34 @@ enum class CmdBufferState {
 };
 
 class CmdBuffer {
+private:
   char dataBuffer[dataBufferSize];
+  unsigned char overrunDetect1{0xBE};
+  unsigned char overrunDetect2{0xEF};
   CmdBufferState state{CmdBufferState::expectHash};
   char lastCmd{0};
   int  numDataBytes{0};
   int  numDataRecv{0};
+  int  copyDataPos{0};
+  char corruptChar{0};
+  const char *corruptMsg{""};
  public:
   bool push(char c);
+  bool isOverrun() { return overrunDetect1 != 0xBE || overrunDetect2 != 0xEF; }
+  bool isCorrupt() { return state == CmdBufferState::corrupt; }
   char cmd() const { return lastCmd; }
+  char* buffer() { return dataBuffer; }
   int  length() const { return numDataBytes; }
   void copyDataTo(char *dst, int count);
   template<typename T>
   void copyDataTo(T& dst);
+  const char *getCorruptMsg() { return corruptMsg; }
+  CmdBufferState getState() const { return state; }
+#ifndef ARDUINO
+  void dump(std::ostream& strm);
+#endif
+private:
+  bool setCorrupt(char c, const char* msg);
 };
 
 template<typename T>
@@ -79,6 +96,7 @@ public:
   template<typename T>
   void pushData(const T& data);
   char *finish();
+  const char* getBuffer() { return buffer; }
 };
 
 
@@ -98,6 +116,7 @@ class CmdLink {
     std::function<void(const char* data, int len)> writer;
     std::function<bool()> canRead;
     std::function<char()> readChar;
+    std::ostream* debugStream{nullptr};
 #endif
     bool debug{false};
   CmdBuffer  buffer;
@@ -119,6 +138,7 @@ class CmdLink {
 
   void sendCmd(char cmd);
   void sendCmdStr(char cmd, const char* str);
+  void sendCmdStr(char cmd, const char* str, int len);
   template<typename T>
   void sendCmdFmt(char cmd, const char*fmt, T val);
   void sendCmdBB(char cmd, char v1, char v2);
@@ -130,6 +150,8 @@ class CmdLink {
 
   bool readCmd();
   char cmd() { return buffer.cmd(); }
+  int  recvLen() { return buffer.length(); }
+  char *recvBuffer() { return buffer.buffer(); }
 
   template<typename T>
   void getParam(T& dst);
@@ -142,7 +164,13 @@ class CmdLink {
   std::string getStr();
   void setDebug(bool dbg) { debug = dbg; }
   bool isDebug() const { return debug; }
+  void dumpIncoming() { buffer.dump(debugStream ? *debugStream : std::cout); }
+  void dumpSent();
+  void setDebugStream(std::ostream& strm) { debugStream = &strm; }
 #endif
+
+  bool isCorrupt() { return buffer.isCorrupt(); }
+  const char *getCorruptMsg() { return buffer.getCorruptMsg(); }
 
 private:
   void send();

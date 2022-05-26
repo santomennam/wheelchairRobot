@@ -35,13 +35,7 @@ ArduPID PIDControllerR;
 
 int32_t encThreshold = 300; // amount of acceptable error (encoder units: 2400/rotation) //was 1200
 
-//int heartbeatTime = 200;  // ping or send motor updates to hindbrain at this rate to keep it awake
 int commTimeoutTime = 1000;
-//int sleepPulseTimeout = 500;
-
-//FireTimer heartbeatTimer;
-//FireTimer commTimeout;
-//FireTimer sleepingPulse;
 
 // Sage Santomenna (MSSM '22) and Dr. Hamlin, 2020-2022
 // using libraries:
@@ -107,6 +101,27 @@ static const uint8_t PROGMEM
     B00111000,
     B00010000 
   },
+  tank_bmp[] =
+  { 
+    B00000000,
+    B00000000,
+    B00010000,
+    B00010000,
+    B00010000,
+    B00010000,
+    B00000000,
+    B00000000,
+  },
+  target_bmp[] =
+  { B00111100,
+    B01010010,
+    B10010001,
+    B11111111,
+    B10010001,
+    B01010010,
+    B00111100,
+    B00000000
+  },
   frown_bmp[] =
   { B00111100,
     B01000010,
@@ -148,6 +163,9 @@ void drawArrow(int x, int value, bool fwd)
    beginDraw();
    if (value != 0) {
       matrix.drawBitmap(x, 0, fwd ? arrow_up : arrow_dn, 8, 8, LED_ON);
+   }
+   else {
+      matrix.drawBitmap(x, 0, tank_bmp, 8, 8, LED_ON);      
    }
 }
 
@@ -421,6 +439,11 @@ void reportUnexpectedHostCmd(char c)
   host.sendCmdStr('I', "FromHost");
 }
 
+void forwardInfoToHost()
+{
+  host.sendCmdStr('I', hindbrain.recvBuffer(), hindbrain.recvLen());
+}
+
 BotState handleEStopState()
 {
 //  if (checkEnterEstop()) {
@@ -432,6 +455,9 @@ BotState handleEStopState()
         return BotState::sleep;
       case 'E': // estop
         return BotState::estop;
+      case 'I': 
+        forwardInfoToHost();
+        break;
      }
   }
   
@@ -449,6 +475,9 @@ BotState handleDisconnectState()
         return BotState::sleep;
       case 'E': // estop
         return BotState::estop;
+      case 'I': 
+        forwardInfoToHost();
+        break;
      }
   }
 
@@ -487,6 +516,9 @@ BotState handleSleepState()
         return BotState::idle;
       case 'E': // estop
         return BotState::estop;
+      case 'I': 
+        forwardInfoToHost();
+        break;
       default:
         host.sendCmdStr('I',"WTF1");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -547,6 +579,9 @@ BotState handleTankState()
         break;
       case 'E': // estop
         return BotState::estop;
+      case 'I': 
+        forwardInfoToHost();
+        break;
       default:
         host.sendCmdStr('I',"WTF2");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -567,7 +602,7 @@ BotState handleTankState()
         break;
       case 'P':
         break;
-      case 'I': // go idle
+      case 'H': // go idle
         return BotState::idle;
       case 'S': // go to sleep
         hindbrain.sendCmd('S');
@@ -606,6 +641,11 @@ BotState handleTankState()
     hindbrain.sendCmd('P');
   }
   
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    return BotState::noConnect;
+  }
+  
   return BotState::tank;
 }
 
@@ -621,6 +661,9 @@ BotState handleTargetState()
     switch (hindbrain.cmd()) {
       case 'C': // encoder count
         forwardEncodersToHost();      
+        break;
+      case 'I': 
+        forwardInfoToHost();
         break;
       case 'S': // stopped/asleep
       case 's': // stopping
@@ -649,7 +692,7 @@ BotState handleTargetState()
         break;
       case 'P':
         break;
-      case 'I': // go idle
+      case 'H': // go idle
         return BotState::idle;
       case 'S': // go to sleep
         hindbrain.sendCmd('S');
@@ -687,6 +730,11 @@ BotState handleTargetState()
   if (hindbrain.sendTimeout()) {
     hindbrain.sendCmd('P');
   }
+
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    return BotState::noConnect;
+  }
   
   return BotState::target;
 }
@@ -713,6 +761,9 @@ BotState handleIdleState()
         break;
       case 'E': // estop
         return BotState::estop;
+      case 'I': 
+        forwardInfoToHost();
+        break;
       default:
         host.sendCmdStr('I',"WTF4");
         reportUnexpectedHindbrainCmd(hindbrain.cmd());
@@ -731,9 +782,9 @@ BotState handleIdleState()
       case 'Q':
         reportState(botState);
         break;
-      case 'P':
+      case 'P': // just a ping to keep awake
         break;
-      case 'I': // go idle
+      case 'H': // go (remain) idle
         break;
       case 'Z': // reset encoders
         hindbrain.sendCmd('Z'); // reset encoders
@@ -770,6 +821,11 @@ BotState handleIdleState()
     hindbrain.sendCmd('P');
   }
 
+  if (hindbrain.recvTimeout()) {
+    // connection to hindbrain lost
+    return BotState::noConnect;
+  }
+
   return BotState::idle;
 }
 
@@ -781,7 +837,7 @@ void reportState(BotState state)
 {
    switch (botState) {
     case BotState::noConnect:
-      host.sendCmdStr('X',"ModeNC");
+      host.sendCmdStr('N',"ModeNC");
       break;
     case BotState::sleep:
       host.sendCmdStr('S',"ModeSleep");
@@ -822,6 +878,18 @@ void loop()
     case BotState::idle:
       botState = handleIdleState();
       break;
+  }
+
+  if (host.isCorrupt()) {
+    host.sendCmdStr('I', "Corrupt");
+    host.sendCmdStr('I', host.getCorruptMsg());
+    host.sendCmdStr('I', "FromHost");
+  }
+
+  if (hindbrain.isCorrupt()) {
+    host.sendCmdStr('I', "Corrupt");
+    host.sendCmdStr('I', hindbrain.getCorruptMsg());
+    host.sendCmdStr('I', "FromHind");
   }
 
   if (lastbotState != botState) {

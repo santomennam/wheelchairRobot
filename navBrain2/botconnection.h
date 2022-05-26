@@ -66,6 +66,9 @@ public:
 
     void resetBot();
     void setDebug(bool dbg) { cmdLink->setDebug(dbg); }
+    bool isDebug() { return cmdLink->isDebug(); }
+    void setDebugStream(std::ostream& strm) {  cmdLink->setDebugStream(strm); }
+
     void keepBotAlive();
     void sendTarget(Vec2d encoderTarget);
 

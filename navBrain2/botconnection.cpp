@@ -165,9 +165,12 @@ void BotConnection::onBotCommPacket(std::string data)
 //    }
     incomingData += data;
 
-   cout << "IncomingData: '" << data << "'" << endl;
+    cout << "IncomingData: '" << data << "'" << endl;
 
     while (cmdLink->readCmd()) {
+
+
+
         char cmd = cmdLink->cmd();
 
         double leftMotor;
@@ -177,7 +180,7 @@ void BotConnection::onBotCommPacket(std::string data)
         int32_t rightCount;
 
         switch (cmd) {
-        case 'X':
+        case 'N':
             // no connection
             receivedResponse = "NoConnect";
             cout << "Mode: No Connection" << endl;
@@ -226,8 +229,8 @@ void BotConnection::onBotCommPacket(std::string data)
         case 'C': // encoder counts
             cmdLink->getParam(leftCount);
             cmdLink->getParam(rightCount);
-            receivedResponse = "Encoders: " + to_string(leftCount) + " " + to_string(rightCount);
-            cout << receivedResponse << endl;
+            //receivedResponse = "Encoders: " + to_string(leftCount) + " " + to_string(rightCount);
+            //cout << receivedResponse << endl;
             updateEncoders({(double)leftCount, (double)rightCount});
             break;
         case 'M': // motor values
@@ -246,6 +249,11 @@ void BotConnection::onBotCommPacket(std::string data)
             receivedError = "UNKNOWN RESPONSE: " + string(1, cmd) + " " + data;
             break;
         }
+    }
+
+    if (cmdLink->isCorrupt()) {
+        cout << "Corrupt communication from forebrain: " << cmdLink->getCorruptMsg() << endl;
+        receivedError = "CorruptComm: " + string(cmdLink->getCorruptMsg());
     }
 }
 

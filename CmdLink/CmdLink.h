@@ -6,13 +6,16 @@
 #ifndef ARDUINO
 #include <functional>
 #include <string>
+#include <iostream>
 #else
 #include <FireTimer.h>
 #endif
 
-// commands start with '#' followed by 4 bytes (command specific) followed by '\n'  6 bytes total
+constexpr int maxDataSize = 9;
+constexpr int dataBufferSize = maxDataSize*2 + 4 + 1;
 
-#define MAX_CMD_SIZE 16
+// cmd sz = maxDataSize*2 + # + digit + \n + cmd
+//        = maxDataSize*2 + 4
 
 // cmd format    #0a\n 
 // or            #1ab\n
@@ -23,29 +26,54 @@
 // 0-9 indicates number of bytes after cmd letter (1 digit only)
 // b is any byte
 
+// if b is # or \n or \ or 0 then it will be escaped as follows:
+//    '\0'  -> "\\0"
+//    '#'   -> "\\1"
+//    '\n'  -> "\\2"
+//    '\'   -> "\\3"
+
+// "number of bytes" counts the 2 byte escape sequence as a single char
+
 class HardwareSerial;
 
+enum class CmdBufferState {
+    expectHash,   // ready for #
+    expectSize,   // got the #, waiting for digit
+    expectCmd,    // got the digit, waiting for cmd char
+    expectData,   // got non-zero size, waiting for data
+    expectEnd,    // end of data reached, waiting for \n
+    expectEsc,    // got a \, waiting for 1,2,3
+    corrupt       // got unexpected input, waiting for #
+};
+
 class CmdBuffer {
-  char buffer[MAX_CMD_SIZE];
-  int  pushIdx{0};
-  int  hashIdx{-1}; // -1 means we haven't seen a # yet
+private:
+  char dataBuffer[dataBufferSize];
+  unsigned char overrunDetect1{0xBE};
+  unsigned char overrunDetect2{0xEF};
+  CmdBufferState state{CmdBufferState::expectHash};
   char lastCmd{0};
   int  numDataBytes{0};
-  int  dataIdx{0};
+  int  numDataRecv{0};
+  int  copyDataPos{0};
+  char corruptChar{0};
+  const char *corruptMsg{""};
  public:
   bool push(char c);
+  bool isOverrun() { return overrunDetect1 != 0xBE || overrunDetect2 != 0xEF; }
+  bool isCorrupt() { return state == CmdBufferState::corrupt; }
   char cmd() const { return lastCmd; }
+  char* buffer() { return dataBuffer; }
   int  length() const { return numDataBytes; }
   void copyDataTo(char *dst, int count);
   template<typename T>
   void copyDataTo(T& dst);
+  const char *getCorruptMsg() { return corruptMsg; }
 #ifndef ARDUINO
-  std::string currentCmdBuffer() const;
+  void dump(std::ostream& strm);
 #endif
- private:
-  bool verify(int hashIdx, int lfIdx);
-  char get(int idx) const { return buffer[idx%MAX_CMD_SIZE]; }
-
+private:
+  bool setCorrupt(char c, const char* msg);
 };
 
 template<typename T>
@@ -56,16 +84,18 @@ void CmdBuffer::copyDataTo(T& dst)
 
 
 class CmdBuilder {
-  char buffer[MAX_CMD_SIZE];
+  char buffer[dataBufferSize];
   int  numDataBytes{0};
+  int  numEsc{0};
 public:
   CmdBuilder();
   void begin(char cmd);
-  int length() { return numDataBytes + 4; }
+  int length() { return numDataBytes + numEsc + 4; }
   void pushData(const char* data, int count);
   template<typename T>
   void pushData(const T& data);
   char *finish();
+  const char* getBuffer() { return buffer; }
 };
 
 
@@ -85,6 +115,7 @@ class CmdLink {
     std::function<void(const char* data, int len)> writer;
     std::function<bool()> canRead;
     std::function<char()> readChar;
+    std::ostream* debugStream{nullptr};
 #endif
     bool debug{false};
   CmdBuffer  buffer;
@@ -106,6 +137,7 @@ class CmdLink {
 
   void sendCmd(char cmd);
   void sendCmdStr(char cmd, const char* str);
+  void sendCmdStr(char cmd, const char* str, int len);
   template<typename T>
   void sendCmdFmt(char cmd, const char*fmt, T val);
   void sendCmdBB(char cmd, char v1, char v2);
@@ -117,6 +149,8 @@ class CmdLink {
 
   bool readCmd();
   char cmd() { return buffer.cmd(); }
+  int  recvLen() { return buffer.length(); }
+  char *recvBuffer() { return buffer.buffer(); }
 
   template<typename T>
   void getParam(T& dst);
@@ -129,7 +163,13 @@ class CmdLink {
   std::string getStr();
   void setDebug(bool dbg) { debug = dbg; }
   bool isDebug() const { return debug; }
+  void dumpIncoming() { buffer.dump(debugStream ? *debugStream : std::cout); }
+  void dumpSent();
+  void setDebugStream(std::ostream& strm) { debugStream = &strm; }
 #endif
+
+  bool isCorrupt() { return buffer.isCorrupt(); }
+  const char *getCorruptMsg() { return buffer.getCorruptMsg(); }
 
 private:
   void send();

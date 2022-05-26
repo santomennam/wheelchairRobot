@@ -692,6 +692,16 @@ void loop()
       break;
   }
 
+  if (forebrain.isCorrupt()) {
+    host.sendCmdStr('I', "Corrupt");
+    host.sendCmdStr('I', forebrain.getCorruptMsg());
+    host.sendCmdStr('I', "FromFore");
+
+    forebrain.sendCmdStr('I', "Corrupt");
+    forebrain.sendCmdStr('I', forebrain.getCorruptMsg());
+    forebrain.sendCmdStr('I', "FromFore");
+  }
+
   if (lastbotState != botState) {
     lastbotState =  botState;
 
