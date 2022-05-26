@@ -12,6 +12,7 @@ std::vector<Vec2d> Grid::navigation(Vec2d start, Vec2d end, mssm::Graphics &g, V
     Waypoint* pathWay = aStar(start,end,g,view);
     if(pathWay)
     {
+        cout<<"got a pathWay"<<endl;
         path = pathWay->extractToVec2d();
     }
     return path;
@@ -25,7 +26,7 @@ std::vector<cell *> Grid::getAdjacentCells(cell *c)
     {
         for(int j = indices.y-1; j <indices.y+2; j++)
         {
-            if(i < width && j <height)
+            if(i < width && j <height && i > 0 && j > 0)
             {
                 returner.push_back(cells[i][j]);
             }
@@ -96,9 +97,10 @@ bool Grid::pointInCell(cell *c, Vec2d p)
 
 cell* Grid::findCellByPoint(Vec2d p)
 {
+    p = p -Vec2d{offsetX,offsetY};
     int x = p.x/cellWidth;
     int y = p.y/cellWidth;
-    if(x < width && x > offsetX && y < height && y > offsetY) //might need to be <=
+    if(x < width && y < height) //might need to be <=
     {
         return cells[x][y];
     }
@@ -107,7 +109,7 @@ cell* Grid::findCellByPoint(Vec2d p)
 
 Waypoint *Grid::aStar(Vec2d start, Vec2d destination, mssm::Graphics &g, Viewport view)
 {
-    return nullptr;
+   // return nullptr;
     //  traverse tree and reset inQ with visitStuff()
     applyToCells([](cell* c){c->inQ = false; c->color = BLACK;});
     cell* startCell = findCellByPoint(start);
@@ -168,7 +170,7 @@ bool Grid::isClear(Vec2i32 indices, double radius)
     {
         for(int j = indices.y-cellRadius; j < indices.y+cellRadius; j++)
         {
-            if(i < width && j < height)
+            if(i < width && j < height && i > 0 && j > 0)
             {
                 if(cells[i][j]->blocked)
                 {

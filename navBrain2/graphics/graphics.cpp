@@ -1258,13 +1258,13 @@ bool Graphics::draw()
 
     glfwSwapBuffers(window);
 
-    for (int idx = minKeyStateIdx; idx <= maxKeyStateIdx; idx++) {
-        switch (keyState[idx]) {
+    for (int idx = minMouseStateIdx; idx <= maxMouseStateIdx; idx++) {
+        switch (mouseState[idx]) {
         case KeyState::justPressed:
-            keyState[idx] = KeyState::down;
+            mouseState[idx] = KeyState::down;
             break;
         case KeyState::justReleased:
-            keyState[idx] = KeyState::up;
+            mouseState[idx] = KeyState::up;
             break;
         case KeyState::down:
         case KeyState::up:
