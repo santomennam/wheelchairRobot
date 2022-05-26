@@ -40,6 +40,21 @@ std::vector<cell *> Waypoint::extract()
     return path;
 }
 
+std::vector<Vec2d> Waypoint::extractToVec2d()
+{
+    vector<cell*> path;
+    if(previous){
+        path = previous->extract();
+    }
+    path.push_back(c);
+    vector<Vec2d> points;
+    for(auto &cell: path)
+    {
+        points.push_back(cell->centroid);
+    }
+    return points;
+}
+
 std::vector<Vec2d> Waypoint::pathPoints(double botWidth)
 {
     vector<Vec2d> pointsReturn;

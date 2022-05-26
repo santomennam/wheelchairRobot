@@ -8,7 +8,13 @@ using namespace mssm;
 //width and height should be size of grid in squares.
 std::vector<Vec2d> Grid::navigation(Vec2d start, Vec2d end, mssm::Graphics &g, Viewport view)
 {
-
+    std::vector<Vec2d> path;
+    Waypoint* pathWay = aStar(start,end,g,view);
+    if(pathWay)
+    {
+        path = pathWay->extractToVec2d();
+    }
+    return path;
 }
 
 std::vector<cell *> Grid::getAdjacentCells(cell *c)
@@ -35,12 +41,22 @@ bool Grid::areCellsAdjacent(cell *c1, cell *c2)
 
 void Grid::draw(mssm::Graphics &g, Viewport view)
 {
+    for(int i = 0; i <height; i ++)
+    {
+        g.line(view.worldToScreen({offsetX,(offsetY+i*cellWidth)}),view.worldToScreen({offsetX+width*cellWidth,(offsetY+i*cellWidth)}));
+    }
+    for(int i =0; i < width; i ++)
+    {
+        g.line(view.worldToScreen({offsetX+i*cellWidth,offsetY}),view.worldToScreen({offsetX+i*cellWidth,(offsetY+height*cellWidth)}));
+    }
     for(auto &col:cells)
     {
         for(cell* c: col)
         {
-            g.rect(c->centroid-Vec2d{cellWidth,cellWidth},cellWidth,cellWidth,WHITE);
-            g.ellipse(c->centroid,3,3,c->color);
+            if(c->drawMe){
+                g.rect(view.worldToScreen(c->centroid-Vec2d{cellWidth,cellWidth}),cellWidth*view.scale,cellWidth*view.scale,WHITE);
+                //       g.ellipse(view.worldToScreen(c->centroid),3*view.scale,3*view.scale,c->color);
+            }
         }
     }
 }
@@ -48,15 +64,15 @@ void Grid::draw(mssm::Graphics &g, Viewport view)
 void Grid::shortenPath(Waypoint *current, Vec2d destination)
 {
     cout << "ShortenPath not implemented" << endl;
-//        if(current->previous&&current->previous->previous)
-//        {
-//            if(!doesSegmentCollide(current->c->centroid,current->previous->previous->c->centroid))
-//            {
-//                // cout<<"straightening"<<endl;
-//                current->previous = current->previous->previous;
-//                current->recalculateCost(destination);
-//            }
-//        }
+    //        if(current->previous&&current->previous->previous)
+    //        {
+    //            if(!doesSegmentCollide(current->c->centroid,current->previous->previous->c->centroid))
+    //            {
+    //                // cout<<"straightening"<<endl;
+    //                current->previous = current->previous->previous;
+    //                current->recalculateCost(destination);
+    //            }
+    //        }
 }
 
 Grid::Grid(int width, int height, double robotWidth, double offsetX, double offsetY, double cellWidth)
@@ -92,7 +108,7 @@ cell* Grid::findCellByPoint(Vec2d p)
 Waypoint *Grid::aStar(Vec2d start, Vec2d destination, mssm::Graphics &g, Viewport view)
 {
     return nullptr;
- //  traverse tree and reset inQ with visitStuff()
+    //  traverse tree and reset inQ with visitStuff()
     applyToCells([](cell* c){c->inQ = false; c->color = BLACK;});
     cell* startCell = findCellByPoint(start);
     cell* endCell = findCellByPoint(destination);

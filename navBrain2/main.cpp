@@ -95,8 +95,10 @@ string chooseSerialPort(Graphics& g, string msg)
 }
 
 
-void graphicsMain(Graphics& g)
+int main()
 {
+    Graphics g("Navigation", 800, 600);
+
     Vec2d destination = {0,0};
 
     bool targetMode = false;
@@ -126,8 +128,8 @@ void graphicsMain(Graphics& g)
     bool clicked = false;
     Vec2d point;
     vector<Vec2d> pathPoints;
-    double width = 1000;
-    double height = 1000;
+    double width = 100;
+    double height = 100;
 
 
     World world({0,0},{{100,100}},width,height);
@@ -303,12 +305,7 @@ void graphicsMain(Graphics& g)
 
         if(pathPoints.size())
         {
-            vector<Vec2d> tmp = pathPoints;
-            for(auto& n : tmp)
-            {
-                n=world.view.worldToScreen(n);
-            }
-            g.polyline(tmp,GREEN);
+            g.polyline(world.view.worldToScreen(pathPoints),GREEN);
         }
 
         if(world.targetsChanged && world.targets.size())
@@ -399,6 +396,19 @@ void graphicsMain(Graphics& g)
             }
         }
 
+        if (g.onMousePress(MouseButton::Left)) {
+            cout<<"left click!"<<endl;
+            if(clicked){
+                pathPoints = world.grid.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
+                clicked = false;
+                cout<<"Pathing! Size: "<<pathPoints.size()<<endl;
+            }
+            else{
+                clicked = true;
+                point = g.mousePos();
+            }
+        }
+
         for (const Event& e : g.events())
         {
             switch (e.evtType)
@@ -407,17 +417,6 @@ void graphicsMain(Graphics& g)
                 // cout << e << endl;
                 break;
             case EvtType::MousePress:
-                if(e.arg == 1)
-                {
-                    if(clicked){
-                        pathPoints = world.grid.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);
-                        clicked = false;
-                    }
-                    else{
-                        clicked = true;
-                        point = g.mousePos();
-                    }
-                }
                 previous = g.mousePos();
                 break;
             case EvtType::MouseRelease:
@@ -643,29 +642,6 @@ bool test(CmdBuilder& builder, CmdBuffer& buffer, uint32_t v1, uint32_t v2)
     dumpCircBuffer();
 
     return lastRes;
-}
-
-int main()
-{
-
-//    CmdBuilder builder;
-//    CmdBuffer buffer;
-
-//    int v1 = 0;
-//    int v2 = 0;
-
-//    for (int i = 0; i < 1000; i++) {
-//        if (!test(builder, buffer, v1, v2)) {
-//            cout << "Oh no!!! " << i << endl;
-//            cout << "V1: " << v1 << "  V2: " << v2 << endl;
-//            break;
-//        }
-//        v1--;
-//        v2++;
-//    }
-
-    // main should be empty except for the following line:
-    Graphics g("Navigation", 800, 600, graphicsMain);
 }
 
 

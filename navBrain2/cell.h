@@ -12,7 +12,8 @@ public:
     bool visited = false;
     bool blocked = false;
     Vec2i32 indices;
-    mssm::Color color = mssm::BLACK;
+    mssm::Color color = mssm::BLUE;
+    bool drawMe = false;
 public:
     void draw(mssm::Graphics& g);
     cell(Grid* grid,Vec2d centroid,Vec2d indices);

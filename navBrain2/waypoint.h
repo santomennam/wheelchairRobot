@@ -14,6 +14,7 @@ public:
     double hueristic; //straight-line
 public:
     Waypoint(cell* n,Waypoint* prev, Vec2d destination);
+    std::vector<Vec2d> extractToVec2d();
     double totalCost() {return cost+hueristic;}
     bool containsCell(cell* c);
     std::vector<cell*> extract();

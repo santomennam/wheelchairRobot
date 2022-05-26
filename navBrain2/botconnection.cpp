@@ -165,7 +165,7 @@ void BotConnection::onBotCommPacket(std::string data)
 //    }
     incomingData += data;
 
-    cout << "IncomingData: '" << data << "'" << endl;
+   // cout << "IncomingData: '" << data << "'" << endl;
 
     while (cmdLink->readCmd()) {
 
@@ -212,7 +212,7 @@ void BotConnection::onBotCommPacket(std::string data)
             break;
         case 'I':
             receivedResponse = "Info: " + cmdLink->getStr();
-            cout << receivedResponse << endl;
+          //  cout << receivedResponse << endl;
             break;
         case 'K':
             // Ack: Acknowledge
