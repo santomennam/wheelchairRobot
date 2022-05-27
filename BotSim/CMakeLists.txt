@@ -42,8 +42,6 @@ endif()
 add_executable(${PROJECT_NAME} ${ADD_EX_EXTRA}
     # Hey!  Add additional c, cpp, h files here:
     main.cpp
-    absolutepostracker.h
-    absolutepostracker.cpp
     CmdLink.h
     CmdLink.cpp
     robotmotion.h

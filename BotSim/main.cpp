@@ -6,6 +6,7 @@
 #include "CmdLink.h"
 #include "robotmotion.h"
 #include "motorsim.h"
+#include "botsim.h"
 
 using namespace std;
 using namespace mssm;
@@ -14,13 +15,7 @@ using namespace mssm;
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif
 
-AbsolutePosTracker tracker;
 
-MotorSim m1;
-MotorSim m2;
-
-int fakeEncoderL = 0;
-int fakeEncoderR = 0;
 
 void drawBot(Graphics& g, Vec2d botPos, double botAngle, double scale, Color color)
 {
@@ -33,88 +28,78 @@ int main()
 {
     Graphics g("Bot Emulator", 1024, 768);
 
-    Vec2d botPos{0, 0};
-    double botAngle{0};
+    BotSim bot;
 
-    int leftEncoderCount{0};
-    int rightEncoderCount{0};
+    vector<Vec2d> trail;
 
-    Vec2d startPos = botPos;
-
-    m1.setVoltage(0);
-    m2.setVoltage(0);
-
-    int lastLeftEnc = -1;
-    int lastRightEnc = -1;
+    trail.push_back(bot.getPos());
 
     while (g.draw()) {
 
-        m1.update(g.elapsedMs()/1000);
-        m2.update(g.elapsedMs()/1000);
-
-        int leftEncoderDelta;
-        int rightEncoderDelta;
-
-        calcMotion(m1.wheelAngleChange(), m2.wheelAngleChange(),
-                   leftEncoderDelta, rightEncoderDelta,
-                   botAngle, botPos);
-
-        leftEncoderCount += leftEncoderDelta;
-        rightEncoderCount += rightEncoderDelta;
-
-        tracker.update(leftEncoderCount, rightEncoderCount);
+        bot.update(g.elapsedMs()/1000);
 
         double scale = 5;
 
-        m1.draw(g, {150, 150}, scale * RobotParams::driveWheelRadius);
-        m2.draw(g, {350, 150}, scale * RobotParams::driveWheelRadius);
+    //    m1.draw(g, {150, 150}, scale * RobotParams::driveWheelRadius);
+    //    m2.draw(g, {350, 150}, scale * RobotParams::driveWheelRadius);
 
-        g.cout << "V        " << m1.inputVolts << endl;
-        g.cout << "I        " << m1.getCurrent() << endl;
-        g.cout << "BackEmf  " << m1.backEmf() << endl;
-        g.cout << "M1 Rpm:  " << m1.wheelRPM() << endl;
-        g.cout << "M2 Rpm:  " << m2.wheelRPM() << endl;
+//        g.cout << "V        " << m1.inputVolts << endl;
+//        g.cout << "I        " << m1.getCurrent() << endl;
+//        g.cout << "BackEmf  " << m1.backEmf() << endl;
+//        g.cout << "M1 Rpm:  " << m1.wheelRPM() << endl;
+//        g.cout << "M2 Rpm:  " << m2.wheelRPM() << endl;
 
-        g.cout << "Angle: " << botAngle << endl;
-        g.cout << "X: " << botPos.x << endl;
-        g.cout << "Y: " << botPos.y << endl;
+//        g.cout << "Angle: " << botAngle << endl;
+//        g.cout << "X: " << botPos.x << endl;
+//        g.cout << "Y: " << botPos.y << endl;
 
-        g.cout << "LeftEnc:  " << leftEncoderCount << endl;
-        g.cout << "RightEnc: " << rightEncoderCount << endl;
+        g.cout << "LeftEnc:  " << bot.getLeftEnc() << endl;
+        g.cout << "RightEnc: " << bot.getRightEnc() << endl;
 
-        drawBot(g, botPos, botAngle, scale, GREEN);
-        drawBot(g, tracker.getPos(), tracker.getAngle(), scale, YELLOW);
+        if ((trail.back() - bot.getPos()).magnitude() > 2) {
+            trail.push_back(bot.getPos());
+        }
+
+        drawBot(g, bot.getPos(), bot.getAngle(), scale, GREEN);
+
+        vector<Vec2d> trailTmp = trail;
+
+        for (auto& p : trailTmp) {
+            p = Vec2d{g.width()/2, g.height()/2} + Vec2d{p.x, -p.y} * scale;
+
+        }
+
+        g.polyline(trailTmp, WHITE);
 
         if (g.isKeyPressed(Key::ESC)) {
 
             break;
         }
 
+        double m1Volts = 0;
+        double m2Volts = 0;
+
         if (g.isKeyPressed('Q')) {
-            m1.setVoltage(10);
+            m1Volts = 10;
         }
         else if (g.isKeyPressed('A')) {
-            m1.setVoltage(5);
+            m1Volts = 5;
         }
         else if (g.isKeyPressed('Z')) {
-            m1.setVoltage(-5);
-        }
-        else {
-            m1.setVoltage(0);
+            m1Volts = -5;
         }
 
         if (g.isKeyPressed('U')) {
-            m2.setVoltage(10);
+            m2Volts = 10;
         }
         else if (g.isKeyPressed('J')) {
-            m2.setVoltage(5);
+            m2Volts = 5;
         }
         else if (g.isKeyPressed('M')) {
-            m2.setVoltage(-5);
+            m2Volts = -5;
         }
-        else {
-            m2.setVoltage(0);
-        }
+
+        bot.setMotors(m1Volts, m2Volts);
 
     }
 
