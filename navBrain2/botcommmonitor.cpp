@@ -51,3 +51,9 @@ void BotCommMonitor::disconnect()
 {
     realBot->disconnect();
 }
+
+
+bool BotCommMonitor::isConnected()
+{
+    return realBot->isConnected();
+}
