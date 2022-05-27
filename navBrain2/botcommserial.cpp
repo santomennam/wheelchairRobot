@@ -30,9 +30,9 @@ void BotCommSerial::sendPacket(std::string data)
     port.write(data);
 }
 
-void BotCommSerial::connect(std::string connectionName)
+bool BotCommSerial::connect(std::string connectionName)
 {
-    port.open(connectionName,115200);
+    return port.open(connectionName,115200);
 }
 
 void BotCommSerial::disconnect()
@@ -40,3 +40,9 @@ void BotCommSerial::disconnect()
     port.close();
 }
 
+
+
+bool BotCommSerial::isConnected()
+{
+    return port.isOpen();
+}

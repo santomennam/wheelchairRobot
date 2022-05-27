@@ -12,7 +12,9 @@ BotConnection::BotConnection(BotComm *bc)
 {
     botComm->attach(this);
     cmdLink = new CmdLink([this](const char* data, int len) {
-        botComm->sendPacket(string(data, len));
+        if (botComm->isConnected()) {
+            botComm->sendPacket(string(data, len));
+        }
     },
     [this]() { return this->incomingData.size() > 0; },
     [this]() { char c = incomingData[0]; incomingData.erase(incomingData.begin()); return c; });
