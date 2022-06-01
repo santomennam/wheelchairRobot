@@ -305,6 +305,7 @@ int main()
 
         if(pathPoints.size())
         {
+            g.ellipse(world.view.worldToScreen(pathPoints[0]),2*world.view.scale,2*world.view.scale,WHITE,WHITE);
             g.polyline(world.view.worldToScreen(pathPoints),GREEN);
         }
 
@@ -396,7 +397,7 @@ int main()
             }
         }
 
-        if (g.onMousePress(MouseButton::Left)) {
+        if (g.onMouseRelease(MouseButton::Left)) {
             cout<<"left click!"<<endl;
             if(clicked){
                 pathPoints = world.grid.navigation(world.view.screenToWorld(point),world.view.screenToWorld(g.mousePos()),g,world.view);

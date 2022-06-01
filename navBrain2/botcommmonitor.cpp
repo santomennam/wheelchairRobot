@@ -42,12 +42,18 @@ void BotCommMonitor::sendPacket(std::string data)
     realBot->sendPacket(data);
 }
 
-void BotCommMonitor::connect(std::string connectionName)
+bool BotCommMonitor::connect(std::string connectionName)
 {
-    realBot->connect(connectionName);
+    return realBot->connect(connectionName);
 }
 
 void BotCommMonitor::disconnect()
 {
     realBot->disconnect();
+}
+
+
+bool BotCommMonitor::isConnected()
+{
+    return realBot->isConnected();
 }

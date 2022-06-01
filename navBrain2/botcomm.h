@@ -17,8 +17,9 @@ class BotComm {
 public:
     virtual void attach(BotCommClient* user) = 0;
     virtual void sendPacket(std::string data) = 0;
-    virtual void connect(std::string connectionName) = 0;
+    virtual bool connect(std::string connectionName) = 0;
     virtual void disconnect() = 0;
+    virtual bool isConnected() = 0;
 };
 
 

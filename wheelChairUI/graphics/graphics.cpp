@@ -26,8 +26,6 @@
 #include "paths.h"
 
 
-
-
 #ifdef NANOVG_GLEW
 #	include <GL/glew.h>
 #endif
@@ -302,6 +300,7 @@ GLFWmonitor* get_current_monitor(GLFWwindow *window)
 namespace mssm
 {
 
+
 Sound::Sound(mssm::Graphics& g, const string &filename)
 {
     auto fpath = Paths::findAsset(filename);
@@ -337,7 +336,7 @@ int nvgCreateImageCache(NVGcontext* ctx, unsigned char*& cachedImg, const char* 
     stbi_convert_iphone_png_to_rgb(1);
     cachedImg = stbi_load(filename, &w, &h, &n, 4);
     if (cachedImg == NULL) {
-//		printf("Failed to load %s - %s\n", filename, stbi_failure_reason());
+        //		printf("Failed to load %s - %s\n", filename, stbi_failure_reason());
         return 0;
     }
     image = nvgCreateImageRGBA(ctx, w, h, imageFlags, cachedImg);
@@ -524,21 +523,6 @@ void key(GLFWwindow* window, int key, int /*scancode*/, int action, int mods)
 {
     Graphics* g = reinterpret_cast<Graphics*>(glfwGetWindowUserPointer(window));
 
-    switch (key) {
-    case GLFW_KEY_RIGHT:
-        key = static_cast<int>(Key::Right);
-        break;
-    case GLFW_KEY_LEFT:
-        key = static_cast<int>(Key::Left);
-        break;
-    case GLFW_KEY_UP:
-        key = static_cast<int>(Key::Up);
-        break;
-    case GLFW_KEY_DOWN:
-        key = static_cast<int>(Key::Down);
-        break;
-    }
-
     if (key == GLFW_KEY_ENTER &&
             mods & GLFW_MOD_ALT &&
             action == GLFW_PRESS) {
@@ -563,19 +547,19 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
     Vec2d mp = g->mousePos();
 
-    switch (button) {
-    case 0:
-        button = 1;
-        break;
-    case 1:
-        button = 2;
-        break;
-    case 2:
-        button = 4;
-        break;
-    default:
-        button = -1;
-    }
+    //    switch (button) {
+    //    case 0:
+    //        button = 1;
+    //        break;
+    //    case 1:
+    //        button = 2;
+    //        break;
+    //    case 2:
+    //        button = 4;
+    //        break;
+    //    default:
+    //        button = -1;
+    //    }
 
     switch (action) {
     case GLFW_PRESS:
@@ -701,7 +685,8 @@ Graphics::Graphics(std::string title, int width, int height,
 #ifdef INCLUDE_SOUND
     soundPlayer.init();
 #endif
-
+    resetKeyChangeIdx();
+    resetMouseChangeIdx();
 
     this->mainFunc = mainFunc;
 
@@ -716,7 +701,8 @@ Graphics::Graphics(std::string title, int width, int height,
             (std::chrono::steady_clock::now().time_since_epoch()).count();
     lastDrawTime = std::chrono::steady_clock::now();
 
-    isPressed.resize(GLFW_KEY_LAST+1);
+    keyState.resize(GLFW_KEY_LAST+1);
+    mouseState.resize(GLFW_MOUSE_BUTTON_LAST+1);
     //wasPressed.resize(GLFW_KEY_LAST+1);
 
 
@@ -858,10 +844,6 @@ Graphics::~Graphics()
 }
 
 
-bool Graphics::isKeyPressed(Key k)
-{
-    return isKeyPressed((int)k);
-}
 
 
 std::ostream& mssm::operator<<(std::ostream& os, const Event& evt)
@@ -890,9 +872,62 @@ std::ostream& mssm::operator<<(std::ostream& os, const Event& evt)
     return os;
 }
 
-void Graphics::postEvent(int x, int y, EvtType evtType, ModKey mods, int arg, int pluginId, const std::string& data)
+std::ostream& mssm::operator<<(std::ostream& os, const Key& k)
 {
-    Event evt{evtType,x,y,mods,arg, pluginId, data};
+    switch (k) {
+    case Key::None:       os <<  "Key::None"; break;
+    case Key::Left:       os <<  "Key::Left"; break;
+    case Key::Right:      os <<  "Key::Right"; break;
+    case Key::Up:         os <<  "Key::Up"; break;
+    case Key::Down:       os <<  "Key::Down"; break;
+    case Key::LeftShift:  os <<  "Key::LeftShift"; break;
+    case Key::LeftCtrl:   os <<  "Key::LeftCtrl"; break;
+    case Key::LeftAlt:    os <<  "Key::LeftAlt"; break;
+    case Key::RightShift: os <<  "Key::RightShift"; break;
+    case Key::RightCtrl:  os <<  "Key::RightCtrl"; break;
+    case Key::RightAlt:   os <<  "Key::RightAlt"; break;
+    case Key::ESC:        os <<  "Key::ESC"; break;
+    case Key::ENTER:      os <<  "Key::ENTER"; break;
+    case Key::PageUp:     os <<  "Key::PageUp"; break;
+    case Key::PageDown:   os <<  "Key::PageDown"; break;
+    case Key::Space:      os <<  "Key::Space"; break;
+    case Key::Tab:        os <<  "Key::Tab"; break;
+    case Key::Backspace:  os <<  "Key::Backspace"; break;
+    case Key::Delete:     os <<  "Key::Delete"; break;
+    case Key::Insert:     os <<  "Key::Insert"; break;
+
+    default:
+    {
+        if (k.keyCode() <= 255 && std::isprint((int)k)) {
+            os << (char)k;
+        }
+        else {
+            os <<  "Key::UNKNOWN(" << k.keyCode() << ")";
+        }
+        break;
+    }
+    }
+    return os;
+}
+
+
+std::ostream& mssm::operator<<(std::ostream& os, const MouseButton& k)
+{
+    switch (k) {
+    case MouseButton::None:       os <<  "MouseButton::None"; break;
+    case MouseButton::Left:       os <<  "MouseButton::Left"; break;
+    case MouseButton::Right:      os <<  "MouseButton::Right"; break;
+    case MouseButton::Middle:     os <<  "MouseButton::Middle"; break;
+    default:                      os <<  "MouseButton::" << ((int)k + 1); break;
+    }
+    return os;
+}
+
+
+
+void Graphics::postEvent(int x, int y, EvtType evtType, ModKey mods, int arg)
+{
+    Event evt{evtType,x,y,mods,arg};
 
     if (closed)
     {
@@ -901,16 +936,37 @@ void Graphics::postEvent(int x, int y, EvtType evtType, ModKey mods, int arg, in
 
     switch (evtType)
     {
+    case EvtType::MouseWheel:
+        wheelDelta += arg;
+        break;
     case EvtType::KeyPress:
         if (arg <= GLFW_KEY_LAST)
         {
-            isPressed[arg]  = true;
+            updateKeyChangeIdx(arg);
+            keyState[arg]  = KeyState::justPressed;
+            pressedKey = Key{arg};
         }
         break;
     case EvtType::KeyRelease:
         if (arg <= GLFW_KEY_LAST)
         {
-            isPressed[arg] = false;
+            updateKeyChangeIdx(arg);
+            keyState[arg]  = KeyState::justReleased;
+        }
+        break;
+    case EvtType::MousePress:
+        if (arg <= GLFW_MOUSE_BUTTON_LAST)
+        {
+            updateMouseChangeIdx(arg);
+            mouseState[arg]  = KeyState::justPressed;
+            pressedButton = static_cast<MouseButton>(arg);
+        }
+        break;
+    case EvtType::MouseRelease:
+        if (arg <= GLFW_MOUSE_BUTTON_LAST)
+        {
+            updateMouseChangeIdx(arg);
+            mouseState[arg]  = KeyState::justReleased;
         }
         break;
     default:
@@ -923,9 +979,9 @@ void Graphics::postEvent(int x, int y, EvtType evtType, ModKey mods, int arg, in
 Vec2d Graphics::mousePos()
 {
     return _mousePos;
-//    Vec2d pos;
-//    glfwGetCursorPos(window, &pos.x, &pos.y);
-//    return pos;
+    //    Vec2d pos;
+    //    glfwGetCursorPos(window, &pos.x, &pos.y);
+    //    return pos;
 }
 
 
@@ -948,6 +1004,38 @@ void Graphics::setMousePos(int x, int y)
 {
     _mousePos.x = x;
     _mousePos.y = y;
+}
+
+void Graphics::resetKeyChangeIdx()
+{
+    minKeyStateIdx = numeric_limits<int>::max();
+    maxKeyStateIdx = numeric_limits<int>::lowest();
+}
+
+void Graphics::updateKeyChangeIdx(int idx)
+{
+    if (idx < minKeyStateIdx) {
+        minKeyStateIdx = idx;
+    }
+    if (idx > maxKeyStateIdx) {
+        maxKeyStateIdx = idx;
+    }
+}
+
+void Graphics::resetMouseChangeIdx()
+{
+    minMouseStateIdx = numeric_limits<int>::max();
+    maxMouseStateIdx = numeric_limits<int>::lowest();
+}
+
+void Graphics::updateMouseChangeIdx(int idx)
+{
+    if (idx < minMouseStateIdx) {
+        minMouseStateIdx = idx;
+    }
+    if (idx > maxKeyStateIdx) {
+        maxMouseStateIdx = idx;
+    }
 }
 
 std::chrono::milliseconds::rep Graphics::time()
@@ -1169,6 +1257,26 @@ bool Graphics::draw()
     //    }
 
     glfwSwapBuffers(window);
+
+    for (int idx = minMouseStateIdx; idx <= maxMouseStateIdx; idx++) {
+        switch (mouseState[idx]) {
+        case KeyState::justPressed:
+            mouseState[idx] = KeyState::down;
+            break;
+        case KeyState::justReleased:
+            mouseState[idx] = KeyState::up;
+            break;
+        case KeyState::down:
+        case KeyState::up:
+            break;
+        }
+    }
+
+    resetKeyChangeIdx();
+    resetMouseChangeIdx();
+    pressedKey = Key::None;
+    pressedButton = MouseButton::None;
+    wheelDelta = 0;
 
     glfwPollEvents();
 
@@ -1520,6 +1628,9 @@ void Graphics::polygon(std::vector<Vec2d> points, Color border, Color fill)
 
 void Graphics::polyline(std::vector<Vec2d> points, Color color)
 {
+    if (points.empty()) {
+        return;
+    }
     nvgBeginPath(vg);
     nvgMoveTo(vg, points[0].x, points[0].y);
     for (size_t i = 1; i < points.size(); i++) {
@@ -2027,7 +2138,7 @@ int main();
 
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-   return main();
+    return main();
 }
 #endif
 

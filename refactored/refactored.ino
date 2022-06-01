@@ -633,7 +633,7 @@ BotState handleTankState()
   }
 
   int motorL = 25 * tankDriveLeft;
-  int motorR = 25 * tankDriveRight;
+  int motorR = 27 * tankDriveRight;
   
   setMotorSpeeds(motorL, motorR);
 

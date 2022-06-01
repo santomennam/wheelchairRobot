@@ -23,8 +23,12 @@ public:
     // BotComm interface
     void attach(BotCommClient *client) override;
     void sendPacket(std::string data) override;
-    void connect(std::string connectionName) override;
+    bool connect(std::string connectionName) override;
     void disconnect() override;
+
+    // BotComm interface
+public:
+    bool isConnected() override;
 };
 
 #endif // BOTCOMMSERIAL_H

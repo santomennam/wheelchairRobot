@@ -2,6 +2,8 @@
 #include <set>
 #include <functional>
 #include <queue>
+#include <stdio.h>
+#include <sysinfoapi.h>
 using namespace std;
 using namespace mssm;
 
@@ -9,11 +11,18 @@ using namespace mssm;
 std::vector<Vec2d> Grid::navigation(Vec2d start, Vec2d end, mssm::Graphics &g, Viewport view)
 {
     std::vector<Vec2d> path;
+    long long int begin = GetTickCount64();
     Waypoint* pathWay = aStar(start,end,g,view);
+    long long int endAStar = GetTickCount64();
     if(pathWay)
     {
         path = pathWay->extractToVec2d();
     }
+    long long int endTime = GetTickCount64();
+    double elapsed = (endTime - begin)*1e-3;
+    double elapsedAStar =(endAStar - begin)*1e-3;
+    printf("A*: %.3f seconds to find a path with %i nodes\n", elapsedAStar,path.size());
+    printf("Time measured: %.3f seconds to find a path with %i nodes\n", elapsed,path.size());
     return path;
 }
 
@@ -25,7 +34,7 @@ std::vector<cell *> Grid::getAdjacentCells(cell *c)
     {
         for(int j = indices.y-1; j <indices.y+2; j++)
         {
-            if(i < width && j <height)
+            if(i < width && j <height && i > 0 && j > 0)
             {
                 returner.push_back(cells[i][j]);
             }
@@ -96,9 +105,10 @@ bool Grid::pointInCell(cell *c, Vec2d p)
 
 cell* Grid::findCellByPoint(Vec2d p)
 {
+    p = p -Vec2d{offsetX,offsetY};
     int x = p.x/cellWidth;
     int y = p.y/cellWidth;
-    if(x < width && x > offsetX && y < height && y > offsetY) //might need to be <=
+    if(x < width && y < height) //might need to be <=
     {
         return cells[x][y];
     }
@@ -107,7 +117,7 @@ cell* Grid::findCellByPoint(Vec2d p)
 
 Waypoint *Grid::aStar(Vec2d start, Vec2d destination, mssm::Graphics &g, Viewport view)
 {
-    return nullptr;
+   // return nullptr;
     //  traverse tree and reset inQ with visitStuff()
     applyToCells([](cell* c){c->inQ = false; c->color = BLACK;});
     cell* startCell = findCellByPoint(start);
@@ -140,7 +150,7 @@ Waypoint *Grid::aStar(Vec2d start, Vec2d destination, mssm::Graphics &g, Viewpor
         if(areCellsAdjacent(current->c,endCell))
         {
             Waypoint* path = new Waypoint(endCell,current,destination);
-            shortenPath(path,destination);
+         //   shortenPath(path,destination);
             return path;
         }
         auto currentAdjacents = getAdjacentCells(current->c);
@@ -149,7 +159,7 @@ Waypoint *Grid::aStar(Vec2d start, Vec2d destination, mssm::Graphics &g, Viewpor
             cell* c = currentAdjacents[i];
             if(isClear(c->indices,botWidth)&&!c->inQ)
             {
-                shortenPath(current,destination);
+              //  shortenPath(current,destination);
                 Waypoint* adj = new Waypoint(c,current,destination);
                 // maybe need vector of previous running in tandem: different threads could not have visited nodes in their previous and go infinitely
                 q.push(adj);
@@ -168,7 +178,7 @@ bool Grid::isClear(Vec2i32 indices, double radius)
     {
         for(int j = indices.y-cellRadius; j < indices.y+cellRadius; j++)
         {
-            if(i < width && j < height)
+            if(i < width && j < height && i > 0 && j > 0)
             {
                 if(cells[i][j]->blocked)
                 {
