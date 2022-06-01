@@ -132,7 +132,7 @@ constexpr double crossProduct(const Vec2base<T>& a, const Vec2base<T>& b)
 template<typename T>
 constexpr double dotProduct(const Vec2base<T>& a, const Vec2base<T>& b)
 {
-    return a.x*b.x-b.y*a.y;
+    return a.x*b.x+b.y*a.y;
 }
 
 template<typename T>
